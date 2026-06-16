@@ -813,3 +813,34 @@ body[arco-theme="dark"] .chat-file-tag .arco-tag-icon {
   margin-top: 8px;
   justify-content: flex-end;
 }
+
+
+/* ============================================
+   推理模式下拉菜单样式
+   ============================================ */
+
+.chat-reasoning-menu {
+  min-width: 120px;
+}
+
+.chat-reasoning-menu .arco-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.chat-reasoning-menu .arco-menu-item:hover {
+  background: var(--color-fill-2);
+}
+
+.chat-reasoning-item-active {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-500);
+}
+
+.chat-reasoning-item-check {
+  font-size: 12px;
+  margin-left: 8px;
+}

@@ -8,7 +8,7 @@ import { authFetch } from '../utils';
 export interface UseChatActionsProps {
   selectedModel: ModelOption | undefined;
   mode: string;
-  reasoning: boolean;
+  reasoning: false | 'low' | 'medium' | 'high' | 'very_high';
   currentSessionId: string;
   text: string;
   selectedFiles: SelectedFile[];

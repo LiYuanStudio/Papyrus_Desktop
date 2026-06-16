@@ -55,7 +55,7 @@ export const ToolsCatalogPopover: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: 12, maxWidth: 380, maxHeight: 400, overflow: 'auto' }}>
+    <div style={{ padding: 12, maxWidth: 380, maxHeight: 400, overflow: 'auto', backgroundColor: 'var(--color-bg-1)', borderRadius: 4 }}>
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
         {t('toolsCatalog.title')}
       </Typography.Text>

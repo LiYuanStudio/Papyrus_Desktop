@@ -26,7 +26,7 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
   const [text, setText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [mode, setMode] = useState('agent');
-  const [reasoning, setReasoning] = useState(false);
+  const [reasoning, setReasoning] = useState<false | 'low' | 'medium' | 'high' | 'very_high'>(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>(loadUserProfile());
   const [agentModeEnabled, setAgentModeEnabled] = useState<boolean>(loadAgentModeEnabled());

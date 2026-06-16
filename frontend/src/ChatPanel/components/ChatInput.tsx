@@ -12,7 +12,7 @@ export interface ChatInputProps {
   isGenerating: boolean;
   configChecked: boolean;
   mode: string;
-  reasoning: boolean;
+  reasoning: false | 'low' | 'medium' | 'high' | 'very_high';
   agentModeEnabled: boolean;
   availableModels: { key: string; label: string }[];
   onFilesChange: React.Dispatch<React.SetStateAction<SelectedFile[]>>;
@@ -20,7 +20,7 @@ export interface ChatInputProps {
   onSendMessage: () => void;
   onStopGeneration: () => void;
   onModeChange: (mode: string) => void;
-  onReasoningChange: (reasoning: boolean) => void;
+  onReasoningChange: (reasoning: false | 'low' | 'medium' | 'high' | 'very_high') => void;
   onMentionInsert: (value: string) => void;
   selectedModelName?: string;
   selectedModelId?: string;
@@ -167,12 +167,11 @@ export function ChatInput({
         reasoning={reasoning}
         isGenerating={isGenerating}
         agentModeEnabled={agentModeEnabled}
-        selectedFiles={selectedFiles}
         onModeChange={onModeChange}
         onReasoningChange={onReasoningChange}
-        onMentionInsert={onMentionInsert}
-        selectedModelName={selectedModelName}
+       onMentionInsert={onMentionInsert}
         onFileSelect={onFileSelect}
+       selectedModelName={selectedModelName}
         onSendMessage={onSendMessage}
         onStopGeneration={onStopGeneration}
         text={text}

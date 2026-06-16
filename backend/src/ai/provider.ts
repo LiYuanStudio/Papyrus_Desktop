@@ -45,7 +45,7 @@ export interface StreamChunk {
   data: string | Record<string, unknown>;
 }
 
-export type ReasoningEffort = 'low' | 'medium' | 'high';
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'very_high';
 export type ReasoningKind = false | 'reasoning_effort' | 'thinking' | 'thinking_config';
 export type ProviderModality = 'openai-compat' | 'ollama' | 'text-only';
 
@@ -64,6 +64,7 @@ const REASONING_BUDGET: Record<ReasoningEffort, number> = {
   low: 1024,
   medium: 4096,
   high: 8192,
+  very_high: 32768,
 };
 
 export function getProviderModality(providerName: string): ProviderModality {
@@ -107,7 +108,7 @@ function normalizeReasoning(reasoning: unknown): ReasoningEffort | false {
   if (typeof reasoning === 'boolean') return reasoning ? 'medium' : false;
   if (typeof reasoning === 'string') {
     const s = reasoning.trim().toLowerCase();
-    if (s === 'low' || s === 'medium' || s === 'high') return s;
+    if (s === 'low' || s === 'medium' || s === 'high' || s === 'very_high') return s;
     if (s === 'true') return 'medium';
     return false;
   }
@@ -978,7 +979,8 @@ export class AIManager {
     if (reasoning) {
       const kind = modelSupportsReasoning(providerName, model);
       if (kind === 'reasoning_effort') {
-        requestParams.reasoning_effort = reasoning;
+        // OpenAI-compatible APIs only support 'low' | 'medium' | 'high'; downgrade 'very_high' to 'high'
+        requestParams.reasoning_effort = reasoning === 'very_high' ? 'high' : reasoning;
       } else if (kind === 'thinking') {
         requestParams.thinking = { type: 'enabled', budget_tokens: REASONING_BUDGET[reasoning] };
       } else if (kind === 'thinking_config') {

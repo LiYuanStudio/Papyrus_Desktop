@@ -2,26 +2,24 @@ import { Dropdown, Menu, Tooltip, Trigger } from '@arco-design/web-react';
 import {
   IconArrowUp,
   IconAt,
-  IconFile,
   IconBulb,
-  IconRecordStop,
   IconTool,
+  IconRecordStop,
+  IconCheck,
 } from '@arco-design/web-react/icon';
 import IconAgentMode from '../../icons/IconAgentMode';
 import { IconMessage } from '@arco-design/web-react/icon';
 import { ToolsCatalogPopover } from '../../components/ToolsCatalogPopover';
-import type { SelectedFile } from '../types';
-import { MAX_FILES } from '../utils';
+import { useTranslation } from 'react-i18next';
 
 export interface ChatToolbarProps {
   mode: string;
-  reasoning: boolean;
+  reasoning: false | 'low' | 'medium' | 'high' | 'very_high';
   isGenerating: boolean;
   agentModeEnabled: boolean;
-  selectedFiles: SelectedFile[];
   selectedModelName?: string;
   onModeChange: (mode: string) => void;
-  onReasoningChange: (reasoning: boolean) => void;
+  onReasoningChange: (reasoning: false | 'low' | 'medium' | 'high' | 'very_high') => void;
   onMentionInsert: (value: string) => void;
   onFileSelect: () => void;
   onSendMessage: () => void;
@@ -40,7 +38,6 @@ export function ChatToolbar({
   reasoning,
   isGenerating,
   agentModeEnabled,
-  selectedFiles,
   selectedModelName,
   onModeChange,
   onReasoningChange,
@@ -50,8 +47,9 @@ export function ChatToolbar({
   onStopGeneration,
   text,
 }: ChatToolbarProps) {
+  const { t } = useTranslation();
   const currentMode = MODES.find((m) => m.key === mode) ?? DEFAULT_MODE;
-  const canSend = !isGenerating && (text.trim() || selectedFiles.length > 0);
+  const canSend = !isGenerating && text.trim().length > 0;
   const mentionItems = [
     {
       key: 'model',
@@ -106,56 +104,51 @@ export function ChatToolbar({
           >
             {currentMode.icon}
           </button>
-        </Dropdown>
+       </Dropdown>
         <Tooltip content="上传文件" mini>
           <button
             className="chat-toolbar-btn chat-toolbar-btn-dark"
             onClick={onFileSelect}
             aria-label="上传文件"
-            disabled={selectedFiles.length >= MAX_FILES || isGenerating}
+            disabled={isGenerating}
           >
-            <IconFile aria-hidden="true" />
+            <IconAt aria-hidden="true" />
           </button>
         </Tooltip>
+      </div>
+      <div className="chat-toolbar-right">
         <Dropdown
           trigger="click"
-          position="top"
-          droplist={(
-            <Menu onClickMenuItem={(key) => {
-              const item = mentionItems.find((entry) => entry.key === key);
-              if (item) {
-                onMentionInsert(item.value);
-              }
-            }}>
-              {mentionItems.map((item) => (
-                <Menu.Item key={item.key} disabled={item.disabled}>
-                  {item.label}
+          droplist={
+            <Menu className="chat-reasoning-menu">
+              {[
+                { key: false, label: t('chat.reasoningOff') },
+                { key: 'low', label: t('chat.reasoningLow') },
+                { key: 'medium', label: t('chat.reasoningMedium') },
+                { key: 'high', label: t('chat.reasoningHigh') },
+                { key: 'very_high', label: t('chat.reasoningVeryHigh') },
+              ].map((item) => (
+                <Menu.Item
+                  key={String(item.key)}
+                  className={reasoning === item.key ? 'chat-reasoning-item-active' : ''}
+                  onClick={() => onReasoningChange(item.key as false | 'low' | 'medium' | 'high' | 'very_high')}
+                >
+                  <span className="chat-reasoning-item-label">{item.label}</span>
+                  {reasoning === item.key && <IconCheck className="chat-reasoning-item-check" />}
                 </Menu.Item>
               ))}
             </Menu>
-          )}
+          }
         >
-          <Tooltip content="@提及占位" mini>
-            <button
-              className="chat-toolbar-btn chat-toolbar-btn-dark"
-              aria-label="@提及"
-              disabled={isGenerating}
-            >
-              <IconAt aria-hidden="true" />
-            </button>
-          </Tooltip>
+          <button
+            className={`chat-toolbar-btn${reasoning ? ' chat-toolbar-btn-active' : ''}`}
+            title={reasoning ? `${t('chat.reasoning')}：${t('chat.reasoning' + (reasoning === 'very_high' ? 'VeryHigh' : reasoning.charAt(0).toUpperCase() + reasoning.slice(1)))}` : t('chat.reasoning')}
+            aria-label={reasoning ? `${t('chat.reasoning')}：${t('chat.reasoning' + (reasoning === 'very_high' ? 'VeryHigh' : reasoning.charAt(0).toUpperCase() + reasoning.slice(1)))}` : t('chat.reasoning')}
+            aria-pressed={reasoning ? 'true' : 'false'}
+          >
+            <IconBulb aria-hidden="true" />
+          </button>
         </Dropdown>
-      </div>
-      <div className="chat-toolbar-right">
-        <button
-          className={`chat-toolbar-btn${reasoning ? ' chat-toolbar-btn-active' : ''}`}
-          onClick={() => onReasoningChange(!reasoning)}
-          title="推理模式"
-          aria-label={reasoning ? '关闭推理模式' : '开启推理模式'}
-          aria-pressed={reasoning ? 'true' : 'false'}
-        >
-          <IconBulb aria-hidden="true" />
-        </button>
         <Trigger
           trigger="click"
           popup={() => <ToolsCatalogPopover />}
