@@ -72,13 +72,14 @@ export function mapApiToolStatus(
   switch (status) {
     case 'success':
       return 'success';
-    case 'error':
+    case 'failed':
     case 'rejected':
       return 'failed';
-    case 'running':
+    case 'approved':
+      return 'executing';
+    case 'executing':
       return 'executing';
     case 'pending':
-    case 'approved':
     default:
       return 'pending';
   }

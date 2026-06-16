@@ -19,8 +19,10 @@ export interface ChatToolbarProps {
   isGenerating: boolean;
   agentModeEnabled: boolean;
   selectedFiles: SelectedFile[];
+  selectedModelName?: string;
   onModeChange: (mode: string) => void;
   onReasoningChange: (reasoning: boolean) => void;
+  onMentionInsert: (value: string) => void;
   onFileSelect: () => void;
   onSendMessage: () => void;
   onStopGeneration: () => void;
@@ -31,6 +33,7 @@ const MODES = [
   { key: 'agent', icon: <IconAgentMode />, label: 'Agent 模式' },
   { key: 'chat', icon: <IconMessage />, label: 'Chat 模式' },
 ];
+const DEFAULT_MODE = MODES[0] ?? { key: 'chat', icon: <IconMessage />, label: 'Chat 模式' };
 
 export function ChatToolbar({
   mode,
@@ -38,15 +41,35 @@ export function ChatToolbar({
   isGenerating,
   agentModeEnabled,
   selectedFiles,
+  selectedModelName,
   onModeChange,
   onReasoningChange,
+  onMentionInsert,
   onFileSelect,
   onSendMessage,
   onStopGeneration,
   text,
 }: ChatToolbarProps) {
-  const currentMode = MODES.find((m) => m.key === mode) ?? MODES[0]!;
+  const currentMode = MODES.find((m) => m.key === mode) ?? DEFAULT_MODE;
   const canSend = !isGenerating && (text.trim() || selectedFiles.length > 0);
+  const mentionItems = [
+    {
+      key: 'model',
+      label: selectedModelName ? `当前模型：${selectedModelName}` : '当前模型（未选择）',
+      value: selectedModelName ? `@当前模型(${selectedModelName})` : '@当前模型',
+    },
+    {
+      key: 'mode',
+      label: `当前模式：${currentMode.label}`,
+      value: `@当前模式(${currentMode.label})`,
+    },
+    {
+      key: 'tools',
+      label: mode === 'agent' ? 'Agent 工具列表' : 'Agent 工具列表（切换到 Agent 可用）',
+      value: '@工具列表',
+      disabled: mode !== 'agent',
+    },
+  ];
 
   return (
     <div className="chat-toolbar">
@@ -78,11 +101,10 @@ export function ChatToolbar({
           <button
             className="chat-toolbar-btn chat-mode-btn"
             disabled={!agentModeEnabled && mode === 'agent'}
-            aria-label={`当前模式：${currentMode.label}`}
+            aria-label={currentMode.label}
             title={!agentModeEnabled && mode === 'agent' ? 'Agent 模式已在设置中禁用' : ''}
           >
             {currentMode.icon}
-            <span>{currentMode.label}</span>
           </button>
         </Dropdown>
         <Tooltip content="上传文件" mini>
@@ -95,9 +117,34 @@ export function ChatToolbar({
             <IconFile aria-hidden="true" />
           </button>
         </Tooltip>
-        <button className="chat-toolbar-btn chat-toolbar-btn-dark" aria-label="@提及">
-          <IconAt aria-hidden="true" />
-        </button>
+        <Dropdown
+          trigger="click"
+          position="top"
+          droplist={(
+            <Menu onClickMenuItem={(key) => {
+              const item = mentionItems.find((entry) => entry.key === key);
+              if (item) {
+                onMentionInsert(item.value);
+              }
+            }}>
+              {mentionItems.map((item) => (
+                <Menu.Item key={item.key} disabled={item.disabled}>
+                  {item.label}
+                </Menu.Item>
+              ))}
+            </Menu>
+          )}
+        >
+          <Tooltip content="@提及占位" mini>
+            <button
+              className="chat-toolbar-btn chat-toolbar-btn-dark"
+              aria-label="@提及"
+              disabled={isGenerating}
+            >
+              <IconAt aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </Dropdown>
       </div>
       <div className="chat-toolbar-right">
         <button

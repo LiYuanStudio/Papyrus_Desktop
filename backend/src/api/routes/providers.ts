@@ -101,21 +101,35 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     }
     const body = parseResult.data as Partial<Provider>;
     try {
-      runInTransaction(() => {
-        saveProvider({ ...body, id: providerId });
+      const existingProvider = loadAllProviders().find(p => p.id === providerId);
+      if (!existingProvider) {
+        reply.status(404).send({ success: false, error: 'Provider not found' });
+        return;
+      }
 
-        const incomingKeyIds = new Set(body.apiKeys?.map(k => k.id).filter(Boolean) ?? []);
-        if (body.apiKeys) {
+      // 合并请求体与数据库中的现有记录，未显式提供的字段保持原值
+      const mergedProvider: Partial<Provider> = {
+        ...existingProvider,
+        ...body,
+        id: providerId,
+      };
+
+      runInTransaction(() => {
+        saveProvider(mergedProvider);
+
+        // 仅当请求显式包含 apiKeys 时才同步密钥列表，避免误删现有密钥
+        if (body.apiKeys !== undefined) {
+          const incomingKeyIds = new Set(body.apiKeys.map(k => k.id).filter(Boolean) as string[]);
           for (const key of body.apiKeys) {
             const savedKeyId = saveApiKey(providerId, key);
             incomingKeyIds.add(savedKeyId);
           }
-        }
-        const db = getDb();
-        const allKeys = db.prepare('SELECT id FROM api_keys WHERE provider_id = ?').all(providerId) as { id: string }[];
-        for (const row of allKeys) {
-          if (!incomingKeyIds.has(row.id)) {
-            deleteApiKey(row.id);
+          const db = getDb();
+          const allKeys = db.prepare('SELECT id FROM api_keys WHERE provider_id = ?').all(providerId) as { id: string }[];
+          for (const row of allKeys) {
+            if (!incomingKeyIds.has(row.id)) {
+              deleteApiKey(row.id);
+            }
           }
         }
       });
@@ -133,11 +147,20 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
   fastify.delete('/:providerId', async (request, reply) => {
     try {
       const { providerId } = request.params as { providerId: string };
+      const providerToDelete = loadAllProviders().find(p => p.id === providerId);
       const success = deleteProvider(providerId);
       if (!success) {
         reply.status(404).send({ success: false, error: 'Provider not found' });
         return;
       }
+
+      // 如果删除的是当前正在使用的 provider，清空当前 provider/model 并持久化
+      if (providerToDelete?.type && providerToDelete.type === aiConfig.config.current_provider) {
+        aiConfig.config.current_provider = '';
+        aiConfig.config.current_model = '';
+        aiConfig.saveConfig();
+      }
+
       reply.send({ success: true, message: 'Provider deleted' });
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
@@ -213,7 +236,22 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     }
     const body = parseResult.data;
     try {
-      saveModel(providerId, { ...body, id: modelId });
+      const existingModel = loadAllProviders()
+        .flatMap(p => p.models)
+        .find(m => m.id === modelId);
+      if (!existingModel) {
+        reply.status(404).send({ success: false, error: 'Model not found' });
+        return;
+      }
+
+      // 合并请求体与数据库中的现有模型记录，未显式提供的字段（如 port）保持原值
+      const mergedModel = {
+        ...existingModel,
+        ...body,
+        id: modelId,
+      };
+
+      saveModel(providerId, mergedModel);
       reply.send({ success: true, message: 'Model updated' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

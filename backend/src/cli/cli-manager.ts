@@ -1,14 +1,15 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { extract } from 'tar';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 export interface CliManagerManifest {
   currentVersion: string;
   executablePath: string;
   packageName: string;
   installedAt: string;
+  source: 'bundled';
 }
 
 export interface CliStatus {
@@ -19,6 +20,7 @@ export interface CliStatus {
   latestVersion: string | null;
   updateAvailable: boolean;
   packageName: string;
+  source: 'bundled';
 }
 
 export interface CliInstallResult {
@@ -26,6 +28,7 @@ export interface CliInstallResult {
   version: string;
   path: string;
   packageName: string;
+  source: 'bundled';
 }
 
 export interface CliRunResult {
@@ -35,23 +38,17 @@ export interface CliRunResult {
   stderr: string;
 }
 
-interface NpmPackageMetadata {
-  version: string;
-  dist: {
-    tarball: string;
-  };
-  bin?: string | Record<string, string>;
-}
-
 interface CliManagerOptions {
   rootDir?: string;
   packageName?: string;
-  fetchImpl?: typeof fetch;
+  builtinEntryPath?: string;
 }
 
 const DEFAULT_PACKAGE = '@papyrus/cli';
 const MANIFEST_FILE = 'manifest.json';
-const REGISTRY_BASE = 'https://registry.npmjs.org';
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_ROOT = path.resolve(MODULE_DIR, '..', '..');
+const requireFromHere = createRequire(import.meta.url);
 
 function ensureDir(dirPath: string): string {
   if (!fs.existsSync(dirPath)) {
@@ -60,28 +57,8 @@ function ensureDir(dirPath: string): string {
   return dirPath;
 }
 
-function getDefaultRootDir(): string {
-  if (process.env.PAPYRUS_CLI_DIR) {
-    return path.resolve(process.env.PAPYRUS_CLI_DIR);
-  }
-  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
-    return path.join(process.env.LOCALAPPDATA, 'Papyrus', 'cli');
-  }
-  return path.join(os.homedir(), '.papyrus', 'cli');
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-function isNpmPackageMetadata(value: unknown): value is NpmPackageMetadata {
-  if (!isRecord(value)) return false;
-  const dist = value.dist;
-  return (
-    typeof value.version === 'string' &&
-    isRecord(dist) &&
-    typeof dist.tarball === 'string'
-  );
 }
 
 function isManifest(value: unknown): value is CliManagerManifest {
@@ -90,37 +67,21 @@ function isManifest(value: unknown): value is CliManagerManifest {
     typeof value.currentVersion === 'string' &&
     typeof value.executablePath === 'string' &&
     typeof value.packageName === 'string' &&
-    typeof value.installedAt === 'string'
+    typeof value.installedAt === 'string' &&
+    value.source === 'bundled'
   );
 }
 
-function normalizeBinPath(bin: string): string {
-  return bin.replace(/^\.\//, '').replace(/\\/g, '/');
-}
-
-function findExecutable(versionDir: string, metadata: NpmPackageMetadata): string | null {
-  const candidates: string[] = [];
-  const addCandidate = (relativePath: string) => {
-    const normalized = normalizeBinPath(relativePath);
-    candidates.push(path.join(versionDir, normalized));
-    candidates.push(path.join(versionDir, 'package', normalized));
-  };
-
-  if (typeof metadata.bin === 'string') {
-    addCandidate(metadata.bin);
-  } else if (isRecord(metadata.bin)) {
-    for (const value of Object.values(metadata.bin)) {
-      if (typeof value === 'string') addCandidate(value);
-    }
-  }
-
-  candidates.push(
-    path.join(versionDir, process.platform === 'win32' ? 'papyrus-cli.exe' : 'papyrus-cli'),
-    path.join(versionDir, process.platform === 'win32' ? 'papyrus.exe' : 'papyrus'),
-    path.join(versionDir, 'package', process.platform === 'win32' ? 'papyrus-cli.exe' : 'papyrus-cli'),
-    path.join(versionDir, 'package', 'bin', process.platform === 'win32' ? 'papyrus-cli.exe' : 'papyrus-cli'),
-    path.join(versionDir, 'package', 'bin', 'papyrus.js'),
-  );
+// 解析内置 CLI 入口文件，输入为可选覆盖路径，输出为当前运行环境可直接执行的脚本路径。
+// 原因：开发态需要指向 `src/cli/papyrus-cli.ts`，打包后需要指向 `dist/cli/papyrus-cli.js`，统一在这里分流最稳妥。
+// 未继续依赖 npm 下载目录：用户希望 Desktop 自带 CLI，直接解析仓库/安装包内资源可消除下载失败和版本错位。
+function resolveBundledEntry(explicitPath?: string): string | null {
+  const candidates = explicitPath
+    ? [explicitPath]
+    : [
+        path.join(MODULE_DIR, 'papyrus-cli.js'),
+        path.join(MODULE_DIR, 'papyrus-cli.ts'),
+      ];
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
@@ -130,32 +91,59 @@ function findExecutable(versionDir: string, metadata: NpmPackageMetadata): strin
   return null;
 }
 
-async function writeResponseToFile(response: Response, filePath: string): Promise<void> {
-  const arrayBuffer = await response.arrayBuffer();
-  fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+// 读取后端版本号，输入为空，输出为内置 CLI 应向外暴露的版本字符串。
+// 原因：内置 CLI 与 Desktop 同仓发布，沿用 backend/package.json 版本可保持“CLI 与 Desktop 同步”的语义。
+// 未额外维护独立 CLI 版本文件：双版本源会增加发布和排障复杂度，而且当前目标就是消除外部 CLI 漂移。
+function readBundledVersion(): string {
+  const packageJsonPath = path.join(BACKEND_ROOT, 'package.json');
+  try {
+    const parsedJson: unknown = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    if (isRecord(parsedJson) && typeof parsedJson.version === 'string') {
+      return parsedJson.version;
+    }
+  } catch {
+    // ignore version read failures and fall back to a stable marker
+  }
+  return '0.0.0-dev';
 }
 
-function isNewerVersion(latestVersion: string | null, currentVersion: string | null): boolean {
-  return Boolean(latestVersion && currentVersion && latestVersion !== currentVersion);
+// 为 manifest 提供统一来源描述，输入为 CLI 路径与版本，输出为完整 manifest。
+// 原因：尽管 CLI 已内置，仍保留 manifest 便于设置页、MCP 和诊断工具读取同一份状态。
+// 未移除 manifest 机制：保留原 API 结构能减少前端和集成层的改动面。
+function createBundledManifest(executablePath: string, packageName: string): CliManagerManifest {
+  return {
+    currentVersion: readBundledVersion(),
+    executablePath,
+    packageName,
+    installedAt: new Date().toISOString(),
+    source: 'bundled',
+  };
+}
+
+// 为 TypeScript 入口解析本地 tsx 运行时，输入为空，输出为可供 Node 直接执行的 tsx CLI 文件路径。
+// 原因：开发态内置 CLI 指向 `.ts` 源文件，直接定位项目内 `tsx` 比调用 `npx` 更稳定，也能避免 Windows/Jest 下的 spawn 兼容问题。
+// 未继续使用 `npx tsx`：`npx` 依赖外层命令解析，测试和打包环境下更容易受 shell、PATH 和 `.cmd` 行为影响。
+function resolveTsxCliPath(): string {
+  try {
+    return requireFromHere.resolve('tsx/dist/cli.mjs');
+  } catch {
+    return path.join(BACKEND_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+  }
 }
 
 export class CliManager {
   private readonly rootDir: string;
   private readonly packageName: string;
-  private readonly fetchImpl: typeof fetch;
+  private readonly builtinEntryPath?: string;
 
   constructor(options: CliManagerOptions = {}) {
-    this.rootDir = options.rootDir ?? getDefaultRootDir();
-    this.packageName = options.packageName ?? process.env.PAPYRUS_CLI_PACKAGE ?? DEFAULT_PACKAGE;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.rootDir = options.rootDir ?? path.join(BACKEND_ROOT, '.papyrus-cli');
+    this.packageName = options.packageName ?? DEFAULT_PACKAGE;
+    this.builtinEntryPath = options.builtinEntryPath;
   }
 
   getManifestPath(): string {
     return path.join(this.rootDir, MANIFEST_FILE);
-  }
-
-  getVersionsDir(): string {
-    return path.join(this.rootDir, 'versions');
   }
 
   readManifest(): CliManagerManifest | null {
@@ -170,76 +158,51 @@ export class CliManager {
     fs.writeFileSync(this.getManifestPath(), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   }
 
-  async fetchLatestMetadata(): Promise<NpmPackageMetadata> {
-    const packagePath = this.packageName.split('/').map(segment => encodeURIComponent(segment)).join('/');
-    const response = await this.fetchImpl(`${REGISTRY_BASE}/${packagePath}/latest`, {
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!response.ok) {
-      throw new Error(`npm registry 返回错误: ${response.status}`);
+  private resolveBundledExecutable(): string | null {
+    return resolveBundledEntry(this.builtinEntryPath);
+  }
+
+  private resolveRuntimeManifest(): CliManagerManifest | null {
+    const manifest = this.readManifest();
+    if (manifest && fs.existsSync(manifest.executablePath)) {
+      return manifest;
     }
-    const metadata: unknown = await response.json();
-    if (!isNpmPackageMetadata(metadata)) {
-      throw new Error('npm registry 返回的 CLI 包信息格式异常');
+    const bundledExecutable = this.resolveBundledExecutable();
+    if (!bundledExecutable) {
+      return null;
     }
-    return metadata;
+    return createBundledManifest(bundledExecutable, this.packageName);
   }
 
   async getStatus(): Promise<CliStatus> {
-    const manifest = this.readManifest();
-    const executableExists = manifest ? fs.existsSync(manifest.executablePath) : false;
-    let latestVersion: string | null = null;
-    try {
-      latestVersion = (await this.fetchLatestMetadata()).version;
-    } catch {
-      latestVersion = null;
-    }
-    const version = executableExists && manifest ? manifest.currentVersion : null;
+    const manifest = this.resolveRuntimeManifest();
+    const installed = Boolean(manifest && fs.existsSync(manifest.executablePath));
+    const version = installed && manifest ? manifest.currentVersion : null;
     return {
       success: true,
-      installed: Boolean(executableExists),
+      installed,
       version,
-      path: executableExists && manifest ? manifest.executablePath : null,
-      latestVersion,
-      updateAvailable: isNewerVersion(latestVersion, version),
+      path: installed && manifest ? manifest.executablePath : null,
+      latestVersion: version,
+      updateAvailable: false,
       packageName: this.packageName,
+      source: 'bundled',
     };
   }
 
   async install(): Promise<CliInstallResult> {
-    const metadata = await this.fetchLatestMetadata();
-    const versionDir = path.join(this.getVersionsDir(), metadata.version);
-    ensureDir(versionDir);
-    const archivePath = path.join(versionDir, `${metadata.version}.tgz`);
-
-    const response = await this.fetchImpl(metadata.dist.tarball, {
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!response.ok) {
-      throw new Error(`CLI 下载失败: ${response.status}`);
+    const bundledExecutable = this.resolveBundledExecutable();
+    if (!bundledExecutable) {
+      throw new Error('Desktop 内置 CLI 入口不存在');
     }
-
-    await writeResponseToFile(response, archivePath);
-    await extract({ file: archivePath, cwd: versionDir, strict: true });
-
-    const executablePath = findExecutable(versionDir, metadata);
-    if (!executablePath) {
-      throw new Error('CLI 包中未找到可执行入口');
-    }
-
-    const manifest: CliManagerManifest = {
-      currentVersion: metadata.version,
-      executablePath,
-      packageName: this.packageName,
-      installedAt: new Date().toISOString(),
-    };
+    const manifest = createBundledManifest(bundledExecutable, this.packageName);
     this.writeManifest(manifest);
-
     return {
       success: true,
       version: manifest.currentVersion,
       path: manifest.executablePath,
       packageName: manifest.packageName,
+      source: 'bundled',
     };
   }
 
@@ -248,24 +211,35 @@ export class CliManager {
   }
 
   async run(args: string[], env: NodeJS.ProcessEnv = {}): Promise<CliRunResult> {
-    const manifest = this.readManifest();
+    const manifest = this.resolveRuntimeManifest();
     if (!manifest || !fs.existsSync(manifest.executablePath)) {
-      throw new Error('CLI 未安装');
+      throw new Error('Desktop 内置 CLI 不可用');
     }
 
     const runEnv: NodeJS.ProcessEnv = {
       ...process.env,
       ...env,
-      PAPYRUS_API_URL: env.PAPYRUS_API_URL ?? process.env.PAPYRUS_API_URL ?? `http://127.0.0.1:${process.env.PAPYRUS_PORT ?? '8000'}`,
+      PAPYRUS_API_URL: env.PAPYRUS_API_URL ?? process.env.PAPYRUS_API_URL ?? `http://127.0.0.1:${process.env.PAPYRUS_PORT ?? '8000'}/api`,
       PAPYRUS_MCP_URL: env.PAPYRUS_MCP_URL ?? process.env.PAPYRUS_MCP_URL ?? 'http://127.0.0.1:9200',
       PAPYRUS_AUTH_TOKEN: env.PAPYRUS_AUTH_TOKEN ?? process.env.PAPYRUS_AUTH_TOKEN,
     };
 
     return await new Promise((resolve, reject) => {
-      const isJavaScriptEntry = manifest.executablePath.endsWith('.js') || manifest.executablePath.endsWith('.mjs') || manifest.executablePath.endsWith('.cjs');
-      const command = isJavaScriptEntry ? process.execPath : manifest.executablePath;
-      const finalArgs = isJavaScriptEntry ? [manifest.executablePath, ...args] : args;
+      const executablePath = manifest.executablePath;
+      const isTypeScriptEntry = executablePath.endsWith('.ts');
+      const isJavaScriptEntry = executablePath.endsWith('.js') || executablePath.endsWith('.mjs') || executablePath.endsWith('.cjs');
+      const command = isTypeScriptEntry
+        ? process.execPath
+        : isJavaScriptEntry
+          ? process.execPath
+          : executablePath;
+      const finalArgs = isTypeScriptEntry
+        ? [resolveTsxCliPath(), executablePath, ...args]
+        : isJavaScriptEntry
+          ? [executablePath, ...args]
+          : args;
       const child = spawn(command, finalArgs, {
+        cwd: BACKEND_ROOT,
         env: runEnv,
         windowsHide: true,
       });
@@ -288,5 +262,3 @@ export class CliManager {
 }
 
 export const defaultCliManager = new CliManager();
-
-

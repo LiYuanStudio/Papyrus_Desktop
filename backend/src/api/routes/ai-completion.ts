@@ -5,27 +5,78 @@ import { isPrivateUrl } from '../../ai/config.js';
 import { fetchWithProxy } from '../../utils/proxy.js';
 import { isKeylessProvider } from './ai-common.js';
 import type { CompletionPayload } from './ai-common.js';
+import { readUiSetting, writeUiSetting } from '../../db/database.js';
 
-const _completionConfig: Record<string, unknown> = {
+const COMPLETION_CONFIG_KEY = 'completion.config';
+
+interface CompletionConfig {
+  enabled: boolean;
+  require_confirm: boolean;
+  trigger_delay: number;
+  max_tokens: number;
+}
+
+const DEFAULT_COMPLETION_CONFIG: CompletionConfig = {
   enabled: true,
   require_confirm: false,
   trigger_delay: 500,
-  max_tokens: 50,
+  max_tokens: 150,
 };
+
+let _completionConfig: CompletionConfig = { ...DEFAULT_COMPLETION_CONFIG };
+let _configLoaded = false;
 
 const ALLOWED_COMPLETION_KEYS = new Set(['enabled', 'require_confirm', 'trigger_delay', 'max_tokens']);
 
+function isValidCompletionValue(key: keyof CompletionConfig, value: unknown): boolean {
+  switch (key) {
+    case 'enabled':
+    case 'require_confirm':
+      return typeof value === 'boolean';
+    case 'trigger_delay':
+    case 'max_tokens':
+      return typeof value === 'number' && Number.isFinite(value);
+    default:
+      return false;
+  }
+}
+
+function loadCompletionConfig(): void {
+  if (_configLoaded) return;
+  const raw = readUiSetting(COMPLETION_CONFIG_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const merged: Partial<CompletionConfig> = {};
+      for (const key of Object.keys(parsed)) {
+        if (!ALLOWED_COMPLETION_KEYS.has(key)) continue;
+        const typedKey = key as keyof CompletionConfig;
+        if (isValidCompletionValue(typedKey, parsed[key])) {
+          merged[typedKey] = parsed[key] as never;
+        }
+      }
+      _completionConfig = { ...DEFAULT_COMPLETION_CONFIG, ...merged };
+    } catch {
+      // 持久化配置解析失败时使用默认配置，避免服务启动异常
+    }
+  }
+  _configLoaded = true;
+}
+
 export default async function aiCompletionRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/completion/config', async (_request, reply) => {
+    loadCompletionConfig();
     reply.send({ success: true, config: _completionConfig });
   });
 
   fastify.post('/completion/config', async (request, reply) => {
+    loadCompletionConfig();
     const payload = request.body as Record<string, unknown>;
     if ('enabled' in payload && typeof payload.enabled !== 'boolean') {
       reply.status(400).send({ success: false, error: 'enabled 字段必须为布尔值' });
       return;
     }
+    const update: Partial<CompletionConfig> = {};
     for (const key of Object.keys(payload)) {
       if (!ALLOWED_COMPLETION_KEYS.has(key)) {
         reply.status(400).send({ success: false, error: `不允许的配置项: ${key}` });
@@ -35,17 +86,24 @@ export default async function aiCompletionRoutes(fastify: FastifyInstance): Prom
         reply.status(400).send({ success: false, error: '非法配置项名称' });
         return;
       }
+      const typedKey = key as keyof CompletionConfig;
+      const value = payload[key];
+      if (!isValidCompletionValue(typedKey, value)) {
+        reply.status(400).send({ success: false, error: `字段 ${key} 类型不正确` });
+        return;
+      }
+      update[typedKey] = value as never;
     }
-    for (const [key, value] of Object.entries(payload)) {
-      _completionConfig[key] = value;
-    }
+    _completionConfig = { ..._completionConfig, ...update };
+    writeUiSetting(COMPLETION_CONFIG_KEY, JSON.stringify(_completionConfig));
     reply.send({ success: true });
   });
 
   fastify.post('/completion', async (request, reply) => {
     // 在处理请求前，同步最新的配置
     loadAIConfigFromDb(aiConfig);
-    
+    loadCompletionConfig();
+
     const payload = request.body as CompletionPayload;
     const providerName = aiConfig.config.current_provider;
     const providerConfig = getProviderConfigFromDB(providerName);
@@ -154,12 +212,14 @@ export default async function aiCompletionRoutes(fastify: FastifyInstance): Prom
           { role: 'user', content: userPrompt },
         ];
 
+        const maxTokens = payload.max_tokens ?? _completionConfig.max_tokens ?? 150;
+
         const reqBody: Record<string, unknown> = {
           model,
           messages,
           stream: true,
           temperature: 0.7,
-          max_tokens: payload.max_tokens ?? 150,
+          max_tokens: maxTokens,
         };
 
         const endpoint = providerName === 'gemini'
@@ -207,9 +267,11 @@ export default async function aiCompletionRoutes(fastify: FastifyInstance): Prom
               const choices = dict.choices as Array<Record<string, unknown>> | undefined;
               if (!choices || !choices[0]) continue;
               const delta = choices[0].delta as Record<string, unknown> | undefined;
-              const content = delta?.content;
-              if (typeof content === 'string' && content) {
-                reply.raw.write(`data: {"text":${JSON.stringify(content)}}\n\n`);
+              for (const field of ['content', 'reasoning_content'] as const) {
+                const text = delta?.[field];
+                if (typeof text === 'string' && text) {
+                  reply.raw.write(`data: {"text":${JSON.stringify(text)}}\n\n`);
+                }
               }
             } catch {
               // ignore

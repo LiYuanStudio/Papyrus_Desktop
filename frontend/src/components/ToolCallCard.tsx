@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Collapse, Tag, Button, Spin, Descriptions } from '@arco-design/web-react';
 import { IconRight, IconDown, IconTool, IconCheck, IconClose, IconLoading } from '@arco-design/web-react/icon';
+import { useTranslation } from 'react-i18next';
 import './ToolCallCard.css';
 
 const CollapseItem = Collapse.Item;
@@ -51,6 +52,7 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({
   expanded,
   serverName,
 }) => {
+  const { t } = useTranslation();
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
   const isExpanded = expanded !== undefined ? expanded : internalExpanded;
 
@@ -62,25 +64,25 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({
 
   const statusConfig = {
     pending: {
-      label: '待审批',
+      label: t('toolCallCard.pending'),
       color: 'orange' as const,
       className: 'tool-call-pending',
       icon: <IconTool />,
     },
     executing: {
-      label: '执行中',
+      label: t('toolCallCard.executing'),
       color: 'blue' as const,
       className: 'tool-call-executing',
       icon: <IconLoading className="tool-call-spin" />,
     },
     success: {
-      label: '执行成功',
+      label: t('toolCallCard.success'),
       color: 'green' as const,
       className: 'tool-call-success',
       icon: <IconCheck />,
     },
     failed: {
-      label: '执行失败',
+      label: t('toolCallCard.failed'),
       color: 'red' as const,
       className: 'tool-call-failed',
       icon: <IconClose />,
@@ -140,7 +142,7 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({
                     onClick={onApprove}
                     className="tool-call-btn"
                   >
-                    批准
+                    {t('toolCallCard.approve')}
                   </Button>
                   <Button
                     type="secondary"
@@ -149,7 +151,7 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({
                     onClick={onReject}
                     className="tool-call-btn"
                   >
-                    拒绝
+                    {t('toolCallCard.reject')}
                   </Button>
                 </div>
               )}
@@ -164,7 +166,7 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({
         >
           <div className="tool-call-content">
             <div className="tool-call-section">
-              <div className="tool-call-section-title">参数</div>
+              <div className="tool-call-section-title">{t('toolCallCard.parameters')}</div>
               <div className="tool-call-section-body">
                 {(params && Object.keys(params).length > 0) ? (
                   <Descriptions
@@ -178,25 +180,25 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({
                     className="tool-call-params"
                   />
                 ) : (
-                  <div className="tool-call-empty">无参数</div>
+                  <div className="tool-call-empty">{t('toolCallCard.noParameters')}</div>
                 )}
               </div>
             </div>
             {(status === 'success' || status === 'failed') && (
               <div className="tool-call-section">
                 <div className="tool-call-section-title">
-                  {status === 'failed' ? '错误信息' : '执行结果'}
+                  {status === 'failed' ? t('toolCallCard.errorInfo') : t('toolCallCard.result')}
                 </div>
                 <div className="tool-call-section-body">
                   {status === 'failed' ? (
                     <div className="tool-call-error">
                       <div className="tool-call-error-message">
-                        {error || '未知错误'}
+                        {error || t('toolCallCard.unknownError')}
                       </div>
                     </div>
                   ) : (
                     <pre className="tool-call-result">
-                      <code>{result !== undefined && result !== null ? formatJSON(result) : '暂无结果'}</code>
+                      <code>{result !== undefined && result !== null ? formatJSON(result) : t('toolCallCard.noResult')}</code>
                     </pre>
                   )}
                 </div>

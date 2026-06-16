@@ -236,7 +236,7 @@
     "extensions": "Extensions",
     "settings": "Settings",
     "cliManagement": "CLI Manager",
-    "cliInfo": "Papyrus Desktop installs the CLI on demand so AI, Skills, and plugins can call the official entry points.",
+    "cliInfo": "Papyrus Desktop now bundles the CLI so AI, Skills, and plugins can call the official entry points without runtime downloads.",
     "cliStatus": "CLI Status",
     "cliStatusDesc": "Shows whether the CLI in the local tools directory is available",
     "cliInstalled": "Installed",
@@ -247,11 +247,11 @@
     "cliPath": "Install path",
     "cliPathDesc": "Executable path recorded in the CLI Manager manifest",
     "refreshCli": "Refresh status",
-    "installCli": "Install CLI",
-    "reinstallCli": "Reinstall",
+    "installCli": "Register CLI",
+    "reinstallCli": "Repair CLI",
     "cliStatusFailed": "Failed to get CLI status",
-    "cliInstallSuccess": "CLI installed",
-    "cliInstallFailed": "CLI install failed"
+    "cliInstallSuccess": "CLI is ready",
+    "cliInstallFailed": "CLI initialization failed"
   },
   "shortcutsView": {
     "title": "Shortcuts",
@@ -589,6 +589,20 @@
   },
   "chatPanel": {
     "enableAgentMode": "Please enable Agent mode in settings"
+  },
+  "toolCallCard": {
+    "pending": "Pending approval",
+    "executing": "Running",
+    "success": "Completed",
+    "failed": "Failed",
+    "approve": "Approve",
+    "reject": "Reject",
+    "parameters": "Parameters",
+    "noParameters": "No parameters",
+    "errorInfo": "Error",
+    "result": "Result",
+    "unknownError": "Unknown error",
+    "noResult": "No result yet"
   },
   "chatSession": {
     "createFailed": "Failed to create session",

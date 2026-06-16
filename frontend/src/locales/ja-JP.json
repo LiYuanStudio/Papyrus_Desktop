@@ -236,7 +236,7 @@
     "extensions": "拡張機能",
     "settings": "設定",
     "cliManagement": "CLI 管理",
-    "cliInfo": "Papyrus Desktop は必要に応じて CLI をインストールし、AI、Skill、プラグインが公式入口から呼び出せるようにします。",
+    "cliInfo": "Papyrus Desktop には CLI が同梱されており、AI・Skill・プラグインは実行時ダウンロードなしで公式入口を呼び出せます。",
     "cliStatus": "CLI 状態",
     "cliStatusDesc": "ローカルツールディレクトリ内の CLI が利用可能かを表示します",
     "cliInstalled": "インストール済み",
@@ -247,11 +247,11 @@
     "cliPath": "インストール先",
     "cliPathDesc": "CLI Manager manifest に記録された実行ファイルパス",
     "refreshCli": "状態を更新",
-    "installCli": "CLI をインストール",
-    "reinstallCli": "再インストール",
+    "installCli": "CLI を登録",
+    "reinstallCli": "CLI を修復",
     "cliStatusFailed": "CLI 状態の取得に失敗しました",
-    "cliInstallSuccess": "CLI のインストールが完了しました",
-    "cliInstallFailed": "CLI のインストールに失敗しました"
+    "cliInstallSuccess": "CLI を利用可能にしました",
+    "cliInstallFailed": "CLI の初期化に失敗しました"
   },
   "shortcutsView": {
     "title": "ショートカット",
@@ -589,6 +589,20 @@
   },
   "chatPanel": {
     "enableAgentMode": "設定で Agent モードを有効にしてください"
+  },
+  "toolCallCard": {
+    "pending": "承認待ち",
+    "executing": "実行中",
+    "success": "実行成功",
+    "failed": "実行失敗",
+    "approve": "承認",
+    "reject": "拒否",
+    "parameters": "パラメータ",
+    "noParameters": "パラメータなし",
+    "errorInfo": "エラー情報",
+    "result": "実行結果",
+    "unknownError": "不明なエラー",
+    "noResult": "結果はまだありません"
   },
   "chatSession": {
     "createFailed": "セッションの作成に失敗しました",

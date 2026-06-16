@@ -1,56 +1,19 @@
-import { Dropdown, Menu, Tooltip } from '@arco-design/web-react';
-import { IconDown, IconPlus, IconHistory, IconClose } from '@arco-design/web-react/icon';
-import type { ModelOption } from '../../utils/modelSelector';
+import { Tooltip } from '@arco-design/web-react';
+import { IconPlus, IconHistory, IconClose } from '@arco-design/web-react/icon';
 
 export interface ChatHeaderProps {
-  selectedModel: ModelOption | undefined;
-  availableModels: { key: string; label: string }[];
-  modelLoading: boolean;
-  configChecked: boolean;
-  onModelSelect: (modelId: string) => void;
   onNewChat: () => void;
   onHistoryClick: () => void;
   onClose: () => void;
 }
 
 export function ChatHeader({
-  selectedModel,
-  availableModels,
-  configChecked,
-  onModelSelect,
   onNewChat,
   onHistoryClick,
   onClose,
 }: ChatHeaderProps) {
   return (
     <div className="chat-panel-header">
-      <div className="chat-model-selector">
-        <Dropdown
-          trigger="click"
-          disabled={availableModels.length === 0}
-          triggerProps={{
-            popupStyle: { minWidth: '320px' },
-          }}
-          droplist={
-            <Menu className="chat-model-menu" onClickMenuItem={onModelSelect}>
-              {availableModels.length === 0 ? (
-                <Menu.Item key="_empty" disabled>
-                  {configChecked ? '暂无可用模型' : '正在加载模型...'}
-                </Menu.Item>
-              ) : (
-                availableModels.map((m) => (
-                  <Menu.Item key={m.key}>{m.label}</Menu.Item>
-                ))
-              )}
-            </Menu>
-          }
-        >
-          <button className="chat-model-btn" disabled={availableModels.length === 0}>
-            <span>{selectedModel?.name || '选择模型'}</span>
-            <IconDown className="tw-text-xs" />
-          </button>
-        </Dropdown>
-      </div>
       <div className="chat-panel-header-actions">
         <Tooltip content="新建对话" mini>
           <button

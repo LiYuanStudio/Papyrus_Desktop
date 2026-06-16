@@ -8,6 +8,8 @@
   background: var(--color-fill-1);
   border: 1px solid var(--color-border-2);
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Collapse 覆盖 */
@@ -25,6 +27,7 @@
   border-bottom: none;
   cursor: pointer;
   transition: background 0.2s;
+  min-width: 0;
 }
 
 .reasoning-collapse > .arco-collapse-item > .arco-collapse-item-header:hover {
@@ -51,6 +54,7 @@
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  min-width: 0;
 }
 
 .reasoning-title-wrapper {
@@ -58,6 +62,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .reasoning-title-left {
@@ -76,6 +82,9 @@
   font-size: 14px;
   font-weight: var(--font-weight-500);
   color: var(--color-text-1);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .reasoning-tag {
@@ -96,6 +105,9 @@
   -webkit-box-orient: vertical;
   box-orient: vertical;
   padding-left: 24px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* 展开/折叠指示器 */
@@ -120,6 +132,7 @@
   line-height: 1.7;
   color: var(--color-text-2);
   padding-left: 24px;
+  min-width: 0;
 }
 
 .reasoning-text {

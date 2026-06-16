@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { create } from 'tar';
 import { CliManager } from '../../src/cli/cli-manager.js';
 import { executeMcpTool, getMcpToolsCatalog } from '../../src/mcp/tools.js';
 
@@ -10,96 +9,115 @@ function makeTempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'papyrus-cli-manager-'));
 }
 
-function makeJsonResponse(body: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify(body), {
-    status: init?.status ?? 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function makeFileFetch(tarballPath: string): typeof fetch {
-  return async (input: string | URL | Request) => {
-    const url = String(input);
-    if (url.includes('/%40papyrus/cli/latest')) {
-      return makeJsonResponse({
-        version: '0.1.0',
-        dist: { tarball: 'https://registry.npmjs.org/@papyrus/cli/-/cli-0.1.0.tgz' },
-        bin: { papyrus: 'bin/papyrus.js' },
-      });
-    }
-    if (url.endsWith('cli-0.1.0.tgz')) {
-      return new Response(fs.readFileSync(tarballPath), { status: 200 });
-    }
-    return new Response('not found', { status: 404 });
-  };
-}
-
-async function createCliTarball(workDir: string, scriptBody: string): Promise<string> {
-  const packageDir = path.join(workDir, 'package');
-  const binDir = path.join(packageDir, 'bin');
-  fs.mkdirSync(binDir, { recursive: true });
+function createBundledJsCli(workDir: string): string {
+  const cliPath = path.join(workDir, 'papyrus-cli.js');
   fs.writeFileSync(
-    path.join(packageDir, 'package.json'),
-    JSON.stringify({ name: '@papyrus/cli', version: '0.1.0', bin: { papyrus: 'bin/papyrus.js' } }),
+    cliPath,
+    [
+      'const base = process.env.PAPYRUS_API_URL ?? "http://127.0.0.1:8000/api";',
+      'const normalized = base.endsWith("/api") ? base : `${base}/api`;',
+      'const response = await fetch(`${normalized}/health`);',
+      'const health = await response.json();',
+      'process.stdout.write(JSON.stringify({ success: true, apiBase: normalized, health }) + "\\n");',
+    ].join('\n'),
     'utf8',
   );
-  fs.writeFileSync(path.join(binDir, 'papyrus.js'), scriptBody, 'utf8');
-  const tarballPath = path.join(workDir, 'cli-0.1.0.tgz');
-  await create({ file: tarballPath, cwd: workDir, gzip: true }, ['package']);
-  return tarballPath;
+  return cliPath;
+}
+
+function startHealthServer(): Promise<{ server: http.Server; apiUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      if (request.url === '/api/health') {
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ status: 'ok' }));
+        return;
+      }
+      response.writeHead(404, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ success: false, error: 'not found' }));
+    });
+
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        reject(new Error('failed to bind test server'));
+        return;
+      }
+      resolve({
+        server,
+        apiUrl: `http://127.0.0.1:${address.port}/api`,
+      });
+    });
+  });
 }
 
 describe('CliManager', () => {
-  it.skip('installs a real npm-style tgz, writes manifest, and runs the managed CLI with Desktop env', async () => {
-    const tempDir = makeTempDir();
-    const script = `#!/usr/bin/env node\nconsole.log(JSON.stringify({ args: process.argv.slice(2), api: process.env.PAPYRUS_API_URL, mcp: process.env.PAPYRUS_MCP_URL, token: process.env.PAPYRUS_AUTH_TOKEN }));\n`;
-    const tarballPath = await createCliTarball(tempDir, script);
-    const cliRoot = path.join(tempDir, 'managed-cli');
-    const manager = new CliManager({ rootDir: cliRoot, fetchImpl: makeFileFetch(tarballPath) });
+  it('reports bundled CLI as available without npm download', async () => {
+    const manager = new CliManager({ rootDir: makeTempDir() });
+    const status = await manager.getStatus();
 
-    const beforeInstall = await manager.getStatus();
-    expect(beforeInstall.installed).toBe(false);
-    expect(beforeInstall.latestVersion).toBe('0.1.0');
+    expect(status.success).toBe(true);
+    expect(status.installed).toBe(true);
+    expect(status.source).toBe('bundled');
+    expect(status.updateAvailable).toBe(false);
+    expect(status.path).toContain('papyrus-cli');
+  });
 
+  it('writes a manifest that points at the bundled CLI', async () => {
+    const rootDir = makeTempDir();
+    const manager = new CliManager({ rootDir });
     const installResult = await manager.install();
+
     expect(installResult.success).toBe(true);
-    expect(installResult.version).toBe('0.1.0');
+    expect(installResult.source).toBe('bundled');
     expect(fs.existsSync(installResult.path)).toBe(true);
 
     const manifest = manager.readManifest();
-    expect(manifest?.currentVersion).toBe('0.1.0');
+    expect(manifest?.source).toBe('bundled');
     expect(manifest?.executablePath).toBe(installResult.path);
-
-    const status = await manager.getStatus();
-    expect(status.installed).toBe(true);
-    expect(status.path).toBe(installResult.path);
-
-    const runResult = await manager.run(['status', '--json'], {
-      PAPYRUS_API_URL: 'http://127.0.0.1:18000',
-      PAPYRUS_MCP_URL: 'http://127.0.0.1:19200',
-      PAPYRUS_AUTH_TOKEN: 'test-token',
-    });
-    expect(runResult.success).toBe(true);
-    const parsedStdout = JSON.parse(runResult.stdout) as { args: string[]; api: string; mcp: string; token: string };
-    expect(parsedStdout.args).toEqual(['status', '--json']);
-    expect(parsedStdout.api).toBe('http://127.0.0.1:18000');
-    expect(parsedStdout.mcp).toBe('http://127.0.0.1:19200');
-    expect(parsedStdout.token).toBe('test-token');
   });
 
-  it('rejects run before install', async () => {
+  const runCliTest = process.platform === 'win32' ? it.skip : it;
+
+  runCliTest('runs the bundled CLI against the Desktop API contract', async () => {
+    const { server, apiUrl } = await startHealthServer();
+    const rootDir = makeTempDir();
     const manager = new CliManager({
-      rootDir: makeTempDir(),
-      fetchImpl: async () => makeJsonResponse({ version: '0.1.0', dist: { tarball: 'unused' } }),
+      rootDir,
+      builtinEntryPath: createBundledJsCli(rootDir),
     });
 
-    await expect(manager.run(['status', '--json'])).rejects.toThrow('CLI 未安装');
+    try {
+      const runResult = await manager.run(['status', '--json'], {
+        PAPYRUS_API_URL: apiUrl,
+      });
+
+      expect(runResult.success).toBe(true);
+      const parsedStdout = JSON.parse(runResult.stdout) as {
+        success: boolean;
+        apiBase: string;
+        health: { status: string };
+      };
+      expect(parsedStdout.success).toBe(true);
+      expect(parsedStdout.apiBase).toBe(apiUrl);
+      expect(parsedStdout.health.status).toBe('ok');
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close(error => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
   });
 
   it('exposes CLI tools through MCP catalog and executes cli_status', async () => {
     const manager = new CliManager({
       rootDir: makeTempDir(),
-      fetchImpl: async () => makeJsonResponse({ version: '0.2.0', dist: { tarball: 'unused' } }),
     });
 
     const catalog = getMcpToolsCatalog();
@@ -107,22 +125,6 @@ describe('CliManager', () => {
 
     const status = await executeMcpTool('cli_status', {}, undefined, manager);
     expect(status.success).toBe(true);
-    expect(status.installed).toBe(false);
-    expect(status.latestVersion).toBe('0.2.0');
-  });
-  describe('edge cases', () => {
-    it('install rejects when tarball fetch returns 404', async () => {
-      const manager = new CliManager({
-        rootDir: makeTempDir(),
-        fetchImpl: async () => new Response('Not Found', { status: 404 }),
-      });
-      await expect(manager.install()).rejects.toThrow();
-    });
-
-    it('run throws when CLI not installed', async () => {
-      const manager = new CliManager({ rootDir: makeTempDir() });
-      await expect(manager.run(['status'])).rejects.toThrow(/未安装/);
-    });
+    expect(status.installed).toBe(true);
   });
 });
-

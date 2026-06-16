@@ -156,13 +156,13 @@ async function processChatStream(
             toolCallId: toolCall.callId,
             toolName: toolCall.name,
             toolParams: toolCall.parsedArgs,
-            toolStatus: 'error',
+            toolStatus: 'failed',
           });
           assistantBlocks.push({
             type: 'tool_result',
             toolCallId: toolCall.callId,
             toolName: toolCall.name,
-            toolStatus: 'error',
+            toolStatus: 'failed',
             toolError: errMsg,
           });
         }

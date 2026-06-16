@@ -9,6 +9,7 @@ import { dirname, join } from 'path';
 import { platform } from 'os';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import http from 'http';
 
 const execAsync = promisify(exec);
 
@@ -28,7 +29,35 @@ const colors = {
 
 console.log(`${colors.cyan}Papyrus 启动器${colors.reset}\n`);
 
-async function checkPort(port) {
+/**
+ * 通过 HTTP 请求探测服务是否已就绪
+ * 优先使用健康检查端点，避免 Git Bash / Node 25 下 netstat 不可靠的问题
+ */
+function httpCheck(url, timeout = 1500) {
+  return new Promise((resolve) => {
+    const req = http.get(url, { timeout }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(body);
+          // 后端健康检查返回 { status: 'ok' }
+          resolve(json.status === 'ok');
+        } catch {
+          // 对于前端 dev server，只要 TCP 通且没有 5xx 就认为占用
+          resolve(res.statusCode !== undefined && res.statusCode < 500);
+        }
+      });
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function netstatCheck(port) {
   try {
     if (platform() === 'win32') {
       const { stdout } = await execAsync(`netstat -ano | findstr :${port} | findstr LISTENING`);
@@ -38,6 +67,19 @@ async function checkPort(port) {
     return false;
   }
   return false;
+}
+
+async function checkPort(port) {
+  // 主探测：HTTP 健康检查（更可靠）
+  if (port === 8000) {
+    if (await httpCheck('http://127.0.0.1:8000/api/health')) return true;
+    if (await httpCheck('http://127.0.0.1:8000/health')) return true;
+  } else if (port === 5173) {
+    if (await httpCheck('http://127.0.0.1:5173/')) return true;
+  }
+
+  // 兜底：netstat 探测
+  return netstatCheck(port);
 }
 
 async function killPort(port) {

@@ -55,6 +55,10 @@
   object-fit: contain;
 }
 
+body[arco-theme='dark'] .titlebar-logo-icon {
+  filter: invert(1);
+}
+
 
 
 .titlebar-logo:hover,

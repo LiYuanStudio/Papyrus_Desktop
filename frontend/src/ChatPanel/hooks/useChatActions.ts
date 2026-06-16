@@ -1,7 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { Message as ArcoMessage } from '@arco-design/web-react';
 import i18n from '../../i18n';
-import type { Message, SSEEvent, SelectedFile } from '../types';
+import type { Message, MessageBlock, MessageBlockToolStatus, SSEEvent, SelectedFile } from '../types';
 import type { ModelOption } from '../../utils/modelSelector';
 import { authFetch } from '../utils';
 
@@ -27,6 +27,33 @@ export interface UseChatActionsReturn {
   handleToolApprove: (messageId: string, toolName: string, callId?: string) => void;
   handleToolReject: (messageId: string, toolName: string, callId?: string) => void;
   textOverrideRef: React.MutableRefObject<string | null>;
+}
+
+// 按 toolCallId 精确定位工具卡片，避免同名工具或状态同步延迟时更新到错误的卡片。
+// 原因：审批、拒绝和结果回填都来自后端生成的 callId，它比 toolName 更稳定，适合作为唯一锚点。
+// 未只用 toolName：同一条消息里可能出现多个同名工具调用，单靠名称和状态会把 UI 与后端记录串位。
+function findToolCallBlockIndex(
+  blocks: MessageBlock[],
+  toolName: string,
+  callId: string | undefined,
+  fallbackStatuses: readonly MessageBlockToolStatus[],
+): number {
+  if (callId) {
+    const exactIndex = blocks.findIndex(
+      (block) => block.type === 'tool_call' && block.toolCallId === callId,
+    );
+    if (exactIndex !== -1) {
+      return exactIndex;
+    }
+  }
+
+  return blocks.findIndex(
+    (block) =>
+      block.type === 'tool_call' &&
+      block.toolName === toolName &&
+      block.toolStatus !== undefined &&
+      fallbackStatuses.includes(block.toolStatus),
+  );
 }
 
 export function useChatActions({
@@ -439,8 +466,11 @@ export function useChatActions({
       if (msgIndex === -1) return prev;
       const msg = prev[msgIndex];
       if (!msg || !msg.blocks) return prev;
-      const blockIndex = msg.blocks.findIndex(
-        (b) => b.type === 'tool_call' && b.toolName === toolName && b.toolStatus === 'pending',
+      const blockIndex = findToolCallBlockIndex(
+        msg.blocks,
+        toolName,
+        callId,
+        ['pending'],
       );
       if (blockIndex === -1) return prev;
       const newBlocks = msg.blocks.map((b, idx) =>
@@ -475,8 +505,11 @@ export function useChatActions({
           if (msgIndex === -1) return prev;
           const msg = prev[msgIndex];
           if (!msg || !msg.blocks) return prev;
-          const blockIndex = msg.blocks.findIndex(
-            (b) => b.type === 'tool_call' && b.toolName === toolName && b.toolStatus === 'executing',
+          const blockIndex = findToolCallBlockIndex(
+            msg.blocks,
+            toolName,
+            callId,
+            ['executing', 'pending'],
           );
           if (blockIndex === -1) return prev;
           const newBlocks = msg.blocks.map((b, idx) =>
@@ -502,8 +535,11 @@ export function useChatActions({
           if (msgIndex === -1) return prev;
           const msg = prev[msgIndex];
           if (!msg || !msg.blocks) return prev;
-          const blockIndex = msg.blocks.findIndex(
-            (b) => b.type === 'tool_call' && b.toolName === toolName && b.toolStatus === 'executing',
+          const blockIndex = findToolCallBlockIndex(
+            msg.blocks,
+            toolName,
+            callId,
+            ['executing', 'pending'],
           );
           if (blockIndex === -1) return prev;
           const newBlocks = msg.blocks.map((b, idx) =>
@@ -524,8 +560,11 @@ export function useChatActions({
       if (msgIndex === -1) return prev;
       const msg = prev[msgIndex];
       if (!msg || !msg.blocks) return prev;
-      const blockIndex = msg.blocks.findIndex(
-        (b) => b.type === 'tool_call' && b.toolName === toolName && b.toolStatus === 'pending',
+      const blockIndex = findToolCallBlockIndex(
+        msg.blocks,
+        toolName,
+        callId,
+        ['pending'],
       );
       if (blockIndex === -1) return prev;
       const newBlocks = msg.blocks.map((b, idx) =>
@@ -565,8 +604,11 @@ export function useChatActions({
           if (msgIndex === -1) return prev;
           const msg = prev[msgIndex];
           if (!msg || !msg.blocks) return prev;
-          const blockIndex = msg.blocks.findIndex(
-            (b) => b.type === 'tool_call' && b.toolName === toolName && b.toolStatus === 'failed',
+          const blockIndex = findToolCallBlockIndex(
+            msg.blocks,
+            toolName,
+            callId,
+            ['failed'],
           );
           if (blockIndex === -1) return prev;
           const newBlocks = msg.blocks.map((b, idx) =>

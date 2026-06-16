@@ -452,3 +452,4 @@ GitHub Actions 工作流（`.github/workflows/release-optimized.yml`）：
 ## 行动约定
 
 在执行整体修改代码操作（如按照plan修改代码，修改bug等）时，自行设定一个五万tokens的goal（如果支持goal模式，），耗尽后需要用户同意才能自动设定goal。
+读代码读文件，和简单问题回答，work办公时不适用此规则。

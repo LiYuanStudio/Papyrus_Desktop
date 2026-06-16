@@ -8,6 +8,8 @@
   border: 1px solid;
   overflow: hidden;
   transition: border-color 0.2s, background 0.2s;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* 状态样式 - Pending */
@@ -65,6 +67,7 @@ body[arco-theme='dark'] .tool-call-failed {
   border-bottom: none;
   cursor: pointer;
   transition: background 0.2s;
+  min-width: 0;
 }
 
 .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header:hover {
@@ -90,6 +93,8 @@ body[arco-theme='dark'] .tool-call-collapse > .arco-collapse-item > .arco-collap
   justify-content: space-between;
   flex: 1;
   gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .tool-call-title-wrapper {
@@ -140,6 +145,7 @@ body[arco-theme='dark'] .tool-call-collapse > .arco-collapse-item > .arco-collap
 
 .tool-call-status-tag {
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .tool-call-status-with-spin {
@@ -154,7 +160,8 @@ body[arco-theme='dark'] .tool-call-collapse > .arco-collapse-item > .arco-collap
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .tool-call-btn {
@@ -260,7 +267,7 @@ body[arco-theme='dark'] .tool-call-collapse > .arco-collapse-item > .arco-collap
 
 /* 参数预览 */
 .tool-call-param-preview {
-  flex: 1 1 auto;
+  flex: 1 1 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -323,13 +330,6 @@ body[arco-theme='dark'] .tool-call-collapse > .arco-collapse-item > .arco-collap
   }
 }
 
-/* 极窄面板兜底：< 360px 时 header 允许换行，actions 整体下移到第二行 */
-@media (max-width: 360px) {
-  .tool-call-header {
-    flex-wrap: wrap;
-    row-gap: 6px;
-  }
-  .tool-call-actions {
-    margin-left: auto;
-  }
+.tool-call-header {
+  row-gap: 6px;
 }

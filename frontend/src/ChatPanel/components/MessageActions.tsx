@@ -16,6 +16,8 @@ export interface MessageActionsProps {
   message: Message;
   isGenerating: boolean;
   messages: Message[];
+  editingMessageId: string | null;
+  onStartEditing: (messageId: string, content: string) => void;
   onMessagesChange: React.Dispatch<React.SetStateAction<Message[]>>;
   onSendMessage: () => void;
   onTextOverride: (text: string) => void;
@@ -25,10 +27,14 @@ export function MessageActions({
   message,
   isGenerating,
   messages,
+  editingMessageId,
+  onStartEditing,
   onMessagesChange,
   onSendMessage,
   onTextOverride,
 }: MessageActionsProps) {
+  const isEditingCurrentMessage = editingMessageId === message.id;
+
   const handleRegenerate = () => {
     Modal.confirm({
       title: '重新生成',
@@ -89,6 +95,7 @@ export function MessageActions({
             className="chat-message-action-btn"
             aria-label="编辑"
             disabled={isGenerating}
+            onClick={() => onStartEditing(message.id, message.content)}
           >
             <IconEdit />
           </button>
@@ -107,7 +114,7 @@ export function MessageActions({
           <button
             className="chat-message-action-btn"
             aria-label="删除"
-            disabled={isGenerating}
+            disabled={isGenerating || isEditingCurrentMessage}
             onClick={handleDelete}
           >
             <IconDelete />
@@ -134,6 +141,7 @@ export function MessageActions({
           className="chat-message-action-btn"
           aria-label="编辑"
           disabled={isGenerating}
+          onClick={() => onStartEditing(message.id, message.content)}
         >
           <IconEdit />
         </button>
@@ -172,7 +180,7 @@ export function MessageActions({
         <button
           className="chat-message-action-btn"
           aria-label="删除"
-          disabled={isGenerating}
+          disabled={isGenerating || isEditingCurrentMessage}
           onClick={handleDelete}
         >
           <IconDelete />

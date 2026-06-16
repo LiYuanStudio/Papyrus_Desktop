@@ -236,7 +236,7 @@
     "extensions": "扩展",
     "settings": "设置",
     "cliManagement": "CLI 管理",
-    "cliInfo": "Papyrus Desktop 会按需安装 CLI，供 AI、Skill 和插件通过正式入口调用。",
+    "cliInfo": "Papyrus Desktop 现已内置 CLI，供 AI、Skill 和插件通过正式入口调用，不再依赖运行时下载。",
     "cliStatus": "CLI 状态",
     "cliStatusDesc": "显示本机工具目录中的 CLI 是否可用",
     "cliInstalled": "已安装",
@@ -247,11 +247,11 @@
     "cliPath": "安装路径",
     "cliPathDesc": "CLI Manager manifest 记录的可执行文件路径",
     "refreshCli": "刷新状态",
-    "installCli": "安装 CLI",
-    "reinstallCli": "重新安装",
+    "installCli": "注册 CLI",
+    "reinstallCli": "修复 CLI",
     "cliStatusFailed": "获取 CLI 状态失败",
-    "cliInstallSuccess": "CLI 安装完成",
-    "cliInstallFailed": "CLI 安装失败"
+    "cliInstallSuccess": "CLI 已就绪",
+    "cliInstallFailed": "CLI 初始化失败"
   },
   "shortcutsView": {
     "title": "快捷键",
@@ -589,6 +589,20 @@
   },
   "chatPanel": {
     "enableAgentMode": "请在设置中启用 Agent 模式"
+  },
+  "toolCallCard": {
+    "pending": "待审批",
+    "executing": "执行中",
+    "success": "执行成功",
+    "failed": "执行失败",
+    "approve": "批准",
+    "reject": "拒绝",
+    "parameters": "参数",
+    "noParameters": "无参数",
+    "errorInfo": "错误信息",
+    "result": "执行结果",
+    "unknownError": "未知错误",
+    "noResult": "暂无结果"
   },
   "chatSession": {
     "createFailed": "创建会话失败",

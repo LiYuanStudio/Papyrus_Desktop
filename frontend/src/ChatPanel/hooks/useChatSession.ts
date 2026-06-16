@@ -15,9 +15,9 @@ export interface UseChatSessionReturn {
   currentSessionId: string;
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string>>;
   loadSessions: () => Promise<void>;
-  createNewSession: () => Promise<void>;
-  clearAllSessions: () => Promise<void>;
-  switchSession: (sessionId: string) => Promise<void>;
+  createNewSession: () => Promise<string | null>;
+  clearAllSessions: () => Promise<string | null>;
+  switchSession: (sessionId: string) => Promise<Message[] | null>;
 }
 
 export function useChatSession(
@@ -50,42 +50,55 @@ export function useChatSession(
       const data = await api.createChatSession();
       if (data.success) {
         setCurrentSessionId(data.session.id);
+        setSessions((prev) => {
+          const nextSessions = prev.filter((session) => session.id !== data.session.id);
+          return [data.session, ...nextSessions];
+        });
+        return data.session.id;
       }
     } catch (err) {
       console.error('Failed to create session:', err);
       ArcoMessage.error(i18n.t('chatSession.createFailed'));
     }
+    return null;
   }, []);
 
   const clearAllSessions = useCallback(async () => {
     try {
       const data = await api.clearAllChatSessions();
       if (data.success) {
+        ArcoMessage.success(i18n.t('chatSession.cleared', { count: data.deletedCount }));
         setSessions([]);
         if (data.activeSessionId) {
           setCurrentSessionId(data.activeSessionId);
+          await loadSessions();
+          return data.activeSessionId;
         } else {
           const created = await api.createChatSession();
           if (created.success) {
             setCurrentSessionId(created.session.id);
+            setSessions([created.session]);
+            return created.session.id;
           }
         }
-        ArcoMessage.success(i18n.t('chatSession.cleared', { count: data.deletedCount }));
       }
     } catch (err) {
       console.error('Failed to clear sessions:', err);
       ArcoMessage.error(i18n.t('chatSession.clearFailed'));
     }
-  }, []);
+    return null;
+  }, [loadSessions]);
 
   const switchSession = useCallback(async (sessionId: string) => {
     try {
-      await hydrateMessagesForSession(sessionId);
+      const messages = await hydrateMessagesForSession(sessionId);
       setCurrentSessionId(sessionId);
+      return messages;
     } catch (err) {
       console.error('Failed to switch session:', err);
       ArcoMessage.error(i18n.t('chatSession.switchFailed'));
     }
+    return null;
   }, []);
 
   return {

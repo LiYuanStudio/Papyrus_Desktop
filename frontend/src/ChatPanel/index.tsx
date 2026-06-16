@@ -180,6 +180,34 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
     return () => window.removeEventListener('papyrus_ai_config_changed', handleConfigChange);
   }, [refreshModels]);
 
+  const handleCreateNewSession = useCallback(async () => {
+    const createdSessionId = await createNewSession();
+    if (createdSessionId) {
+      setMessages([]);
+      setEditingMessageId(null);
+      setEditingDraft('');
+      setHistoryDrawerVisible(false);
+    }
+  }, [createNewSession]);
+
+  const handleSwitchSession = useCallback(async (sessionId: string) => {
+    const restoredMessages = await switchSession(sessionId);
+    if (restoredMessages) {
+      setMessages(restoredMessages);
+      setEditingMessageId(null);
+      setEditingDraft('');
+    }
+  }, [switchSession]);
+
+  const handleClearAllSessions = useCallback(async () => {
+    const nextSessionId = await clearAllSessions();
+    if (nextSessionId) {
+      setMessages([]);
+      setEditingMessageId(null);
+      setEditingDraft('');
+    }
+  }, [clearAllSessions]);
+
   const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (container) {
@@ -209,6 +237,18 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
   const handleTextOverride = (text: string) => {
     textOverrideRef.current = text;
   };
+
+  const handleStartEditing = useCallback((messageId: string, content: string) => {
+    setEditingMessageId(messageId);
+    setEditingDraft(content);
+  }, []);
+
+  const handleInsertMention = useCallback((value: string) => {
+    setText((prev) => {
+      const nextValue = prev.trim().length === 0 ? value : `${prev.trimEnd()} ${value}`;
+      return `${nextValue} `;
+    });
+  }, []);
 
   const handleSendMessage = useCallback(async () => {
     const hasInput = text.trim().length > 0 || fileHandler.selectedFiles.length > 0 || textOverrideRef.current !== null;
@@ -251,12 +291,7 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
   return (
     <div className={`chat-panel chat-panel-${side}`} style={{ width }}>
       <ChatHeader
-        selectedModel={selectedModel}
-        availableModels={availableModels}
-        modelLoading={modelLoading}
-        configChecked={configChecked}
-        onModelSelect={handleModelSelect}
-        onNewChat={createNewSession}
+        onNewChat={handleCreateNewSession}
         onHistoryClick={() => setHistoryDrawerVisible(true)}
         onClose={onClose || (() => {})}
       />
@@ -267,9 +302,9 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
         sessions={sessions}
         loading={sessionsLoading}
         onRefresh={loadSessions}
-        onSwitchSession={switchSession}
-        onCreateSession={createNewSession}
-        onClearAll={clearAllSessions}
+        onSwitchSession={handleSwitchSession}
+        onCreateSession={handleCreateNewSession}
+        onClearAll={handleClearAllSessions}
       />
       <div className="chat-panel-body" ref={messagesContainerRef}>
         <MessageList
@@ -282,6 +317,7 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
           onMessagesChange={setMessages}
           onEditingMessageIdChange={setEditingMessageId}
           onEditingDraftChange={setEditingDraft}
+          onStartEditing={handleStartEditing}
           onSendMessage={handleSendMessage}
           onTextOverride={handleTextOverride}
           onToolApprove={handleToolApprove}
@@ -299,12 +335,17 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
         mode={mode}
         reasoning={reasoning}
         agentModeEnabled={agentModeEnabled}
+        availableModels={availableModels}
         onFilesChange={fileHandler.setSelectedFiles}
         onFileSelect={fileHandler.handleFileSelect}
         onSendMessage={handleSendMessage}
         onStopGeneration={stopGeneration}
         onModeChange={handleModeChange}
         onReasoningChange={setReasoning}
+        onMentionInsert={handleInsertMention}
+        selectedModelName={selectedModel?.name}
+        selectedModelId={selectedModel?.id}
+        onModelSelect={handleModelSelect}
         fileInputRef={fileHandler.fileInputRef}
         onFileInputChange={fileHandler.handleFileInputChange}
         getFileIcon={fileHandler.getFileIcon}

@@ -13,6 +13,7 @@ export interface MessageListProps {
   onMessagesChange: React.Dispatch<React.SetStateAction<Message[]>>;
   onEditingMessageIdChange: (id: string | null) => void;
   onEditingDraftChange: (draft: string) => void;
+  onStartEditing: (messageId: string, content: string) => void;
   onSendMessage: () => void;
   onTextOverride: (text: string) => void;
   onToolApprove: (messageId: string, toolName: string, callId?: string) => void;
@@ -30,6 +31,7 @@ export function MessageList({
   onMessagesChange,
   onEditingMessageIdChange,
   onEditingDraftChange,
+  onStartEditing,
   onSendMessage,
   onTextOverride,
   onToolApprove,
@@ -60,6 +62,7 @@ export function MessageList({
             onMessagesChange={onMessagesChange}
             onEditingMessageIdChange={onEditingMessageIdChange}
             onEditingDraftChange={onEditingDraftChange}
+            onStartEditing={onStartEditing}
             onSendMessage={onSendMessage}
             onTextOverride={onTextOverride}
             onToolApprove={onToolApprove}

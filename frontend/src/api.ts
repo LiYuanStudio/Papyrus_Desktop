@@ -395,7 +395,7 @@ export type ChatBlock = {
   text?: string;
   toolCallId?: string;
   toolName?: string;
-  toolStatus?: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'error';
+  toolStatus?: 'pending' | 'approved' | 'rejected' | 'executing' | 'success' | 'failed';
   toolParams?: Record<string, unknown>;
   toolResult?: unknown;
   toolError?: string;

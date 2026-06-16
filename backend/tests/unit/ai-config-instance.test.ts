@@ -27,4 +27,45 @@ describe('ai-config-instance', () => {
     const { initAIConfig } = await import('../../src/ai/config-instance.js');
     expect(() => initAIConfig()).not.toThrow();
   });
+
+  it('initAIConfig migrates ai_config.json to DB and removes JSON', async () => {
+    const { initAIConfig, resetAIConfig } = await import('../../src/ai/config-instance.js');
+    const { loadAllProviders, readUiSetting, closeDb } = await import('../../src/db/database.js');
+
+    const aiConfigPath = path.join(tempDir, 'ai_config.json');
+    fs.writeFileSync(
+      aiConfigPath,
+      JSON.stringify(
+        {
+          providers: {
+            deepseek: {
+              api_key: 'sk-test-key',
+              base_url: 'https://api.deepseek.com',
+              models: ['deepseek-chat'],
+            },
+          },
+          current_provider: '',
+          current_model: '',
+          parameters: { temperature: 0.5 },
+          features: { agent_enabled: true },
+          log: { log_level: 'INFO' },
+        },
+        null,
+        2
+      )
+    );
+
+    resetAIConfig(tempDir);
+    initAIConfig();
+
+    expect(fs.existsSync(aiConfigPath)).toBe(false);
+    expect(loadAllProviders().length).toBe(1);
+    expect(readUiSetting('ai.current_provider')).toBe('deepseek');
+    expect(readUiSetting('ai.current_model')).toBe('deepseek-chat');
+    expect(JSON.parse(readUiSetting('ai.parameters') ?? '{}').temperature).toBe(0.5);
+    expect(JSON.parse(readUiSetting('ai.features') ?? '{}').agent_enabled).toBe(true);
+    expect(JSON.parse(readUiSetting('ai.log') ?? '{}').log_level).toBe('INFO');
+
+    closeDb();
+  });
 });

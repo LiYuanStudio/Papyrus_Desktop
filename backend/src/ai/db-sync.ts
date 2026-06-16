@@ -1,9 +1,47 @@
 import { randomUUID } from 'node:crypto';
-import { AIConfig } from './config.js';
+import fs from 'node:fs';
+import { AIConfig, type AIConfigData } from './config.js';
 import { loadAllProviders, saveProvider, saveApiKey, saveModel, readUiSetting } from '../db/database.js';
 
 function isMaskedKey(key: string): boolean {
   return key.length > 0 && key.startsWith('*');
+}
+
+/**
+ * 从 ai_config.json 一次性加载完整 AI 配置到 AIConfig 实例内存。
+ * 用于迁移前填充 aiConfig.config，使 migrateJsonProvidersToDb 能读取 JSON 中的 providers。
+ *
+ * @returns 是否成功读取并解析 JSON 文件
+ */
+export function loadAIConfigFromJson(aiConfig: AIConfig): boolean {
+  try {
+    if (!fs.existsSync(aiConfig.configFile)) return false;
+    const content = fs.readFileSync(aiConfig.configFile, 'utf8');
+    const raw = JSON.parse(content) as Partial<AIConfigData>;
+
+    if (raw.providers && typeof raw.providers === 'object' && !Array.isArray(raw.providers)) {
+      aiConfig.config.providers = { ...aiConfig.config.providers, ...raw.providers };
+    }
+    if (typeof raw.current_provider === 'string') {
+      aiConfig.config.current_provider = raw.current_provider;
+    }
+    if (typeof raw.current_model === 'string') {
+      aiConfig.config.current_model = raw.current_model;
+    }
+    if (raw.parameters && typeof raw.parameters === 'object' && !Array.isArray(raw.parameters)) {
+      aiConfig.config.parameters = { ...aiConfig.config.parameters, ...raw.parameters };
+    }
+    if (raw.features && typeof raw.features === 'object' && !Array.isArray(raw.features)) {
+      aiConfig.config.features = { ...aiConfig.config.features, ...raw.features };
+    }
+    if (raw.log && typeof raw.log === 'object' && !Array.isArray(raw.log)) {
+      aiConfig.config.log = { ...aiConfig.config.log, ...raw.log };
+    }
+    return true;
+  } catch (e) {
+    console.warn('[loadAIConfigFromJson] 读取 ai_config.json 失败:', e instanceof Error ? e.message : String(e));
+    return false;
+  }
 }
 
 /**
