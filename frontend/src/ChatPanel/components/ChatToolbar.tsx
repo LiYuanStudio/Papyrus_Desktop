@@ -6,6 +6,7 @@ import {
   IconTool,
   IconRecordStop,
   IconCheck,
+  IconDown,
 } from '@arco-design/web-react/icon';
 import IconAgentMode from '../../icons/IconAgentMode';
 import { IconMessage } from '@arco-design/web-react/icon';
@@ -18,6 +19,9 @@ export interface ChatToolbarProps {
   isGenerating: boolean;
   agentModeEnabled: boolean;
   selectedModelName?: string;
+  availableModels: { key: string; label: string }[];
+  selectedModelId?: string;
+  onModelSelect: (modelId: string) => void;
   onModeChange: (mode: string) => void;
   onReasoningChange: (reasoning: false | 'low' | 'medium' | 'high' | 'very_high') => void;
   onMentionInsert: (value: string) => void;
@@ -39,6 +43,9 @@ export function ChatToolbar({
   isGenerating,
   agentModeEnabled,
   selectedModelName,
+  availableModels,
+  selectedModelId,
+  onModelSelect,
   onModeChange,
   onReasoningChange,
   onMentionInsert,
@@ -105,6 +112,43 @@ export function ChatToolbar({
             {currentMode.icon}
           </button>
        </Dropdown>
+        <Trigger
+          trigger="click"
+          position="top"
+          disabled={availableModels.length === 0 || isGenerating}
+          popup={() => (
+            <div className="chat-model-popup" role="listbox" aria-label="模型列表">
+              {availableModels.length === 0 ? (
+                <div className="chat-model-popup-empty">暂无可用模型</div>
+              ) : (
+                availableModels.map((model) => (
+                  <button
+                    key={model.key}
+                    type="button"
+                    className={`chat-model-option${
+                      selectedModelId === model.key ? ' chat-model-option-active' : ''
+                    }`}
+                    onClick={() => onModelSelect(model.key)}
+                  >
+                    <span className="chat-model-option-label">{model.label}</span>
+                    {selectedModelId === model.key && (
+                      <IconCheck className="chat-model-option-check" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        >
+          <button
+            className="chat-toolbar-btn chat-model-btn-icon-only"
+            aria-label={selectedModelName ? `当前模型：${selectedModelName}` : '选择模型'}
+            title={selectedModelName ? `当前模型：${selectedModelName}` : '选择模型'}
+            disabled={availableModels.length === 0 || isGenerating}
+          >
+            <IconDown className="chat-model-btn-arrow" aria-hidden="true" />
+          </button>
+        </Trigger>
         <Tooltip content="上传文件" mini>
           <button
             className="chat-toolbar-btn chat-toolbar-btn-dark"

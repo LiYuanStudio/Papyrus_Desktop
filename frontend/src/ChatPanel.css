@@ -217,12 +217,6 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   box-shadow: 0 0 0 1px var(--color-primary);
 }
 
-.chat-input-meta {
-  display: flex;
-  justify-content: flex-end;
-  padding: 2px 14px 0;
-}
-
 .chat-textarea {
   flex: 1;
   width: 100%;
@@ -477,6 +471,43 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   text-align: right;
 }
 
+
+.chat-model-btn-icon-only {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-3);
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.chat-model-btn-icon-only:hover {
+  background: var(--color-fill-2);
+  color: var(--color-text-2);
+}
+
+.chat-model-btn-icon-only:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.chat-model-btn-icon-only:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-model-btn-icon-only:disabled:hover {
+  background: none;
+  color: var(--color-text-3);
+}
+
+.chat-model-btn-arrow {
+  font-size: 12px;
+}
+
 .chat-model-popup {
   min-width: 228px;
   max-width: 280px;
@@ -656,6 +687,7 @@ body[arco-theme="dark"] .chat-file-tag .arco-tag-icon {
   .chat-mode-btn,
   .chat-send-btn,
   .chat-model-btn,
+  .chat-model-btn-icon-only,
   .chat-file-list-clear {
     transition: none;
   }

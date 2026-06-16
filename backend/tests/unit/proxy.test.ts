@@ -28,7 +28,10 @@ describe('proxy utilities', () => {
 
   describe('getProxyUrl', () => {
     it('should return undefined when no proxy is configured', () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'linux' });
       expect(getProxyUrl()).toBeUndefined();
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
     });
 
     it('should return HTTPS_PROXY env var', () => {

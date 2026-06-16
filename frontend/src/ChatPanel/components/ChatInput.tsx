@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
-import { Tag, Tooltip, Trigger } from '@arco-design/web-react';
-import { IconCheck, IconDown } from '@arco-design/web-react/icon';
+import { Tag, Tooltip } from '@arco-design/web-react';
 import type { SelectedFile } from '../types';
 import { ChatToolbar } from './ChatToolbar';
 import { MAX_FILES } from '../utils';
@@ -121,57 +120,19 @@ export function ChatInput({
         onKeyDown={handleKeyDown}
         disabled={isGenerating || !configChecked}
       />
-      <div className="chat-input-meta">
-        <Trigger
-          trigger="click"
-          position="top"
-          disabled={availableModels.length === 0 || isGenerating}
-          popup={() => (
-            <div className="chat-model-popup" role="listbox" aria-label="模型列表">
-              {availableModels.length === 0 ? (
-                <div className="chat-model-popup-empty">
-                  {configChecked ? '暂无可用模型' : '正在加载模型...'}
-                </div>
-              ) : (
-                availableModels.map((model) => (
-                  <button
-                    key={model.key}
-                    type="button"
-                    className={`chat-model-option${
-                      selectedModelId === model.key ? ' chat-model-option-active' : ''
-                    }`}
-                    onClick={() => onModelSelect(model.key)}
-                  >
-                    <span className="chat-model-option-label">{model.label}</span>
-                    {selectedModelId === model.key && (
-                      <IconCheck className="chat-model-option-check" />
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        >
-          <button
-            className="chat-model-btn chat-model-btn-inline"
-            aria-label={selectedModelName ? `当前模型：${selectedModelName}` : '选择模型'}
-            disabled={availableModels.length === 0 || isGenerating}
-          >
-            <span>{selectedModelName || '选择模型'}</span>
-            <IconDown className="tw-text-xs" />
-          </button>
-        </Trigger>
-      </div>
       <ChatToolbar
         mode={mode}
         reasoning={reasoning}
         isGenerating={isGenerating}
         agentModeEnabled={agentModeEnabled}
+        availableModels={availableModels}
+        selectedModelId={selectedModelId}
+        onModelSelect={onModelSelect}
+        selectedModelName={selectedModelName}
         onModeChange={onModeChange}
         onReasoningChange={onReasoningChange}
-       onMentionInsert={onMentionInsert}
+        onMentionInsert={onMentionInsert}
         onFileSelect={onFileSelect}
-       selectedModelName={selectedModelName}
         onSendMessage={onSendMessage}
         onStopGeneration={onStopGeneration}
         text={text}
