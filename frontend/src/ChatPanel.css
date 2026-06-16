@@ -328,6 +328,25 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   color: var(--color-text-3);
 }
 
+/* 当 Arco Trigger/Tooltip 禁用图标按钮时，会把 className 移到包裹的 span 上，
+   导致内部的 <button> 裸露出浏览器默认的灰色禁用背景。
+   这里重置禁用态，让模型、工具等图标按钮和 @/推理一样只保留图标。 */
+.chat-model-btn-icon-only > button:disabled,
+.chat-toolbar-btn-disabled > button:disabled,
+.chat-mode-btn > button:disabled {
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-model-btn-icon-only:has(> button:disabled):hover,
+.chat-toolbar-btn-disabled:has(> button:disabled):hover,
+.chat-mode-btn:has(> button:disabled):hover {
+  background: none;
+}
+
 .chat-mode-btn {
   gap: 8px;
   width: auto;
