@@ -4,8 +4,9 @@
   "version": "2.0.0-beta.11",
   "type": "module",
   "scripts": {
-    "dev": "node launcher.js",
+    "dev": "vite",
     "dev:frontend": "vite",
+    "dev:launcher": "node launcher.js",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit"
