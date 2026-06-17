@@ -810,7 +810,13 @@
     "fileTooLarge": "ファイルが大きすぎます",
     "unsupportedType": "非対応のファイル形式です",
     "itemCount": "{{count}} 項目",
-    "selectUploadFile": "アップロードするファイルを選択"
+    "selectUploadFile": "アップロードするファイルを選択",
+    "filterAll": "すべて",
+    "filterFolder": "フォルダ",
+    "filterDocument": "文書",
+    "filterImage": "画像",
+    "filterVideo": "動画",
+    "filterAudio": "音声"
   },
   "noteList": {
     "batchDeleteFailed": "一括削除に失敗しました",

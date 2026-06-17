@@ -207,6 +207,7 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
       setNewCollectionName('');
       setSelectedCardIds([]);
       refreshCards();
+      window.dispatchEvent(new CustomEvent('papyrus_cards_changed'));
     } catch (err) {
       Message.error(t('scrollPage.createCollectionFailed'));
     } finally {
@@ -237,6 +238,7 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
         setNewCardTags('');
         refreshCards();
         refreshStats();
+        window.dispatchEvent(new CustomEvent('papyrus_cards_changed'));
       }
     } catch (err) {
       Message.error(err instanceof Error ? err.message : t('scrollPage.createCardFailed'));

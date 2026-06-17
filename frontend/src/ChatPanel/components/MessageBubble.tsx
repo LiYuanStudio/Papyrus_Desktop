@@ -4,6 +4,7 @@ import { MarkdownView } from '../../components/MarkdownView';
 import { ReasoningChain } from '../../components/ReasoningChain';
 import { ToolCallCard } from '../../components/ToolCallCard';
 import { MessageActions } from './MessageActions';
+import { ModelLogo } from '../../icons/ModelLogo';
 
 export interface MessageBubbleProps {
   message: Message;
@@ -191,10 +192,9 @@ export function MessageBubble({
       ) : (
         message.content && (
           <div className="chat-message-bubble">
-            <MarkdownView source={message.content} compact />
-          </div>
-        )
-      )}
+           <MarkdownView source={message.content} compact />
+         </div>
+        ))}
       <MessageActions
         message={message}
         isGenerating={isGenerating}
@@ -205,6 +205,16 @@ export function MessageBubble({
         onSendMessage={onSendMessage}
         onTextOverride={onTextOverride}
       />
+      {message.content && (
+        <div className="chat-message-bubble-logo">
+          <ModelLogo
+            model={message.model || selectedModelName || ''}
+            modelId={modelId}
+            size={16}
+            style={{ backgroundColor: 'transparent', borderRadius: 0 }}
+          />
+        </div>
+      )}
     </div>
   );
 }

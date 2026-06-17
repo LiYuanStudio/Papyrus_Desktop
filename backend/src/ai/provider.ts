@@ -10,7 +10,7 @@ import { LLMCache } from './llm-cache.js';
 import { getProviderConfigFromDB } from './db-sync.js';
 import { getClientId } from '../utils/client-id.js';
 import { fetchWithProxy } from '../utils/proxy.js';
-import { CardTools } from './tools.js';
+import { PapyrusTools } from './tools.js';
 import type { OpenAIToolDef } from './tools.js';
 import {
   createChatSession as repoCreateChatSession,
@@ -53,6 +53,9 @@ interface ProviderMessage {
   role: string;
   content: string | Array<Record<string, unknown>>;
   images?: string[];
+  tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>;
+  tool_call_id?: string;
+  name?: string;
 }
 
 type RequestParamsWithReasoning = OpenAI.Chat.ChatCompletionCreateParamsStreaming & {
@@ -130,6 +133,7 @@ interface BackendHistoryMessage {
   role: string;
   content: string;
   attachments: AttachmentMeta[];
+  blocks: import('../core/types.js').ChatBlock[];
 }
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
@@ -193,6 +197,7 @@ function rowToHistoryMessage(row: ChatMessageRow): BackendHistoryMessage {
     role: row.role,
     content: row.content,
     attachments: safeParseJsonArray<AttachmentMeta>(row.attachments),
+    blocks: safeParseJsonArray<import('../core/types.js').ChatBlock>(row.blocks),
   };
 }
 
@@ -699,12 +704,44 @@ export class AIManager {
 
   private messageToProviderFormat(providerName: string, message: BackendHistoryMessage): ProviderMessage {
     const role = message.role;
-    const content = message.content;
+    const msgContent = message.content;
     const attachments = message.attachments ?? [];
+    const blocks = message.blocks ?? [];
+
     if (role === 'user' && attachments.length > 0) {
-      return this.buildUserMessageForProvider(providerName, content, attachments);
+      return this.buildUserMessageForProvider(providerName, msgContent, attachments);
     }
-    return { role, content };
+
+    // Convert tool_call blocks to OpenAI tool_calls format
+    const toolCalls = blocks
+      .filter((b): b is import('../core/types.js').ChatBlock & { type: 'tool_call' } => b.type === 'tool_call')
+      .map(b => ({
+        id: b.toolCallId ?? '',
+        type: 'function' as const,
+        function: {
+          name: b.toolName ?? '',
+          arguments: JSON.stringify(b.toolParams ?? {}),
+        },
+      }));
+
+    if (toolCalls.length > 0) {
+      return { role, content: msgContent || '', tool_calls: toolCalls };
+    }
+
+    // Convert tool_result blocks to OpenAI tool message format
+    const toolResultBlock = blocks.find((b): b is import('../core/types.js').ChatBlock & { type: 'tool_result' } => b.type === 'tool_result');
+    if (toolResultBlock && toolResultBlock.toolCallId) {
+      const resultContent = toolResultBlock.toolError
+        ? `Error: ${toolResultBlock.toolError}`
+        : (typeof toolResultBlock.toolResult === 'string' ? toolResultBlock.toolResult : JSON.stringify(toolResultBlock.toolResult ?? ''));
+      return {
+        role: 'tool',
+        content: resultContent,
+        tool_call_id: toolResultBlock.toolCallId,
+      };
+    }
+
+    return { role, content: msgContent };
   }
 
   // ==================== Stream ====================
@@ -970,7 +1007,7 @@ export class AIManager {
     const requestParams: RequestParamsWithReasoning = baseParams;
 
     if (mode === 'agent') {
-      const cardTools = new CardTools();
+      const cardTools = new PapyrusTools();
       const tools: OpenAIToolDef[] = cardTools.getToolsForOpenAI();
       requestParams.tools = tools as unknown as OpenAI.Chat.ChatCompletionTool[];
       requestParams.tool_choice = 'auto';
@@ -1070,6 +1107,9 @@ export class AIManager {
       ? this.injectOllamaToolPrompt(messages)
       : messages;
 
+    // Build native tools for Ollama (OpenAI-compatible format)
+    const ollamaTools = mode === 'agent' ? new PapyrusTools().getToolsForOpenAI() : undefined;
+
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1079,6 +1119,7 @@ export class AIManager {
         messages: enrichedMessages,
         stream: true,
         options: { temperature: params.temperature ?? 0.7 },
+        ...(ollamaTools && ollamaTools.length > 0 ? { tools: ollamaTools } : {}),
       }),
     });
 
@@ -1132,7 +1173,7 @@ export class AIManager {
   }
 
   private injectOllamaToolPrompt(messages: ProviderMessage[]): ProviderMessage[] {
-    const cardTools = new CardTools();
+    const cardTools = new PapyrusTools();
     const toolHint = cardTools.getToolsDefinition();
     const out = [...messages];
     const sysIdx = out.findIndex(m => m.role === 'system');

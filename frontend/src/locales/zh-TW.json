@@ -810,7 +810,13 @@
     "fileTooLarge": "檔案過大",
     "unsupportedType": "不支援的檔案類型",
     "itemCount": "{{count}} 項",
-    "selectUploadFile": "選擇要上傳的檔案"
+    "selectUploadFile": "選擇要上傳的檔案",
+    "filterAll": "全部",
+    "filterFolder": "文件夹",
+    "filterDocument": "文档",
+    "filterImage": "图片",
+    "filterVideo": "视频",
+    "filterAudio": "音频"
   },
   "noteList": {
     "batchDeleteFailed": "批量刪除失敗",

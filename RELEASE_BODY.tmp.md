@@ -144,3 +144,13 @@
 
 > **完整变更列表**: `git log main..codex/BA11-release --oneline`
 > **前一版本**: [v2.0.0-beta.10](https://github.com/PapyrusOR/Papyrus_Desktop/releases/tag/v2.0.0-beta.10)
+
+---
+
+## 📦 包版本信息
+
+| 包 | 版本 | 路径 |
+|----|------|------|
+| Root (Monorepo) | `2.0.0-beta.11` | `package.json` |
+| Frontend | `2.0.0-beta.11` | `frontend/package.json` |
+| Backend | `2.0.0-beta.11` | `backend/package.json` |

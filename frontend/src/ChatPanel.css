@@ -180,6 +180,11 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   border-bottom-left-radius: 4px;
 }
 
+.chat-message-bubble-logo {
+  display: inline-flex;
+  margin-top: 4px;
+}
+
 .chat-input-resize-handle {
   height: 16px;
   margin: 0 8px;

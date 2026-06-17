@@ -71,8 +71,14 @@ const PORT = process.env.PAPYRUS_PORT ? parseInt(process.env.PAPYRUS_PORT, 10) :
 
 export async function initApp(): Promise<void> {
   setGlobalLogger(logger);
-  const { initAIConfig } = await import('../ai/config-instance.js');
+  const { initAIConfig, aiConfig } = await import('../ai/config-instance.js');
   initAIConfig();
+  // 同步持久化日志配置到全局 logger
+  const logConfig = aiConfig.getLogConfig();
+  if (logConfig.log_dir) logger.setLogDir(logConfig.log_dir);
+  if (logConfig.log_level) logger.setLogLevel(logConfig.log_level);
+  if (logConfig.max_log_files !== undefined) logger.setMaxLogFiles(logConfig.max_log_files);
+  if (logConfig.log_rotation !== undefined) logger.setLogRotation(logConfig.log_rotation);
   const allowedPorts = new Set([5173, 4173, 8000, 3000, 9100, 9200]);
   await app.register(cors, {
     origin: (origin, cb) => {
