@@ -90,7 +90,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "is_draft=${{ github.event.inputs.draft }}" >> "$GITHUB_OUTPUT"
           else
-            echo "is_draft=true" >> "$GITHUB_OUTPUT"
+            echo "is_draft=${{ vars.AUTO_RELEASE_DRAFT || 'true' }}" >> "$GITHUB_OUTPUT"
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
