@@ -99,7 +99,8 @@ body[arco-theme='dark'] .titlebar-logo-icon {
   align-items: center;
   min-width: 200px;
   padding: 0 48px;
-  align-self: stretch;
+ align-self: stretch;
+  max-width: 60%;
 }
 
 .titlebar-search,

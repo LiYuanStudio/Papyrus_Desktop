@@ -280,7 +280,7 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   gap: 0;
   border-radius: 4px;
   overflow: hidden;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
