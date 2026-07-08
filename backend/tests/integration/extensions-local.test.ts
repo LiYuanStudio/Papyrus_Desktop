@@ -1,6 +1,7 @@
 import { deflateRawSync } from 'node:zlib';
 import { app, initApp } from '../../src/api/server.js';
 import { closeDb, getDb, insertFile } from '../../src/db/database.js';
+import { patchAppInjectWithAuth } from '../test-auth.js';
 
 function crc32(buffer: Buffer): number {
   let crc = 0xffffffff;
@@ -75,6 +76,7 @@ function createZip(entries: Array<{ name: string; content: string }>): Buffer {
 describe('local extension install and MCP integration', () => {
   beforeAll(async () => {
     await initApp();
+    patchAppInjectWithAuth(app);
   });
 
   beforeEach(() => {

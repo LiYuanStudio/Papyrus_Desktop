@@ -8,7 +8,14 @@ import { PapyrusLogger } from '../utils/logger.js';
 import { MCPServer } from '../mcp/server.js';
 import { startFileWatching, stopFileWatching } from '../integrations/file-watcher.js';
 import { setGlobalLogger } from './routes/logs.js';
-import { isAuthEnabled, validateRequestToken } from '../utils/auth.js';
+import {
+  ensureAuthToken,
+  extractRequestToken,
+  isAuthEnabled,
+  isPublicApiPath,
+  allowsQueryTokenAuth,
+  validateRequestToken,
+} from '../utils/auth.js';
 import { closeDb } from '../db/database.js';
 
 const logger = new PapyrusLogger(
@@ -65,11 +72,14 @@ app.addHook('onSend', async (_request, reply) => {
   reply.header('X-Content-Type-Options', 'nosniff');
   reply.header('X-Frame-Options', 'DENY');
   reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  reply.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
 });
 
 const PORT = process.env.PAPYRUS_PORT ? parseInt(process.env.PAPYRUS_PORT, 10) : 8000;
 
 export async function initApp(): Promise<void> {
+  ensureAuthToken();
   setGlobalLogger(logger);
   const { initAIConfig, aiConfig } = await import('../ai/config-instance.js');
   initAIConfig();
@@ -114,20 +124,25 @@ export async function initApp(): Promise<void> {
     timeWindow: '1 minute',
   });
 
-  // Optional lightweight auth for local API protection
-  // When PAPYRUS_AUTH_TOKEN is set (Electron mode), require it for mutating operations
+  // Local API protection: require token on all /api routes except /api/health.
   if (isAuthEnabled()) {
     app.addHook('onRequest', async (request, reply) => {
-      if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS') {
+      if (request.method === 'OPTIONS') {
         return;
       }
-      if (request.url === '/api/health') {
+      const requestPath = request.url.split('?')[0] ?? request.url;
+      if (isPublicApiPath(requestPath)) {
         return;
       }
-      const token = request.headers['x-papyrus-token'];
-      if (!validateRequestToken(typeof token === 'string' ? token : undefined)) {
+      if (!requestPath.startsWith('/api/')) {
+        return;
+      }
+
+      const query = request.query as { access_token?: string };
+      const queryToken = allowsQueryTokenAuth(request.url) ? query.access_token : undefined;
+      const token = extractRequestToken(request.headers['x-papyrus-token'], queryToken);
+      if (!validateRequestToken(token)) {
         reply.status(401).send({ success: false, error: 'Unauthorized' });
-        return;
       }
     });
   }
@@ -185,7 +200,8 @@ export async function start(): Promise<void> {
     await app.listen({ port: PORT, host: '127.0.0.1' });
     logger.info(`Papyrus backend started on http://127.0.0.1:${PORT}`);
 
-    mcpServer = new MCPServer({ logger });
+    const { getAuthToken } = await import('../utils/auth.js');
+    mcpServer = new MCPServer({ logger, authToken: getAuthToken() ?? undefined });
     await mcpServer.start();
 
     startFileWatching((eventType, filePath) => {

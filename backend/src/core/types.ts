@@ -53,6 +53,8 @@ export interface ApiKey {
   id: string;
   name: string;
   key: string;
+  /** 读接口脱敏时标记是否已保存密钥（key 字段为掩码或空） */
+  hasKey?: boolean;
 }
 
 export interface Model {

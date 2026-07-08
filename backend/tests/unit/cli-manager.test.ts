@@ -121,7 +121,7 @@ describe('CliManager', () => {
     });
 
     const catalog = getMcpToolsCatalog();
-    expect(catalog.categories.cli).toEqual(['cli_status', 'cli_install', 'cli_run']);
+    expect(catalog.categories.cli).toEqual(['cli_status', 'cli_install']);
 
     const status = await executeMcpTool('cli_status', {}, undefined, manager);
     expect(status.success).toBe(true);

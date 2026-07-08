@@ -32,7 +32,6 @@ export const MCP_VAULT_TOOLS = [
 export const MCP_CLI_TOOLS = [
   'cli_status',
   'cli_install',
-  'cli_run',
 ];
 
 // 汇总 MCP 工具清单，返回给 Desktop API 与独立 MCP 服务。

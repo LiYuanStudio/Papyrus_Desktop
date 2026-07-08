@@ -2,26 +2,25 @@ import type { FastifyInstance } from 'fastify';
 import { aiConfig } from '../../ai/config-instance.js';
 import { isPrivateUrl } from '../../ai/config.js';
 import { getProviderApiKeyFromDB, getProviderConfigFromDB, loadAIConfigFromDb } from '../../ai/db-sync.js';
-import { loadAllProviders } from '../../db/database.js';
+import { loadAllProvidersForClient } from '../../db/database.js';
 import { fetchWithProxy } from '../../utils/proxy.js';
 import { isKeylessProvider } from './ai-common.js';
 import type { AIConfigPayload } from './ai-common.js';
+import { validateProviderBaseUrl } from '../../utils/provider-security.js';
 
 export default async function aiConfigRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/config/ai', async (request, reply) => {
     const masked = aiConfig.getMaskedConfig();
-    const dbProviders = loadAllProviders();
+    const dbProviders = loadAllProvidersForClient();
     const providersFromDB: Record<string, { api_key: string; base_url: string; models: string[] }> = {};
     for (const p of dbProviders) {
       if (providersFromDB[p.type]) {
         request.log.warn(`Duplicate provider type "${p.type}" found in database; using first occurrence`);
         continue;
       }
-      const firstKey = p.apiKeys.find((k) => k.key.trim() !== '');
+      const firstKey = p.apiKeys.find((k) => k.hasKey || k.key.trim() !== '');
       providersFromDB[p.type] = {
-        api_key: firstKey?.key
-          ? '*'.repeat(firstKey.key.length - 4) + firstKey.key.slice(-4)
-          : '',
+        api_key: firstKey?.key ?? '',
         base_url: p.baseUrl ?? '',
         models: p.models.filter((m) => m.enabled).map((m) => m.modelId),
       };
@@ -100,6 +99,11 @@ export default async function aiConfigRoutes(fastify: FastifyInstance): Promise<
           reply.send({ success: false, error: 'Base URL 未设置' });
           return;
         }
+        const urlError = validateProviderBaseUrl(baseUrl, providerName);
+        if (urlError) {
+          reply.send({ success: false, error: urlError });
+          return;
+        }
         try {
           // 对于 keyless providers，尝试连接 base URL
           // 不同的 provider 可能有不同的健康检查端点，这里我们做一个简单的 GET 请求
@@ -128,6 +132,11 @@ export default async function aiConfigRoutes(fastify: FastifyInstance): Promise<
       const baseUrl = providerConfig.base_url;
       if (!baseUrl) {
         reply.send({ success: false, error: 'Base URL 未设置' });
+        return;
+      }
+      const urlError = validateProviderBaseUrl(baseUrl, providerName);
+      if (urlError) {
+        reply.send({ success: false, error: urlError });
         return;
       }
       if (isPrivateUrl(baseUrl)) {

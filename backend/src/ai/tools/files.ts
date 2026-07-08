@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { listFiles, getFileById } from '../../core/files.js';
+import { listFiles, getFileById, isSafeFileStoragePath } from '../../core/files.js';
 import type { ToolDescriptor } from './types.js';
 import { requireId, isErr } from './types.js';
 
@@ -86,6 +86,9 @@ export const FILE_TOOLS: ToolDescriptor[] = [
       if (file.is_folder) return { success: false, error: '不能读取文件夹的内容' };
       if (!file.file_storage_path || !fs.existsSync(file.file_storage_path)) {
         return { success: false, error: '文件存储路径不存在' };
+      }
+      if (!isSafeFileStoragePath(file.file_storage_path)) {
+        return { success: false, error: '文件路径不在允许的存储目录内' };
       }
       if (!isTextMime(file.mime_type)) {
         return { success: false, error: '仅支持文本文件预览', mime_type: file.mime_type };

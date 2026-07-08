@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { aiConfig } from '../../ai/config-instance.js';
 import { getProviderConfigFromDB, loadAIConfigFromDb } from '../../ai/db-sync.js';
-import { isPrivateUrl } from '../../ai/config.js';
+import { validateProviderBaseUrl } from '../../utils/provider-security.js';
 import { fetchWithProxy } from '../../utils/proxy.js';
 import { isKeylessProvider } from './ai-common.js';
 import type { CompletionPayload } from './ai-common.js';
@@ -134,8 +134,9 @@ export default async function aiCompletionRoutes(fastify: FastifyInstance): Prom
         const firstOllamaModel = providerConfig.models?.[0] ?? '';
         const model = aiConfig.config.current_model || firstOllamaModel;
 
-        if (isPrivateUrl(baseUrl)) {
-          reply.raw.write(`data: {"error":"SSRF: 禁止通过 Ollama provider 访问私有地址"}\n\n`);
+        const urlError = validateProviderBaseUrl(baseUrl, providerName);
+        if (urlError) {
+          reply.raw.write(`data: {"error":"${urlError}"}\n\n`);
           reply.raw.write(`data: {"done":true}\n\n`);
           reply.raw.end();
           return;
@@ -197,8 +198,9 @@ export default async function aiCompletionRoutes(fastify: FastifyInstance): Prom
           return;
         }
         const baseUrl = providerConfig.base_url || 'https://api.openai.com/v1';
-        if (isPrivateUrl(baseUrl)) {
-          reply.raw.write(`data: {"error":"SSRF: 禁止通过非本地 provider 访问私有地址"}\n\n`);
+        const urlError = validateProviderBaseUrl(baseUrl, providerName);
+        if (urlError) {
+          reply.raw.write(`data: {"error":"${urlError}"}\n\n`);
           reply.raw.write(`data: {"done":true}\n\n`);
           reply.raw.end();
           return;

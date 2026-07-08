@@ -37,13 +37,22 @@ describe('Server Auth Hook', () => {
     delete process.env.PAPYRUS_AUTH_TOKEN;
   });
 
-  it('should allow GET without auth token', async () => {
+  it('should allow /api/health without auth token', async () => {
     const response = await (app as { inject: (opts: unknown) => Promise<{ statusCode: number }> }).inject({
       method: 'GET',
       url: '/api/health',
     });
 
     expect(response.statusCode).toBe(200);
+  });
+
+  it('should reject sensitive GET without auth token', async () => {
+    const response = await (app as { inject: (opts: unknown) => Promise<{ statusCode: number }> }).inject({
+      method: 'GET',
+      url: '/api/notes',
+    });
+
+    expect(response.statusCode).toBe(401);
   });
 
   it('should reject mutating request without auth token', async () => {
@@ -54,6 +63,16 @@ describe('Server Auth Hook', () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it('should allow authenticated GET requests', async () => {
+    const response = await (app as { inject: (opts: unknown) => Promise<{ statusCode: number; json: () => Promise<unknown> }> }).inject({
+      method: 'GET',
+      url: '/api/notes',
+      headers: { 'x-papyrus-token': authToken },
+    });
+
+    expect(response.statusCode).toBe(200);
   });
 
   it('should allow mutating request with valid auth token', async () => {

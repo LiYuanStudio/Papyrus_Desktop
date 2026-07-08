@@ -4,11 +4,19 @@ export const BASE = window.location.protocol === 'file:'
   : '/api';
 
 export function getFileUrl(fileId: string, action: 'preview' | 'download'): string {
-  return `${BASE}/files/${fileId}/${action}`;
+  const base = `${BASE}/files/${fileId}/${action}`;
+  if (cachedToken) {
+    return `${base}?access_token=${encodeURIComponent(cachedToken)}`;
+  }
+  return base;
 }
 
 export function getThumbnailUrl(fileId: string): string {
-  return `${BASE}/files/${fileId}/thumbnail`;
+  const base = `${BASE}/files/${fileId}/thumbnail`;
+  if (cachedToken) {
+    return `${base}?access_token=${encodeURIComponent(cachedToken)}`;
+  }
+  return base;
 }
 
 export let cachedToken: string | null | undefined;
@@ -114,6 +122,45 @@ async function parseErrorBody(res: Response): Promise<unknown> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
+    const electronAPI = (window as unknown as {
+      electronAPI?: {
+        apiFetch?: (payload: {
+          path: string;
+          method?: string;
+          body?: unknown;
+          headers?: Record<string, string>;
+        }) => Promise<{ ok: boolean; status: number; statusText: string; body: string }>;
+        getAuthToken?: () => Promise<string | null>;
+      };
+    }).electronAPI;
+
+    if (electronAPI?.apiFetch) {
+      const hasBody = init?.body !== undefined;
+      let parsedBody: unknown;
+      if (hasBody && typeof init.body === 'string') {
+        parsedBody = JSON.parse(init.body);
+      }
+      const proxied = await electronAPI.apiFetch({
+        path,
+        method: init?.method ?? 'GET',
+        body: parsedBody,
+        headers: (init?.headers as Record<string, string> | undefined) ?? {},
+      });
+      if (!proxied.ok) {
+        let body: unknown;
+        try {
+          body = JSON.parse(proxied.body);
+        } catch {
+          body = { error: proxied.body || proxied.statusText };
+        }
+        throw new Error(buildErrorMessage(body, proxied.statusText));
+      }
+      if (!proxied.body.trim()) {
+        return {} as T;
+      }
+      return JSON.parse(proxied.body) as T;
+    }
+
     const token = await getAuthToken();
     const hasBody = init?.body !== undefined;
     const res = await fetch(`${BASE}${path}`, {
@@ -500,7 +547,7 @@ export type ProviderItem = {
   baseUrl: string;
   enabled: boolean;
   isDefault: boolean;
-  apiKeys: { id: string; name: string; key: string }[];
+  apiKeys: { id: string; name: string; key: string; hasKey?: boolean }[];
   models: { id: string; name: string; modelId: string; port: string; capabilities: string[]; apiKeyId?: string; enabled: boolean }[];
 };
 

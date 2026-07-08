@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   loadAllProviders,
+  loadAllProvidersForClient,
   saveProvider,
   deleteProvider,
   setDefaultProvider,
@@ -16,11 +17,13 @@ import { getDb } from '../../db/database.js';
 import type { Provider } from '../../core/types.js';
 import { aiConfig } from '../../ai/config-instance.js';
 import { loadAIConfigFromDb } from '../../ai/db-sync.js';
+import { validateProviderBaseUrl, isMaskedApiKeySubmission } from '../../utils/provider-security.js';
 
 const ApiKeySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1),
   key: z.string(),
+  hasKey: z.boolean().optional(),
 });
 
 const ModelSchema = z.object({
@@ -37,17 +40,25 @@ const ProviderSchema = z.object({
   id: z.string().optional(),
   type: z.string().optional(),
   name: z.string().min(1),
-  baseUrl: z.string().optional(),
+  baseUrl: z.string().max(2048).optional(),
   enabled: z.boolean().optional(),
   isDefault: z.boolean().optional(),
   apiKeys: z.array(ApiKeySchema).optional(),
   models: z.array(ModelSchema).optional(),
-}).passthrough();
+});
+
+function validateProviderPayload(body: Partial<Provider>): string | null {
+  const providerType = body.type ?? 'custom';
+  if (body.baseUrl) {
+    return validateProviderBaseUrl(body.baseUrl, providerType);
+  }
+  return null;
+}
 
 export default async function providersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/', async (request, reply) => {
     try {
-      const providers = loadAllProviders();
+      const providers = loadAllProvidersForClient();
       reply.send({ success: true, providers });
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
@@ -63,12 +74,20 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
       return;
     }
     const body = parseResult.data as Partial<Provider>;
+    const urlError = validateProviderPayload(body);
+    if (urlError) {
+      reply.status(400).send({ success: false, error: urlError });
+      return;
+    }
     try {
       const id = runInTransaction(() => {
         const providerId = saveProvider(body);
 
         if (body.apiKeys) {
           for (const key of body.apiKeys) {
+            if (isMaskedApiKeySubmission(key.key)) {
+              continue;
+            }
             saveApiKey(providerId, key);
           }
         }
@@ -107,6 +126,12 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         return;
       }
 
+      const urlError = validateProviderPayload({ ...body, type: body.type ?? existingProvider.type });
+      if (urlError) {
+        reply.status(400).send({ success: false, error: urlError });
+        return;
+      }
+
       // 合并请求体与数据库中的现有记录，未显式提供的字段保持原值
       const mergedProvider: Partial<Provider> = {
         ...existingProvider,
@@ -119,8 +144,14 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
 
         // 仅当请求显式包含 apiKeys 时才同步密钥列表，避免误删现有密钥
         if (body.apiKeys !== undefined) {
-          const incomingKeyIds = new Set(body.apiKeys.map(k => k.id).filter(Boolean) as string[]);
+          const incomingKeyIds = new Set<string>();
           for (const key of body.apiKeys) {
+            if (key.id) {
+              incomingKeyIds.add(key.id);
+            }
+            if (isMaskedApiKeySubmission(key.key)) {
+              continue;
+            }
             const savedKeyId = saveApiKey(providerId, key);
             incomingKeyIds.add(savedKeyId);
           }

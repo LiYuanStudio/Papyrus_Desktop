@@ -86,7 +86,7 @@ const ProvidersSection = ({ providers, loadProviders, deleteProvider, setDefault
           Message.success(t('chatView.supplierConfigSaved'));
           loadProviders();
           notifyAIConfigChanged();
-          const firstKey = provider.apiKeys.find(k => k.key.trim() !== '');
+          const firstKey = provider.apiKeys.find(k => k.key.trim() !== '' && !/^\*+/.test(k.key.trim()));
           if (firstKey) {
             syncKeyToAIConfig(provider.type, firstKey.key);
           }
@@ -179,7 +179,7 @@ const ProvidersSection = ({ providers, loadProviders, deleteProvider, setDefault
                           <Input.Password 
                             value={apiKey.key}
                             onChange={(v) => updateApiKey(provider.id, apiKey.id, { key: v })}
-                            placeholder={`Enter ${t('chatView.apiKey')}`}
+                            placeholder={apiKey.hasKey && !apiKey.key ? t('chatView.configured') : `Enter ${t('chatView.apiKey')}`}
                             style={{ flex: 1, border: '1px solid var(--color-border-2)', borderRadius: '6px', background: 'var(--color-bg-2)' }}
                           />
                           {index === 0 ? (

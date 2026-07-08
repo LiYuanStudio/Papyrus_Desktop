@@ -1,8 +1,10 @@
 import { app, initApp } from '../../src/api/server.js';
+import { patchAppInjectWithAuth } from '../test-auth.js';
 
 describe('CLI Manager API', () => {
   beforeAll(async () => {
     await initApp();
+    patchAppInjectWithAuth(app);
   });
 
   afterAll(async () => {

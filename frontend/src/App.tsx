@@ -23,7 +23,7 @@ import ExtensionsPage from './ExtensionsPage/ExtensionsPage';
 import FilesPage from './FilesPage/FilesPage';
 import SettingsPage from './SettingsPage/SettingsPage';
 import SectionNavigation from './components/SectionNavigation';
-import { api, type ChatPanelSide, type SearchResult } from './api';
+import { api, getAuthToken, type ChatPanelSide, type SearchResult } from './api';
 import { addRecentItem } from './utils/recentFiles';
 
 const PAGE_ORDER = ['start', 'scroll', 'notes', 'charts', 'files', 'extensions', 'settings'];
@@ -80,6 +80,7 @@ const App = () => {
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    void getAuthToken();
     let cancelled = false;
     api.getSidebarSettings()
       .then((res) => {
