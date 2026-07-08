@@ -5,10 +5,12 @@ import { listFiles, createFolder, saveFile, deleteFileItem, getFileById, isSafeF
 
 const MAX_PREVIEW_SIZE = 10 * 1024 * 1024;
 const THUMBNAIL_SIZE = 128;
+const INLINE_PREVIEW_MIME_TYPES = new Set(['application/pdf']);
 const INLINE_PREVIEW_PREFIXES = ['image/', 'text/'];
 
 function shouldServeInline(mimeType: string | null | undefined): boolean {
   if (!mimeType) return false;
+  if (INLINE_PREVIEW_MIME_TYPES.has(mimeType)) return true;
   return INLINE_PREVIEW_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
 }
 
