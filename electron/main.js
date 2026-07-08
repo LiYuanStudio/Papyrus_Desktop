@@ -22,6 +22,51 @@ const { validateExternalUrl, validateOpenFolderPath } = require('./security-vali
 
 // Generate a per-session auth token for backend API protection
 const PAPYRUS_AUTH_TOKEN = crypto.randomBytes(32).toString('base64url');
+// Effective token used for IPC-proxied API calls; may differ when reusing an already-running backend.
+let effectiveAuthToken = PAPYRUS_AUTH_TOKEN;
+
+// Resolve backend data directory (matches backend/src/utils/paths.ts defaults).
+function getBackendDataDir() {
+  if (process.env.PAPYRUS_DATA_DIR) {
+    return path.resolve(process.env.PAPYRUS_DATA_DIR);
+  }
+  return path.join(os.homedir(), 'PapyrusData');
+}
+
+// Read the token the running backend actually expects (env or persisted .api_token).
+function readPersistedBackendToken(additionalDataDirs = []) {
+  const envToken = process.env.PAPYRUS_AUTH_TOKEN;
+  if (typeof envToken === 'string' && envToken.length >= 32) {
+    return envToken;
+  }
+  const candidateDirs = [getBackendDataDir(), ...additionalDataDirs];
+  for (const dir of candidateDirs) {
+    const tokenFile = path.join(dir, '.api_token');
+    try {
+      if (fs.existsSync(tokenFile)) {
+        const token = fs.readFileSync(tokenFile, 'utf8').trim();
+        if (token.length >= 32) {
+          return token;
+        }
+      }
+    } catch {
+      // ignore token read errors
+    }
+  }
+  return null;
+}
+
+// When dev scripts start the backend before Electron, reuse its token instead of the per-session one.
+function resolveAuthTokenForExistingBackend() {
+  const extraDirs = app.isReady() ? [app.getPath('userData')] : [];
+  const persisted = readPersistedBackendToken(extraDirs);
+  if (persisted) {
+    effectiveAuthToken = persisted;
+    log('Reusing existing backend auth token');
+    return;
+  }
+  log('Backend is running but no persisted auth token was found; API calls may return 401', 'error');
+}
 
 // In-memory log storage for diagnostics
 const startupLogs = [];
@@ -517,7 +562,7 @@ function setupIPC() {
       method,
       headers: {
         ...extraHeaders,
-        'X-Papyrus-Token': PAPYRUS_AUTH_TOKEN,
+        'X-Papyrus-Token': effectiveAuthToken,
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -535,11 +580,11 @@ function setupIPC() {
   ipcMain.handle('api:getMediaUrl', (_event, fileId, action) => {
     const safeId = typeof fileId === 'string' ? fileId : '';
     const safeAction = action === 'download' ? 'download' : action === 'preview' ? 'preview' : 'thumbnail';
-    return `http://${CONFIG.backendHost}:${CONFIG.backendPort}/api/files/${safeId}/${safeAction}?access_token=${encodeURIComponent(PAPYRUS_AUTH_TOKEN)}`;
+    return `http://${CONFIG.backendHost}:${CONFIG.backendPort}/api/files/${safeId}/${safeAction}?access_token=${encodeURIComponent(effectiveAuthToken)}`;
   });
 
   // Legacy token accessor — kept for streaming endpoints until fully proxied.
-  ipcMain.handle('app:getAuthToken', () => PAPYRUS_AUTH_TOKEN);
+  ipcMain.handle('app:getAuthToken', () => effectiveAuthToken);
 
   // Quit the application (sets isQuitting so window.close() actually quits)
   ipcMain.handle('app:quit', () => {
@@ -678,6 +723,7 @@ app.whenReady().then(async () => {
     
     if (isBackendAlreadyRunning) {
       log('Backend is already running (likely started by dev script), skipping backend startup');
+      resolveAuthTokenForExistingBackend();
     } else {
       // Start backend only if not already running
       await startBackend();
