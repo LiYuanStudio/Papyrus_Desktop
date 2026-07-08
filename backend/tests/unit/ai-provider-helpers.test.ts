@@ -105,6 +105,10 @@ describe('AI provider helpers and manager utilities', () => {
     expect(manager.listMessages(session.id).length).toBe(2);
     expect(manager.getMessage(assistantRow.id)?.content).toBe('Answer');
 
+    expect(manager.updateMessage(assistantRow.id, { content: 'Updated answer' })).toBe(true);
+    expect(manager.getMessage(assistantRow.id)?.content).toBe('Updated answer');
+    expect(manager.updateMessage('missing-message', { content: 'x' })).toBe(false);
+
     const prepared = manager.prepareRegenerate(assistantRow.id);
     expect(prepared).not.toBeNull();
     expect(prepared?.sessionId).toBe(session.id);

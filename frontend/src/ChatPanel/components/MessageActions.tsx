@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Tooltip, Modal, Message as ArcoMessage } from '@arco-design/web-react';
 import {
   IconRefresh,
@@ -7,20 +8,24 @@ import {
   IconTranslate,
   IconSave,
 } from '@arco-design/web-react/icon';
+import { useTranslation } from 'react-i18next';
 import type { Message } from '../types';
 import { api } from '../../api';
-import i18n from '../../i18n';
 import { stripMdTitle } from '../utils';
+import { authFetch } from '../utils';
+import { copyToClipboard } from '../utils/clipboard';
+import { TranslateModal } from './TranslateModal';
 
 export interface MessageActionsProps {
   message: Message;
   isGenerating: boolean;
   messages: Message[];
   editingMessageId: string | null;
+  modelId?: string;
   onStartEditing: (messageId: string, content: string) => void;
   onMessagesChange: React.Dispatch<React.SetStateAction<Message[]>>;
-  onSendMessage: () => void;
-  onTextOverride: (text: string) => void;
+  onRegenerateAssistant: (assistantMessageId: string, parentUserMessageId: string) => Promise<void>;
+  onRegenerateUser: (userMessageId: string, content: string, assistantMessageId?: string) => Promise<void>;
 }
 
 export function MessageActions({
@@ -28,92 +33,151 @@ export function MessageActions({
   isGenerating,
   messages,
   editingMessageId,
+  modelId,
   onStartEditing,
   onMessagesChange,
-  onSendMessage,
-  onTextOverride,
+  onRegenerateAssistant,
+  onRegenerateUser,
 }: MessageActionsProps) {
+  const { t } = useTranslation();
+  const [translateVisible, setTranslateVisible] = useState(false);
   const isEditingCurrentMessage = editingMessageId === message.id;
 
   const handleRegenerate = () => {
     Modal.confirm({
-      title: '重新生成',
-      content: '是否重新生成？本操作会覆盖当前回答。',
-      onOk: () => {
+      title: t('chatMessageActions.regenerateTitle'),
+      content: t('chatMessageActions.regenerateConfirm'),
+      onOk: async () => {
         const msgIndex = messages.findIndex((m) => m.id === message.id);
-        if (msgIndex < messages.length - 1 && messages[msgIndex + 1]?.role === 'assistant') {
-          onMessagesChange((prev) => prev.slice(0, msgIndex + 1));
+        if (msgIndex === -1) return;
+
+        if (message.role === 'assistant') {
+          const parentUser = msgIndex > 0 ? messages[msgIndex - 1] : null;
+          if (!parentUser || parentUser.role !== 'user') {
+            ArcoMessage.error(t('chatMessageActions.regenerateFailed'));
+            return;
+          }
+          await onRegenerateAssistant(message.id, parentUser.id);
+          return;
         }
-        onTextOverride(message.content);
-        onSendMessage();
+
+        const followingAssistant = messages[msgIndex + 1]?.role === 'assistant'
+          ? messages[msgIndex + 1]
+          : undefined;
+        await onRegenerateUser(
+          message.id,
+          message.content,
+          followingAssistant?.id,
+        );
       },
     });
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content).then(
-      () => ArcoMessage.success(i18n.t('chatMessageActions.copied')),
-      () => ArcoMessage.error(i18n.t('chatMessageActions.copyFailed')),
+    void copyToClipboard(
+      message.content,
+      () => ArcoMessage.success(t('chatMessageActions.copied')),
+      () => ArcoMessage.error(t('chatMessageActions.copyFailed')),
     );
   };
 
   const handleTranslate = () => {
-    onTextOverride('请翻译以下内容为简体中文（如已是中文则翻译为英文），保留原 markdown 结构：\n\n' + message.content);
-    onSendMessage();
+    setTranslateVisible(true);
   };
 
-  const handleSaveToNote = () => {
+  const handleSaveToNote = async () => {
     const msgIndex = messages.findIndex((m) => m.id === message.id);
     const userMsg = msgIndex > 0 && messages[msgIndex - 1]?.role === 'user' ? messages[msgIndex - 1] : null;
-    const noteContent = userMsg ? `> **用户：** ${userMsg.content}\n\n${message.content}` : message.content;
-    const title = stripMdTitle(message.content).slice(0, 30) || '未命名 AI 回复';
-    api.createNote(title, 'AI 对话', noteContent, ['ai-chat']).then(
-      () => ArcoMessage.success(i18n.t('chatMessageActions.savedToNotes')),
-      () => ArcoMessage.error(i18n.t('chatMessageActions.saveFailed')),
-    );
+    const noteContent = userMsg
+      ? `> **${t('chatMessageActions.userLabel')}：** ${userMsg.content}\n\n${message.content}`
+      : message.content;
+    const title = stripMdTitle(message.content).slice(0, 30) || t('chatMessageActions.untitledReply');
+
+    try {
+      const res = await api.createNote(title, t('chatMessageActions.noteFolder'), noteContent, ['ai-chat']);
+      if (res.success) {
+        ArcoMessage.success(t('chatMessageActions.savedToNotes'));
+      } else {
+        ArcoMessage.error(t('chatMessageActions.saveFailed'));
+      }
+    } catch {
+      ArcoMessage.error(t('chatMessageActions.saveFailed'));
+    }
   };
 
   const handleDelete = () => {
-    onMessagesChange((prev) => prev.filter((m) => m.id !== message.id));
+    Modal.confirm({
+      title: t('chatMessageActions.deleteTitle'),
+      content: t('chatMessageActions.deleteConfirm'),
+      onOk: async () => {
+        const msgIndex = messages.findIndex((m) => m.id === message.id);
+        if (msgIndex === -1) return;
+
+        const idsToDelete = [message.id];
+        if (message.role === 'user' && messages[msgIndex + 1]?.role === 'assistant') {
+          idsToDelete.push(messages[msgIndex + 1].id);
+        }
+
+        await Promise.all(
+          idsToDelete.map(async (id) => {
+            try {
+              await authFetch(`/messages/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            } catch {
+              // ignore: message may not be persisted yet
+            }
+          }),
+        );
+
+        onMessagesChange((prev) => {
+          const index = prev.findIndex((m) => m.id === message.id);
+          if (index === -1) return prev;
+          if (message.role === 'user' && prev[index + 1]?.role === 'assistant') {
+            return prev.filter((_, idx) => idx !== index && idx !== index + 1);
+          }
+          return prev.filter((m) => m.id !== message.id);
+        });
+        ArcoMessage.success(t('chatMessageActions.deleteSuccess'));
+      },
+    });
   };
 
   if (message.role === 'user') {
     return (
       <div className="chat-message-actions">
-        <Tooltip content="重新生成" mini>
+        <Tooltip content={t('chatMessageActions.regenerate')} mini>
           <button
             className="chat-message-action-btn"
-            aria-label="重新生成"
+            aria-label={t('chatMessageActions.regenerate')}
             disabled={isGenerating}
             onClick={handleRegenerate}
           >
             <IconRefresh />
           </button>
         </Tooltip>
-        <Tooltip content="编辑" mini>
+        <Tooltip content={t('chatMessageActions.edit')} mini>
           <button
             className="chat-message-action-btn"
-            aria-label="编辑"
+            aria-label={t('chatMessageActions.edit')}
             disabled={isGenerating}
             onClick={() => onStartEditing(message.id, message.content)}
           >
             <IconEdit />
           </button>
         </Tooltip>
-        <Tooltip content="复制" mini>
+        <Tooltip content={t('chatMessageActions.copy')} mini>
           <button
             className="chat-message-action-btn"
-            aria-label="复制"
+            aria-label={t('chatMessageActions.copy')}
             disabled={isGenerating}
             onClick={handleCopy}
           >
             <IconCopy />
           </button>
         </Tooltip>
-        <Tooltip content="删除" mini>
+        <Tooltip content={t('chatMessageActions.delete')} mini>
           <button
             className="chat-message-action-btn"
-            aria-label="删除"
+            aria-label={t('chatMessageActions.delete')}
             disabled={isGenerating || isEditingCurrentMessage}
             onClick={handleDelete}
           >
@@ -125,67 +189,75 @@ export function MessageActions({
   }
 
   return (
-    <div className="chat-message-actions">
-      <Tooltip content="重新生成" mini>
-        <button
-          className="chat-message-action-btn"
-          aria-label="重新生成"
-          disabled={isGenerating}
-          onClick={handleRegenerate}
-        >
-          <IconRefresh />
-        </button>
-      </Tooltip>
-      <Tooltip content="编辑" mini>
-        <button
-          className="chat-message-action-btn"
-          aria-label="编辑"
-          disabled={isGenerating}
-          onClick={() => onStartEditing(message.id, message.content)}
-        >
-          <IconEdit />
-        </button>
-      </Tooltip>
-      <Tooltip content="复制" mini>
-        <button
-          className="chat-message-action-btn"
-          aria-label="复制"
-          disabled={isGenerating}
-          onClick={handleCopy}
-        >
-          <IconCopy />
-        </button>
-      </Tooltip>
-      <Tooltip content="翻译" mini>
-        <button
-          className="chat-message-action-btn"
-          aria-label="翻译"
-          disabled={isGenerating}
-          onClick={handleTranslate}
-        >
-          <IconTranslate />
-        </button>
-      </Tooltip>
-      <Tooltip content="保存到笔记" mini>
-        <button
-          className="chat-message-action-btn"
-          aria-label="保存到笔记"
-          disabled={isGenerating}
-          onClick={handleSaveToNote}
-        >
-          <IconSave />
-        </button>
-      </Tooltip>
-      <Tooltip content="删除" mini>
-        <button
-          className="chat-message-action-btn"
-          aria-label="删除"
-          disabled={isGenerating || isEditingCurrentMessage}
-          onClick={handleDelete}
-        >
-          <IconDelete />
-        </button>
-      </Tooltip>
-    </div>
+    <>
+      <div className="chat-message-actions">
+        <Tooltip content={t('chatMessageActions.regenerate')} mini>
+          <button
+            className="chat-message-action-btn"
+            aria-label={t('chatMessageActions.regenerate')}
+            disabled={isGenerating}
+            onClick={handleRegenerate}
+          >
+            <IconRefresh />
+          </button>
+        </Tooltip>
+        <Tooltip content={t('chatMessageActions.edit')} mini>
+          <button
+            className="chat-message-action-btn"
+            aria-label={t('chatMessageActions.edit')}
+            disabled={isGenerating}
+            onClick={() => onStartEditing(message.id, message.content)}
+          >
+            <IconEdit />
+          </button>
+        </Tooltip>
+        <Tooltip content={t('chatMessageActions.copy')} mini>
+          <button
+            className="chat-message-action-btn"
+            aria-label={t('chatMessageActions.copy')}
+            disabled={isGenerating}
+            onClick={handleCopy}
+          >
+            <IconCopy />
+          </button>
+        </Tooltip>
+        <Tooltip content={t('chatMessageActions.translate')} mini>
+          <button
+            className="chat-message-action-btn"
+            aria-label={t('chatMessageActions.translate')}
+            disabled={isGenerating}
+            onClick={handleTranslate}
+          >
+            <IconTranslate />
+          </button>
+        </Tooltip>
+        <Tooltip content={t('chatMessageActions.saveToNotes')} mini>
+          <button
+            className="chat-message-action-btn"
+            aria-label={t('chatMessageActions.saveToNotes')}
+            disabled={isGenerating}
+            onClick={() => { void handleSaveToNote(); }}
+          >
+            <IconSave />
+          </button>
+        </Tooltip>
+        <Tooltip content={t('chatMessageActions.delete')} mini>
+          <button
+            className="chat-message-action-btn"
+            aria-label={t('chatMessageActions.delete')}
+            disabled={isGenerating || isEditingCurrentMessage}
+            onClick={handleDelete}
+          >
+            <IconDelete />
+          </button>
+        </Tooltip>
+      </div>
+      <TranslateModal
+        visible={translateVisible}
+        sourceText={message.content}
+        modelId={modelId}
+        onClose={() => setTranslateVisible(false)}
+      />
+    </>
   );
 }

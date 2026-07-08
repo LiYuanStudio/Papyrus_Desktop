@@ -561,10 +561,31 @@
     "updatesFound": "发现 {{count}} 个可更新的扩展"
   },
   "chatMessageActions": {
+    "regenerate": "重新生成",
+    "regenerateTitle": "重新生成",
+    "regenerateConfirm": "是否重新生成？本操作会覆盖当前回答。",
+    "regenerateFailed": "无法重新生成：未找到对应的用户消息",
+    "edit": "编辑",
+    "editSaveFailed": "保存编辑失败",
+    "copy": "复制",
     "copied": "已复制",
     "copyFailed": "复制失败",
+    "translate": "翻译",
+    "translateTitle": "翻译",
+    "translating": "翻译中…",
+    "translateFailed": "翻译失败",
+    "copyTranslation": "复制译文",
+    "saveToNotes": "保存到笔记",
     "savedToNotes": "已保存到笔记",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "delete": "删除",
+    "deleteTitle": "删除消息",
+    "deleteConfirm": "确定要删除这条消息吗？",
+    "deleteSuccess": "消息已删除",
+    "deleteFailed": "删除失败",
+    "userLabel": "用户",
+    "untitledReply": "未命名 AI 回复",
+    "noteFolder": "AI 对话"
   },
   "chatHistory": {
     "yesterday": "昨天",

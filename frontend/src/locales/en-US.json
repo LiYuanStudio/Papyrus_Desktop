@@ -561,10 +561,31 @@
     "updatesFound": "Found {{count}} extension(s) available for update"
   },
   "chatMessageActions": {
+    "regenerate": "Regenerate",
+    "regenerateTitle": "Regenerate",
+    "regenerateConfirm": "Regenerate this response? The current answer will be replaced.",
+    "regenerateFailed": "Cannot regenerate: parent user message not found",
+    "edit": "Edit",
+    "editSaveFailed": "Failed to save edit",
+    "copy": "Copy",
     "copied": "Copied",
     "copyFailed": "Copy failed",
+    "translate": "Translate",
+    "translateTitle": "Translation",
+    "translating": "Translating…",
+    "translateFailed": "Translation failed",
+    "copyTranslation": "Copy translation",
+    "saveToNotes": "Save to notes",
     "savedToNotes": "Saved to notes",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "delete": "Delete",
+    "deleteTitle": "Delete message",
+    "deleteConfirm": "Are you sure you want to delete this message?",
+    "deleteSuccess": "Message deleted",
+    "deleteFailed": "Delete failed",
+    "userLabel": "User",
+    "untitledReply": "Untitled AI reply",
+    "noteFolder": "AI Chats"
   },
   "chatHistory": {
     "yesterday": "Yesterday",

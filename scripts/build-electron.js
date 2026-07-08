@@ -13,6 +13,7 @@
 const { execSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { killPort } = require('./kill-ports.js');
 
 // Colors for console output
 const colors = {
@@ -48,6 +49,12 @@ function success(message) {
   log(`✅ ${message}`, 'green');
 }
 
+// Resolve npm executable for child_process.spawn on Windows.
+// Reason: spawn('npm') can fail with ENOENT on Windows because npm is exposed as npm.cmd.
+// Not using shell: true here keeps argument passing explicit and avoids broad shell parsing.
+function getNpmCommand() {
+  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+}
 // Check if a command exists
 function commandExists(command) {
   try {
@@ -182,54 +189,6 @@ function buildBackend() {
   return true;
 }
 
-// Kill process on port (cross-platform) - 修复版本
-function killPort(port) {
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    log(`Invalid port: ${port}`, 'red');
-    return;
-  }
-  try {
-    if (process.platform === 'win32') {
-      // Windows: find PID using netstat and kill with taskkill
-      const { spawnSync } = require('child_process');
-      const netstatResult = spawnSync('netstat', ['-ano'], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-      const findstrResult = spawnSync('findstr', [`:${port}`], { encoding: 'utf8', input: netstatResult.stdout, stdio: ['pipe', 'pipe', 'ignore'] });
-      const lines = (findstrResult.stdout || '').trim().split('\n');
-      for (const line of lines) {
-        if (!line.includes('LISTENING')) continue;
-        // 修复：更准确的 PID 提取 - 匹配 LISTENING 后的数字
-        const match = line.match(/LISTENING\s+(\d+)/);
-        if (match) {
-          const pid = match[1];
-          try {
-            spawnSync('taskkill', ['/PID', pid, '/F'], { stdio: 'ignore' });
-            log(`Released port ${port} (PID: ${pid})`, 'green');
-          } catch (e) {
-            log(`Failed to kill process ${pid}`, 'yellow');
-          }
-        }
-      }
-    } else {
-      // macOS/Linux: use lsof to find and kill processes
-      const { spawnSync } = require('child_process');
-      try {
-        const lsofResult = spawnSync('lsof', ['-ti', `:${port}`], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-        const pids = (lsofResult.stdout || '').trim().split('\n');
-        for (const pid of pids) {
-          if (pid) {
-            spawnSync('kill', ['-9', pid], { stdio: 'ignore' });
-            log(`Released port ${port} (PID: ${pid})`, 'green');
-          }
-        }
-      } catch (e) {
-        // Port not in use, ignore
-      }
-    }
-  } catch (e) {
-    // Port not in use or error, ignore
-  }
-}
-
 // Development mode
 function devMode() {
   logSection('Starting Development Mode');
@@ -246,8 +205,9 @@ function devMode() {
 
   // Release ports before starting
   log('Checking port usage...');
-  killPort(8000);
-  killPort(5173);
+  const onReleased = (port, pid) => log(`Released port ${port} (PID: ${pid})`, 'green');
+  killPort(8000, { onReleased });
+  killPort(5173, { onReleased });
   
   // Wait a moment for ports to be fully released
   log('Waiting for ports to be released...', 'dim');
@@ -256,19 +216,28 @@ function devMode() {
   
   // Start frontend
   log('Starting frontend...');
-  const frontend = spawn('npm', ['run', 'dev:frontend'], {
+  const npmCommand = getNpmCommand();
+  const frontend = spawn(npmCommand, ['run', 'dev:frontend'], {
     cwd: path.join(process.cwd(), 'frontend'),
-    stdio: 'inherit'
+    stdio: 'inherit',
+    env: process.env
   });
   
   // Start Node.js backend
   log('Starting backend...');
-  const backend = spawn('npm', ['run', 'dev'], {
+  const backend = spawn(npmCommand, ['run', 'dev'], {
     cwd: path.join(process.cwd(), 'backend'),
     stdio: 'inherit',
     env: process.env
   });
   
+  // Handle frontend errors
+  frontend.on('error', (err) => {
+    log(`Frontend failed to start: ${err.message}`, 'red');
+    backend.kill();
+    process.exit(1);
+  });
+
   // Handle backend errors
   backend.on('error', (err) => {
     log(`Backend failed to start: ${err.message}`, 'red');

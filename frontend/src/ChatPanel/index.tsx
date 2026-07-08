@@ -71,6 +71,8 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
     stopGeneration,
     handleToolApprove,
     handleToolReject,
+    regenerateAssistantMessage,
+    regenerateUserMessage,
     textOverrideRef,
   } = useChatActions({
     selectedModel,
@@ -320,6 +322,8 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
           onStartEditing={handleStartEditing}
           onSendMessage={handleSendMessage}
           onTextOverride={handleTextOverride}
+          onRegenerateAssistant={regenerateAssistantMessage}
+          onRegenerateUser={regenerateUserMessage}
           onToolApprove={handleToolApprove}
           onToolReject={handleToolReject}
           messagesEndRef={messagesEndRef}

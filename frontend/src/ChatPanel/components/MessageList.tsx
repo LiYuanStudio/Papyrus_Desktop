@@ -16,6 +16,8 @@ export interface MessageListProps {
   onStartEditing: (messageId: string, content: string) => void;
   onSendMessage: () => void;
   onTextOverride: (text: string) => void;
+  onRegenerateAssistant: (assistantMessageId: string, parentUserMessageId: string) => Promise<void>;
+  onRegenerateUser: (userMessageId: string, content: string, assistantMessageId?: string) => Promise<void>;
   onToolApprove: (messageId: string, toolName: string, callId?: string) => void;
   onToolReject: (messageId: string, toolName: string, callId?: string) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
@@ -34,6 +36,8 @@ export function MessageList({
   onStartEditing,
   onSendMessage,
   onTextOverride,
+  onRegenerateAssistant,
+  onRegenerateUser,
   onToolApprove,
   onToolReject,
   messagesEndRef,
@@ -65,6 +69,8 @@ export function MessageList({
             onStartEditing={onStartEditing}
             onSendMessage={onSendMessage}
             onTextOverride={onTextOverride}
+            onRegenerateAssistant={onRegenerateAssistant}
+            onRegenerateUser={onRegenerateUser}
             onToolApprove={onToolApprove}
             onToolReject={onToolReject}
           />

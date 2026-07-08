@@ -484,6 +484,12 @@ export type GetChatMessagesRes = {
 
 export type DeleteChatMessageRes = {
   success: boolean;
+  error?: string;
+};
+
+export type UpdateChatMessageRes = {
+  success: boolean;
+  error?: string;
 };
 
 // ========== Provider Types ==========
@@ -662,6 +668,11 @@ export const api = {
     request<GetChatMessagesRes>(`/sessions/${sessionId}/messages`),
   deleteChatMessage: (messageId: string) =>
     request<DeleteChatMessageRes>(`/messages/${messageId}`, { method: 'DELETE' }),
+  updateChatMessage: (messageId: string, content: string) =>
+    request<UpdateChatMessageRes>(`/messages/${messageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ content }),
+    }),
 
   // Providers
   listProviders: () => request<ListProvidersRes>('/providers'),

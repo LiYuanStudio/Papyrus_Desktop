@@ -7,6 +7,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
+    "predev": "node scripts/kill-ports.js",
     "dev": "concurrently -k -n BACKEND,FRONTEND -c cyan,magenta \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:electron": "node scripts/build-electron.js dev",

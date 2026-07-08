@@ -320,4 +320,66 @@ export default async function aiChatRoutes(fastify: FastifyInstance): Promise<vo
     );
     await processChatStream(stream, reply);
   });
+
+  fastify.post('/translate', async (request, reply) => {
+    loadAIConfigFromDb(aiConfig);
+
+    const payload = request.body as {
+      text?: string;
+      model?: string;
+    };
+
+    if (!payload.text || typeof payload.text !== 'string' || !payload.text.trim()) {
+      reply.status(400).send({ success: false, error: 'text 字段必须为非空字符串' });
+      return;
+    }
+
+    const providerName = aiConfig.config.current_provider;
+    const providerConfig = getProviderConfigFromDB(providerName);
+    if (!providerConfig) {
+      reply.status(400).send({ success: false, error: 'Provider 未配置' });
+      return;
+    }
+
+    if (!providerConfig.api_key) {
+      const dbKey = getProviderApiKeyFromDB(providerName);
+      if (dbKey) providerConfig.api_key = dbKey;
+    }
+
+    if (!providerConfig.api_key && !isKeylessProvider(providerName)) {
+      reply.status(400).send({ success: false, error: 'AI API Key 未设置' });
+      return;
+    }
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    try {
+      for await (const chunk of aiManager.translateStream(payload.text, payload.model)) {
+        if (chunk.type === 'content') {
+          const text = typeof chunk.data === 'string' ? chunk.data : '';
+          reply.raw.write(`data: ${JSON.stringify({ type: 'text', data: text })}\n\n`);
+        } else if (chunk.type === 'reasoning') {
+          const text = typeof chunk.data === 'string' ? chunk.data : '';
+          reply.raw.write(`data: ${JSON.stringify({ type: 'reasoning', data: text })}\n\n`);
+        } else if (chunk.type === 'error') {
+          const text = typeof chunk.data === 'string' ? chunk.data : '翻译失败';
+          reply.raw.write(`data: ${JSON.stringify({ type: 'error', data: text })}\n\n`);
+        }
+      }
+      reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    } catch (e) {
+      reply.raw.write(`data: ${JSON.stringify({
+        type: 'error',
+        data: e instanceof Error ? e.message : String(e),
+      })}\n\n`);
+    } finally {
+      reply.raw.end();
+    }
+  });
 }

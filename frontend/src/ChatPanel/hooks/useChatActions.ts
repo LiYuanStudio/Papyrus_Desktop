@@ -4,6 +4,7 @@ import i18n from '../../i18n';
 import type { Message, MessageBlock, MessageBlockToolStatus, SSEEvent, SelectedFile } from '../types';
 import type { ModelOption } from '../../utils/modelSelector';
 import { authFetch } from '../utils';
+import { api } from '../../api';
 
 export interface UseChatActionsProps {
   selectedModel: ModelOption | undefined;
@@ -24,6 +25,8 @@ export interface UseChatActionsReturn {
   abortControllerRef: React.MutableRefObject<AbortController | null>;
   sendMessage: () => Promise<void>;
   stopGeneration: () => void;
+  regenerateAssistantMessage: (assistantMessageId: string, parentUserMessageId: string) => Promise<void>;
+  regenerateUserMessage: (userMessageId: string, content: string, assistantMessageId?: string) => Promise<void>;
   handleToolApprove: (messageId: string, toolName: string, callId?: string) => void;
   handleToolReject: (messageId: string, toolName: string, callId?: string) => void;
   textOverrideRef: React.MutableRefObject<string | null>;
@@ -453,6 +456,107 @@ export function useChatActions({
     }
   }, [text, selectedModel, mode, reasoning, selectedFiles, currentSessionId, handleSSEStream, setMessages, setText, setIsGenerating]);
 
+  const regenerateAssistantMessage = useCallback(async (
+    assistantMessageId: string,
+    parentUserMessageId: string,
+  ) => {
+    if (!selectedModel) {
+      ArcoMessage.error(i18n.t('chatActions.selectModelFirst'));
+      return;
+    }
+
+    const placeholderId = crypto.randomUUID();
+    const placeholder: Message = {
+      id: placeholderId,
+      role: 'assistant',
+      content: '',
+      blocks: [],
+      model: selectedModel.modelId,
+    };
+
+    setMessages((prev) => {
+      const msgIndex = prev.findIndex((m) => m.id === assistantMessageId);
+      if (msgIndex === -1) return prev;
+      return [...prev.slice(0, msgIndex), placeholder];
+    });
+
+    setIsGenerating(true);
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const response = await authFetch(
+        `/messages/${encodeURIComponent(assistantMessageId)}/regenerate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: selectedModel.modelId,
+            mode,
+            reasoning,
+          }),
+          signal: abortControllerRef.current.signal,
+        },
+      );
+
+      if (!response.ok) {
+        let errMsg = `HTTP error! status: ${response.status}`;
+        try {
+          const errBody = await response.json();
+          if (errBody.error) errMsg = errBody.error;
+        } catch { /* ignore parse errors */ }
+        throw new Error(errMsg);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('text/event-stream')) {
+        await handleSSEStream(response, placeholderId, parentUserMessageId);
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.log('Regenerate aborted');
+      } else {
+        console.error('Failed to regenerate message:', error);
+        const errorMessage = error instanceof Error ? error.message : '重新生成失败，请重试';
+        ArcoMessage.error(errorMessage);
+        setMessages((prev) => {
+          const msgIndex = prev.findIndex((m) => m.id === placeholderId);
+          if (msgIndex === -1) return prev;
+          return prev.map((msg, idx) =>
+            idx === msgIndex ? { ...msg, content: '❌ ' + errorMessage } : msg,
+          );
+        });
+      }
+    } finally {
+      setIsGenerating(false);
+      abortControllerRef.current = null;
+    }
+  }, [selectedModel, mode, reasoning, handleSSEStream, setMessages, setIsGenerating]);
+
+  const regenerateUserMessage = useCallback(async (
+    userMessageId: string,
+    content: string,
+    assistantMessageId?: string,
+  ) => {
+    const idsToDelete = [userMessageId];
+    if (assistantMessageId) {
+      idsToDelete.push(assistantMessageId);
+    }
+    await Promise.all(
+      idsToDelete.map((id) =>
+        api.deleteChatMessage(id).catch(() => undefined),
+      ),
+    );
+
+    setMessages((prev) => {
+      const msgIndex = prev.findIndex((m) => m.id === userMessageId);
+      if (msgIndex === -1) return prev;
+      return prev.slice(0, msgIndex);
+    });
+
+    textOverrideRef.current = content;
+    await sendMessage();
+  }, [sendMessage, setMessages]);
+
   const stopGeneration = useCallback(() => {
     abortControllerRef.current?.abort();
     setIsGenerating(false);
@@ -626,6 +730,8 @@ export function useChatActions({
     abortControllerRef,
     sendMessage,
     stopGeneration,
+    regenerateAssistantMessage,
+    regenerateUserMessage,
     handleToolApprove,
     handleToolReject,
     textOverrideRef,

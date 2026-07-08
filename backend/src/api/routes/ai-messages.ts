@@ -13,6 +13,23 @@ export default async function aiMessagesRoutes(fastify: FastifyInstance): Promis
     reply.send({ success: true });
   });
 
+  fastify.patch('/messages/:messageId', async (request, reply) => {
+    const { messageId } = request.params as { messageId: string };
+    const payload = request.body as { content?: string };
+
+    if (!payload.content || typeof payload.content !== 'string') {
+      reply.status(400).send({ success: false, error: 'content 必须为非空字符串' });
+      return;
+    }
+
+    const ok = aiManager.updateMessage(messageId, { content: payload.content });
+    if (!ok) {
+      reply.status(404).send({ success: false, error: '消息不存在' });
+      return;
+    }
+    reply.send({ success: true });
+  });
+
   fastify.post('/messages', async (request, reply) => {
     const payload = request.body as {
       sessionId: string;

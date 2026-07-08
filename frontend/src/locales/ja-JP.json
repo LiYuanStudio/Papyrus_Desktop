@@ -561,10 +561,31 @@
     "updatesFound": "{{count}} 個の拡張機能が更新可能です"
   },
   "chatMessageActions": {
+    "regenerate": "再生成",
+    "regenerateTitle": "再生成",
+    "regenerateConfirm": "再生成しますか？現在の回答は上書きされます。",
+    "regenerateFailed": "再生成できません：対応するユーザーメッセージが見つかりません",
+    "edit": "編集",
+    "editSaveFailed": "編集の保存に失敗しました",
+    "copy": "コピー",
     "copied": "コピーしました",
     "copyFailed": "コピーに失敗しました",
+    "translate": "翻訳",
+    "translateTitle": "翻訳",
+    "translating": "翻訳中…",
+    "translateFailed": "翻訳に失敗しました",
+    "copyTranslation": "訳文をコピー",
+    "saveToNotes": "ノートに保存",
     "savedToNotes": "ノートに保存しました",
-    "saveFailed": "保存に失敗しました"
+    "saveFailed": "保存に失敗しました",
+    "delete": "削除",
+    "deleteTitle": "メッセージを削除",
+    "deleteConfirm": "このメッセージを削除しますか？",
+    "deleteSuccess": "メッセージを削除しました",
+    "deleteFailed": "削除に失敗しました",
+    "userLabel": "ユーザー",
+    "untitledReply": "無題の AI 返信",
+    "noteFolder": "AI チャット"
   },
   "chatHistory": {
     "yesterday": "昨日",

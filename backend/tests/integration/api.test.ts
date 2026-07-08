@@ -2406,6 +2406,93 @@ describe('API Integration Tests', () => {
       }
     });
 
+    it('PATCH /api/messages/:messageId should update content or return 404', async () => {
+      const { aiManager } = await import('../../src/api/routes/ai.js');
+      const session = aiManager.createSession('Patch Session', true);
+      const userRow = aiManager.persistUserMessage
+        ? await aiManager.persistUserMessage(session.id, 'hello', [])
+        : null;
+
+      const assistantId = await aiManager.persistAssistantMessage({
+        sessionId: session.id,
+        content: 'original',
+        blocks: [{ type: 'text', text: 'original' }],
+        model: 'test-model',
+        provider: 'ollama',
+        parentMessageId: userRow,
+      });
+
+      const missingResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/messages/missing-patch-message',
+        payload: { content: 'updated' },
+      });
+      expect(missingResponse.statusCode).toBe(404);
+
+      const invalidResponse = await app.inject({
+        method: 'PATCH',
+        url: `/api/messages/${assistantId}`,
+        payload: {},
+      });
+      expect(invalidResponse.statusCode).toBe(400);
+
+      const okResponse = await app.inject({
+        method: 'PATCH',
+        url: `/api/messages/${assistantId}`,
+        payload: { content: 'patched content' },
+      });
+      expect(okResponse.statusCode).toBe(200);
+      const okBody = JSON.parse(okResponse.body) as { success: boolean };
+      expect(okBody.success).toBe(true);
+      expect(aiManager.getMessage(assistantId)?.content).toBe('patched content');
+    });
+
+    it('POST /api/translate should stream translation without persisting chat history', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/api/providers',
+        payload: {
+          id: 'provider-ollama-translate',
+          type: 'ollama',
+          name: 'Ollama Translate',
+          baseUrl: 'https://ollama.example.com',
+          enabled: true,
+          isDefault: true,
+          models: [{ id: 'model-ollama-translate', name: 'llama3', modelId: 'llama3', enabled: true }],
+        },
+      });
+
+      const { aiConfig, aiManager } = await import('../../src/api/routes/ai.js');
+      aiConfig.config.current_provider = 'ollama';
+      aiConfig.config.current_model = 'llama3';
+      const originalTranslateStream = aiManager.translateStream.bind(aiManager);
+
+      const missingProviderResponse = await app.inject({
+        method: 'POST',
+        url: '/api/translate',
+        payload: { text: '' },
+      });
+      expect(missingProviderResponse.statusCode).toBe(400);
+
+      aiManager.translateStream = async function* () {
+        yield { type: 'content', data: 'Translated text' };
+      };
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/translate',
+          payload: { text: '你好' },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toContain('Translated text');
+        expect(response.body).toContain('"type":"done"');
+      } finally {
+        aiManager.translateStream = originalTranslateStream;
+      }
+    });
+
     it('completion endpoints should cover config validation and streaming branches', async () => {
       const { aiConfig } = await import('../../src/api/routes/ai.js');
 

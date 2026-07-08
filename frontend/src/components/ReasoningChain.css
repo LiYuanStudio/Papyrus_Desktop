@@ -199,3 +199,24 @@ body[arco-theme='dark'] .reasoning-code-pre {
     border-width: 2px;
   }
 }
+
+/* 窄聊天面板内紧凑折叠头 */
+@container chat-panel (max-width: 360px) {
+  .reasoning-collapse > .arco-collapse-item > .arco-collapse-item-header {
+    padding: 8px 10px;
+  }
+
+  .reasoning-tag {
+    display: none;
+  }
+
+  .reasoning-title {
+    font-size: 13px;
+  }
+
+  .reasoning-preview {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    padding-left: 0;
+  }
+}

@@ -1,10 +1,12 @@
-import { Avatar, Button } from '@arco-design/web-react';
+import { Avatar, Button, Message as ArcoMessage } from '@arco-design/web-react';
+import { useTranslation } from 'react-i18next';
 import type { Message, MessageBlock, UserProfile } from '../types';
 import { MarkdownView } from '../../components/MarkdownView';
 import { ReasoningChain } from '../../components/ReasoningChain';
 import { ToolCallCard } from '../../components/ToolCallCard';
 import { MessageActions } from './MessageActions';
 import { ModelLogo } from '../../icons/ModelLogo';
+import { api } from '../../api';
 
 export interface MessageBubbleProps {
   message: Message;
@@ -21,6 +23,8 @@ export interface MessageBubbleProps {
   onStartEditing: (messageId: string, content: string) => void;
   onSendMessage: () => void;
   onTextOverride: (text: string) => void;
+  onRegenerateAssistant: (assistantMessageId: string, parentUserMessageId: string) => Promise<void>;
+  onRegenerateUser: (userMessageId: string, content: string, assistantMessageId?: string) => Promise<void>;
   onToolApprove: (messageId: string, toolName: string, callId?: string) => void;
   onToolReject: (messageId: string, toolName: string, callId?: string) => void;
 }
@@ -40,9 +44,31 @@ export function MessageBubble({
   onStartEditing,
   onSendMessage,
   onTextOverride,
+  onRegenerateAssistant,
+  onRegenerateUser,
   onToolApprove,
   onToolReject,
 }: MessageBubbleProps) {
+  const { t } = useTranslation();
+
+  const handleSaveAssistantEdit = async () => {
+    try {
+      const res = await api.updateChatMessage(message.id, editingDraft);
+      if (!res.success) {
+        ArcoMessage.error(t('chatMessageActions.editSaveFailed'));
+        return;
+      }
+      onMessagesChange((prev) =>
+        prev.map((m) =>
+          m.id === message.id ? { ...m, content: editingDraft } : m,
+        ),
+      );
+      onEditingMessageIdChange(null);
+    } catch {
+      ArcoMessage.error(t('chatMessageActions.editSaveFailed'));
+    }
+  };
+
   const renderMessageBlock = (block: MessageBlock, blockKey: string) => {
     switch (block.type) {
       case 'reasoning':
@@ -125,7 +151,7 @@ export function MessageBubble({
           </div>
         ) : (
           <div className="chat-message-bubble">
-            <MarkdownView source={message.content} compact />
+            <MarkdownView source={message.content} compact inline />
           </div>
         )}
         <MessageActions
@@ -135,21 +161,22 @@ export function MessageBubble({
           editingMessageId={editingMessageId}
           onStartEditing={onStartEditing}
           onMessagesChange={onMessagesChange}
-          onSendMessage={onSendMessage}
-          onTextOverride={onTextOverride}
+          onRegenerateAssistant={onRegenerateAssistant}
+          onRegenerateUser={onRegenerateUser}
         />
       </div>
     );
   }
 
-  const displayModelName =
-    selectedModelName ??
-    (message.model?.includes(':')
-      ? message.model.split(':').slice(1).join(':')
-      : message.model) ??
-    (modelId?.includes(':')
-      ? modelId.split(':').slice(1).join(':')
-      : modelId);
+  const messageModelName = message.model?.includes(':')
+    ? message.model.split(':').slice(1).join(':')
+    : message.model;
+  const selectedModelDisplayName = modelId?.includes(':')
+    ? modelId.split(':').slice(1).join(':')
+    : modelId;
+  const displayModelName = messageModelName || selectedModelName || selectedModelDisplayName;
+  const logoModel = message.model || selectedModelName || '';
+  const logoModelId = message.model || modelId;
 
   return (
     <div className="chat-message-with-avatar tw-items-start">
@@ -176,45 +203,43 @@ export function MessageBubble({
             <Button
               size="mini"
               type="primary"
-              onClick={() => {
-                onMessagesChange((prev) =>
-                  prev.map((m) =>
-                    m.id === message.id ? { ...m, content: editingDraft } : m,
-                  ),
-                );
-                onEditingMessageIdChange(null);
-              }}
+              onClick={() => { void handleSaveAssistantEdit(); }}
             >
-              保存
+              {t('common.save')}
             </Button>
           </div>
         </div>
       ) : (
         message.content && (
-          <div className="chat-message-bubble">
-           <MarkdownView source={message.content} compact />
-         </div>
+          <div className="chat-assistant-bubble-frame">
+            <div className="chat-message-bubble">
+              <MarkdownView source={message.content} compact />
+            </div>
+          </div>
         ))}
-      <MessageActions
-        message={message}
-        isGenerating={isGenerating}
-        messages={messages}
-        editingMessageId={editingMessageId}
-        onStartEditing={onStartEditing}
-        onMessagesChange={onMessagesChange}
-        onSendMessage={onSendMessage}
-        onTextOverride={onTextOverride}
-      />
-      {message.content && (
-        <div className="chat-message-bubble-logo">
-          <ModelLogo
-            model={message.model || selectedModelName || ''}
-            modelId={modelId}
-            size={16}
-            style={{ backgroundColor: 'transparent', borderRadius: 0 }}
-          />
-        </div>
-      )}
+      <div className="chat-assistant-message-footer">
+        {message.content && (
+          <div className="chat-message-bubble-logo" aria-hidden="true">
+            <ModelLogo
+              model={logoModel}
+              modelId={logoModelId}
+              size={18}
+              style={{ backgroundColor: 'transparent', borderRadius: 0 }}
+            />
+          </div>
+        )}
+        <MessageActions
+          message={message}
+          isGenerating={isGenerating}
+          messages={messages}
+          editingMessageId={editingMessageId}
+          modelId={logoModelId}
+          onStartEditing={onStartEditing}
+          onMessagesChange={onMessagesChange}
+          onRegenerateAssistant={onRegenerateAssistant}
+          onRegenerateUser={onRegenerateUser}
+        />
+      </div>
     </div>
   );
 }

@@ -70,6 +70,16 @@ body[arco-theme='dark'] .tool-call-failed {
   min-width: 0;
 }
 
+@container chat-panel (max-width: 360px) {
+  .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header {
+    padding: 6px 8px;
+  }
+
+  .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-content-box {
+    padding: 0 8px 10px;
+  }
+}
+
 .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header:hover {
   background: rgba(0, 0, 0, 0.03);
 }

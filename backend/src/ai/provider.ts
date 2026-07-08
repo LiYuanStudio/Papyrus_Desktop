@@ -26,6 +26,7 @@ import {
   getChatMessage as repoGetChatMessage,
   softDeleteChatMessage as repoSoftDeleteChatMessage,
   deleteMessagesAfter as repoDeleteMessagesAfter,
+  updateChatMessage as repoUpdateChatMessage,
 } from '../db/database.js';
 import type { ChatSessionRow, ChatMessageRow } from '../db/database.js';
 import type { ChatBlock, ChatSession, ChatMessage, ChatAttachment, ChatTokenUsage } from '../core/types.js';
@@ -386,6 +387,15 @@ export class AIManager {
 
   deleteMessage(messageId: string): boolean {
     return repoSoftDeleteChatMessage(messageId);
+  }
+
+  updateMessage(messageId: string, patch: { content: string }): boolean {
+    const row = repoGetChatMessage(messageId);
+    if (!row) {
+      return false;
+    }
+    const blocks = JSON.stringify([{ type: 'text', text: patch.content }] as ChatBlock[]);
+    return repoUpdateChatMessage(messageId, { content: patch.content, blocks });
   }
 
   prepareRegenerate(messageId: string): {
@@ -944,6 +954,43 @@ export class AIManager {
           provider: providerName,
         },
       };
+    } catch (e) {
+      yield { type: 'error', data: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  async *translateStream(text: string, overrideModel?: string): AsyncGenerator<StreamChunk> {
+    const providerName = this.config.config.current_provider;
+    const providerConfig = getProviderConfigFromDB(providerName);
+    if (!providerConfig) {
+      yield { type: 'error', data: `未知 provider: ${providerName}` };
+      return;
+    }
+
+    const systemPrompt = `You are a professional translator. Translate the user's text while preserving markdown structure.
+If the text is primarily Chinese, translate to English. If primarily English or other languages, translate to Simplified Chinese.
+Output only the translation, no explanations.`;
+
+    const messages: ProviderMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: text },
+    ];
+    const params = this.config.config.parameters;
+    const model = overrideModel || this.config.config.current_model;
+
+    try {
+      const stream = providerName === 'ollama'
+        ? this.chatStreamOllama(messages, model, params, providerConfig)
+        : this.chatStreamOpenAI(messages, model, params, providerConfig, providerName, undefined, false);
+
+      for await (const chunk of stream) {
+        if (chunk.type === 'content' || chunk.type === 'reasoning' || chunk.type === 'error') {
+          yield chunk;
+        }
+        if (chunk.type === 'error') {
+          return;
+        }
+      }
     } catch (e) {
       yield { type: 'error', data: e instanceof Error ? e.message : String(e) };
     }
