@@ -4,6 +4,7 @@ import os from 'node:os';
 import { describe, expect, it, beforeEach, afterEach } from '@jest/globals';
 import { FILE_TOOLS } from '../../src/ai/tools/files.js';
 import { saveFile, createFolder } from '../../src/core/files.js';
+import { insertFile } from '../../src/db/database.js';
 import type { ToolRunContext } from '../../src/ai/tools/types.js';
 
 describe('ai-tools-files', () => {
@@ -80,6 +81,34 @@ describe('ai-tools-files', () => {
       const result = getTool('read_file').runner({ file_id: file.id }, ctx);
       expect(result.success).toBe(true);
       expect(result.content).toBe('hello world');
+    });
+
+    it('rejects file records pointing outside vault storage', () => {
+      const outsidePath = path.join(os.tmpdir(), `papyrus-outside-read-${Date.now()}.txt`);
+      fs.writeFileSync(outsidePath, 'outside vault', 'utf8');
+      const now = Date.now() / 1000;
+      insertFile({
+        id: 'outside-file-record',
+        name: 'outside.txt',
+        type: 'file',
+        size: 13,
+        mime_type: 'text/plain',
+        parent_id: null,
+        file_storage_path: outsidePath,
+        is_folder: 0,
+        created_at: now,
+        updated_at: now,
+      });
+
+      const result = getTool('read_file').runner({ file_id: 'outside-file-record' }, ctx);
+      expect(result.success).toBe(false);
+      expect(String(result.error)).toMatch(/存储目录|vault|允许/);
+
+      try {
+        fs.rmSync(outsidePath, { force: true });
+      } catch {
+        // ignore cleanup errors
+      }
     });
   });
 });

@@ -122,6 +122,11 @@ describe('CliManager', () => {
 
     const catalog = getMcpToolsCatalog();
     expect(catalog.categories.cli).toEqual(['cli_status', 'cli_install']);
+    expect(catalog.tools).not.toContain('cli_run');
+
+    const blocked = await executeMcpTool('cli_run', { args: ['status'] }, undefined, manager);
+    expect(blocked.success).toBe(false);
+    expect(String(blocked.error)).toContain('未知工具');
 
     const status = await executeMcpTool('cli_status', {}, undefined, manager);
     expect(status.success).toBe(true);

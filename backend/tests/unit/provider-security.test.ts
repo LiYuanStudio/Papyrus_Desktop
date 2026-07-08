@@ -31,5 +31,16 @@ describe('provider-security', () => {
       key: '***************mnop',
       hasKey: true,
     });
+    expect(maskApiKeyForDisplay(true)).toEqual({ key: '********', hasKey: true });
+  });
+
+  it('rejects invalid URL schemes for providers', () => {
+    expect(validateProviderBaseUrl('file:///etc/passwd', 'openai')).toMatch(/http|https/);
+    expect(validateProviderBaseUrl('not-a-url', 'openai')).toMatch(/无效/);
+  });
+
+  it('allows empty baseUrl', () => {
+    expect(validateProviderBaseUrl('', 'openai')).toBeNull();
+    expect(validateProviderBaseUrl('   ', 'openai')).toBeNull();
   });
 });
