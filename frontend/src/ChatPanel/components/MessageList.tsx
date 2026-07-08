@@ -1,11 +1,10 @@
 import { Empty } from '@arco-design/web-react';
-import type { Message, UserProfile } from '../types';
+import type { Message } from '../types';
 import type { ModelOption } from '../../utils/modelSelector';
 import { MessageBubble } from './MessageBubble';
 
 export interface MessageListProps {
   messages: Message[];
-  userProfile: UserProfile;
   selectedModel?: ModelOption;
   isGenerating: boolean;
   editingMessageId: string | null;
@@ -25,7 +24,6 @@ export interface MessageListProps {
 
 export function MessageList({
   messages,
-  userProfile,
   selectedModel,
   isGenerating,
   editingMessageId,
@@ -57,7 +55,6 @@ export function MessageList({
           <MessageBubble
             message={msg}
             messages={messages}
-            userProfile={userProfile}
             selectedModelName={selectedModel?.name}
             modelId={selectedModel?.modelId}
             isGenerating={isGenerating}

@@ -31,6 +31,28 @@ export interface ChatToolbarProps {
   text: string;
 }
 
+type ReasoningLevel = false | 'low' | 'medium' | 'high' | 'very_high';
+
+const REASONING_LEVEL_LABEL_KEYS: Record<'off' | 'low' | 'medium' | 'high' | 'very_high', string> = {
+  off: 'chat.reasoningNone',
+  low: 'chat.reasoningLow',
+  medium: 'chat.reasoningMedium',
+  high: 'chat.reasoningHigh',
+  very_high: 'chat.reasoningExtraHigh',
+};
+
+const REASONING_OPTIONS: { key: ReasoningLevel; labelKey: string }[] = [
+  { key: false, labelKey: REASONING_LEVEL_LABEL_KEYS.off },
+  { key: 'low', labelKey: REASONING_LEVEL_LABEL_KEYS.low },
+  { key: 'medium', labelKey: REASONING_LEVEL_LABEL_KEYS.medium },
+  { key: 'high', labelKey: REASONING_LEVEL_LABEL_KEYS.high },
+  { key: 'very_high', labelKey: REASONING_LEVEL_LABEL_KEYS.very_high },
+];
+
+function getReasoningLabelKey(level: ReasoningLevel): string {
+  return level === false ? REASONING_LEVEL_LABEL_KEYS.off : REASONING_LEVEL_LABEL_KEYS[level];
+}
+
 const MODES = [
   { key: 'agent', icon: <IconAgentMode />, label: 'Agent 模式' },
   { key: 'chat', icon: <IconMessage />, label: 'Chat 模式' },
@@ -55,6 +77,9 @@ export function ChatToolbar({
   text,
 }: ChatToolbarProps) {
   const { t } = useTranslation();
+  const reasoningTooltip = reasoning
+    ? t('chat.reasoningWithLevel', { level: t(getReasoningLabelKey(reasoning)) })
+    : t('chat.reasoning');
   const currentMode = MODES.find((m) => m.key === mode) ?? DEFAULT_MODE;
   const canSend = !isGenerating && text.trim().length > 0;
   const mentionItems = [
@@ -92,11 +117,6 @@ export function ChatToolbar({
                   <span className="chat-mode-menu-item">
                     {m.icon}
                     <span>{m.label}</span>
-                    {m.key === 'agent' && !agentModeEnabled && (
-                      <span className="chat-mode-menu-item-disabled">
-                        (已禁用)
-                      </span>
-                    )}
                   </span>
                 </Menu.Item>
               ))}
@@ -164,20 +184,14 @@ export function ChatToolbar({
         <Dropdown
           trigger="click"
           droplist={
-            <Menu className="chat-reasoning-menu">
-              {[
-                { key: false, label: t('chat.reasoningOff') },
-                { key: 'low', label: t('chat.reasoningLow') },
-                { key: 'medium', label: t('chat.reasoningMedium') },
-                { key: 'high', label: t('chat.reasoningHigh') },
-                { key: 'very_high', label: t('chat.reasoningVeryHigh') },
-              ].map((item) => (
+            <Menu className="chat-reasoning-menu" aria-label={t('chat.reasoning')}>
+              {REASONING_OPTIONS.map((item) => (
                 <Menu.Item
                   key={String(item.key)}
                   className={reasoning === item.key ? 'chat-reasoning-item-active' : ''}
-                  onClick={() => onReasoningChange(item.key as false | 'low' | 'medium' | 'high' | 'very_high')}
+                  onClick={() => onReasoningChange(item.key)}
                 >
-                  <span className="chat-reasoning-item-label">{item.label}</span>
+                  <span className="chat-reasoning-item-label">{t(item.labelKey)}</span>
                   {reasoning === item.key && <IconCheck className="chat-reasoning-item-check" />}
                 </Menu.Item>
               ))}
@@ -186,8 +200,8 @@ export function ChatToolbar({
         >
           <button
             className={`chat-toolbar-btn${reasoning ? ' chat-toolbar-btn-active' : ''}`}
-            title={reasoning ? `${t('chat.reasoning')}：${t('chat.reasoning' + (reasoning === 'very_high' ? 'VeryHigh' : reasoning.charAt(0).toUpperCase() + reasoning.slice(1)))}` : t('chat.reasoning')}
-            aria-label={reasoning ? `${t('chat.reasoning')}：${t('chat.reasoning' + (reasoning === 'very_high' ? 'VeryHigh' : reasoning.charAt(0).toUpperCase() + reasoning.slice(1)))}` : t('chat.reasoning')}
+            title={reasoningTooltip}
+            aria-label={reasoningTooltip}
             aria-pressed={reasoning ? 'true' : 'false'}
           >
             <IconBulb aria-hidden="true" />

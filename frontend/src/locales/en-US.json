@@ -613,8 +613,21 @@
     "disconnected": "Real-time sync disconnected",
     "connectionFailed": "Real-time sync connection failed"
   },
+  "chat": {
+    "reasoning": "Reasoning",
+    "reasoningNone": "none",
+    "reasoningLow": "low",
+    "reasoningMedium": "medium",
+    "reasoningHigh": "high",
+    "reasoningExtraHigh": "extrahigh",
+    "reasoningWithLevel": "Reasoning: {{level}}"
+  },
   "chatPanel": {
     "enableAgentMode": "Please enable Agent mode in settings"
+  },
+  "reasoningChain": {
+    "completed": "Thinking completed",
+    "process": "Thinking process"
   },
   "toolCallCard": {
     "pending": "Pending approval",

@@ -3,10 +3,9 @@ import { Message as ArcoMessage } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
 import { ChatHistory } from '../components/ChatHistory';
 import { useModelSelector } from '../hooks/useModelSelector';
-import type { ChatPanelProps, Message, UserProfile } from './types';
+import type { ChatPanelProps, Message } from './types';
 import {
   loadAgentModeEnabled,
-  loadUserProfile,
   loadStoredSessionId,
   persistSessionId,
   hydrateMessagesForSession,
@@ -28,7 +27,6 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
   const [mode, setMode] = useState('agent');
   const [reasoning, setReasoning] = useState<false | 'low' | 'medium' | 'high' | 'very_high'>(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile>(loadUserProfile());
   const [agentModeEnabled, setAgentModeEnabled] = useState<boolean>(loadAgentModeEnabled());
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -91,20 +89,6 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
   useEffect(() => {
     persistSessionId(currentSessionId);
   }, [currentSessionId]);
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setUserProfile(loadUserProfile());
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('papyrus_user_profile_changed', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('papyrus_user_profile_changed', handleStorageChange);
-    };
-  }, []);
 
   useEffect(() => {
     if (!agentModeEnabled && mode === 'agent') {
@@ -311,7 +295,6 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
       <div className="chat-panel-body" ref={messagesContainerRef}>
         <MessageList
           messages={messages}
-          userProfile={userProfile}
           selectedModel={selectedModel}
           isGenerating={isGenerating}
           editingMessageId={editingMessageId}

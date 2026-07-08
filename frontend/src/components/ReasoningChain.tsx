@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Collapse, Tag } from '@arco-design/web-react';
-import { IconMindMapping, IconRight, IconDown } from '@arco-design/web-react/icon';
+import { Collapse } from '@arco-design/web-react';
+import { IconBulb, IconRight, IconDown } from '@arco-design/web-react/icon';
+import { useTranslation } from 'react-i18next';
 import { MarkdownView } from './MarkdownView';
 import './ReasoningChain.css';
 
@@ -11,16 +12,15 @@ export interface ReasoningChainProps {
   defaultExpanded?: boolean;
 }
 
-function getPreviewText(text: string): string {
-  if (text.length <= 50) return text;
-  return text.slice(0, 50) + '...';
-}
-
 export const ReasoningChain: React.FC<ReasoningChainProps> = ({
   content,
   defaultExpanded = false,
 }) => {
+  const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const headerLabel = isExpanded
+    ? t('reasoningChain.process')
+    : t('reasoningChain.completed');
 
   return (
     <div className="reasoning-chain">
@@ -34,23 +34,13 @@ export const ReasoningChain: React.FC<ReasoningChainProps> = ({
           name="1"
           header={(
             <div className="reasoning-header">
-              <div className="reasoning-title-wrapper">
-                <div className="reasoning-title-left">
-                  <IconMindMapping className="reasoning-icon" />
-                  <span className="reasoning-title">思考过程</span>
-                  <Tag size="small" className="reasoning-tag">
-                    {isExpanded ? '已展开' : '已折叠'}
-                  </Tag>
-                </div>
-                <span className="reasoning-expand-indicator" aria-hidden="true">
-                  {isExpanded ? <IconDown /> : <IconRight />}
-                </span>
+              <div className="reasoning-title-left">
+                <IconBulb className="reasoning-icon" aria-hidden="true" />
+                <span className="reasoning-title">{headerLabel}</span>
               </div>
-              {!isExpanded && (
-                <span className="reasoning-preview">
-                  {getPreviewText(content)}
-                </span>
-              )}
+              <span className="reasoning-expand-indicator" aria-hidden="true">
+                {isExpanded ? <IconDown /> : <IconRight />}
+              </span>
             </div>
           )}
           className="reasoning-collapse-item"

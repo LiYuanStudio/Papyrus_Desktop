@@ -1,6 +1,6 @@
-import { Avatar, Button, Message as ArcoMessage } from '@arco-design/web-react';
+import { Button, Message as ArcoMessage } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
-import type { Message, MessageBlock, UserProfile } from '../types';
+import type { Message, MessageBlock } from '../types';
 import { MarkdownView } from '../../components/MarkdownView';
 import { ReasoningChain } from '../../components/ReasoningChain';
 import { ToolCallCard } from '../../components/ToolCallCard';
@@ -11,7 +11,6 @@ import { api } from '../../api';
 export interface MessageBubbleProps {
   message: Message;
   messages: Message[];
-  userProfile: UserProfile;
   selectedModelName?: string;
   modelId?: string;
   isGenerating: boolean;
@@ -32,7 +31,6 @@ export interface MessageBubbleProps {
 export function MessageBubble({
   message,
   messages,
-  userProfile,
   selectedModelName,
   modelId,
   isGenerating,
@@ -103,23 +101,6 @@ export function MessageBubble({
   if (message.role === 'user') {
     return (
       <div className="chat-message-with-avatar">
-        <Avatar
-          size={28}
-          className="tw-flex-shrink-0 chat-user-avatar"
-          style={{
-            backgroundColor: userProfile.avatarUrl ? 'transparent' : '#206CCF',
-          }}
-        >
-          {userProfile.avatarUrl ? (
-            <img
-              src={userProfile.avatarUrl}
-              alt="avatar"
-              className="chat-user-avatar-img"
-            />
-          ) : (
-            userProfile.userId?.charAt(0)?.toUpperCase() || '?'
-          )}
-        </Avatar>
         {editingMessageId === message.id ? (
           <div className="chat-message-bubble chat-edit-bubble">
             <textarea
@@ -168,19 +149,11 @@ export function MessageBubble({
     );
   }
 
-  const messageModelName = message.model?.includes(':')
-    ? message.model.split(':').slice(1).join(':')
-    : message.model;
-  const selectedModelDisplayName = modelId?.includes(':')
-    ? modelId.split(':').slice(1).join(':')
-    : modelId;
-  const displayModelName = messageModelName || selectedModelName || selectedModelDisplayName;
   const logoModel = message.model || selectedModelName || '';
   const logoModelId = message.model || modelId;
 
   return (
     <div className="chat-message-with-avatar tw-items-start">
-      <span className="chat-message-model-label">{displayModelName}</span>
       <div className="chat-message-blocks">
         {message.blocks?.map((block, idx) =>
           renderMessageBlock(block, `${message.id}-${idx}`),
@@ -223,7 +196,7 @@ export function MessageBubble({
             <ModelLogo
               model={logoModel}
               modelId={logoModelId}
-              size={18}
+              size={28}
               style={{ backgroundColor: 'transparent', borderRadius: 0 }}
             />
           </div>

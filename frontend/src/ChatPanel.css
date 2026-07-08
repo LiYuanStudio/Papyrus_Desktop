@@ -104,12 +104,6 @@
   word-break: break-word;
 }
 
-.chat-message-model-label {
-  font-size: 11px;
-  color: var(--color-text-1);
-  padding: 0 4px;
-}
-
 .chat-message-blocks {
   display: flex;
   flex-direction: column;
@@ -191,24 +185,26 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
 
 .chat-assistant-message-footer {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
   width: 100%;
   min-width: 0;
 }
 
 .chat-assistant-message-footer .chat-message-actions {
+  flex: 1 1 auto;
   margin-left: auto;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .chat-message-bubble-logo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 28px;
+  flex-shrink: 0;
   pointer-events: none;
 }
 
@@ -411,12 +407,6 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-}
-
-.chat-mode-menu-item-disabled {
-  margin-left: 8px;
-  font-size: 11px;
-  color: var(--color-text-3);
 }
 
 .chat-send-btn {
@@ -866,17 +856,6 @@ body[arco-theme="dark"] .chat-file-tag .arco-tag-icon {
   color: var(--color-text-3);
 }
 
-.chat-user-avatar {
-  font-size: 12px;
-  overflow: hidden;
-}
-
-.chat-user-avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .chat-edit-bubble {
   padding: 8px;
   flex: 1;
@@ -942,8 +921,8 @@ body[arco-theme="dark"] .chat-file-tag .arco-tag-icon {
     gap: 10px;
   }
 
-  .chat-message-with-avatar,
-  .chat-message-blocks {
+  .chat-message-blocks,
+  .chat-message-assistant .chat-message-with-avatar {
     max-width: 100%;
   }
 
@@ -954,14 +933,12 @@ body[arco-theme="dark"] .chat-file-tag .arco-tag-icon {
   }
 
   .chat-message-user .chat-message-with-avatar {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    margin-left: auto;
   }
 
   .chat-message-user .chat-message-with-avatar .chat-message-actions {
-    flex-basis: 100%;
     justify-content: flex-end;
   }
 
@@ -971,14 +948,10 @@ body[arco-theme="dark"] .chat-file-tag .arco-tag-icon {
   }
 
   .chat-assistant-message-footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    gap: 6px;
   }
 
   .chat-assistant-message-footer .chat-message-actions {
-    margin-left: 0;
-    width: 100%;
     gap: 4px;
   }
 
@@ -986,11 +959,6 @@ body[arco-theme="dark"] .chat-file-tag .arco-tag-icon {
     width: 24px;
     height: 24px;
     font-size: 12px;
-  }
-
-  .chat-message-bubble-logo {
-    min-width: 20px;
-    height: 20px;
   }
 
   .chat-input-area {

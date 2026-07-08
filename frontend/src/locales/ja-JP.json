@@ -613,8 +613,21 @@
     "disconnected": "リアルタイム同期が切断されました",
     "connectionFailed": "リアルタイム同期の接続に失敗しました"
   },
+  "chat": {
+    "reasoning": "推論",
+    "reasoningNone": "なし",
+    "reasoningLow": "低",
+    "reasoningMedium": "中",
+    "reasoningHigh": "高",
+    "reasoningExtraHigh": "超高",
+    "reasoningWithLevel": "推論：{{level}}"
+  },
   "chatPanel": {
     "enableAgentMode": "設定で Agent モードを有効にしてください"
+  },
+  "reasoningChain": {
+    "completed": "思考完了",
+    "process": "思考過程"
   },
   "toolCallCard": {
     "pending": "承認待ち",

@@ -613,8 +613,21 @@
     "disconnected": "實時同步已斷開",
     "connectionFailed": "實時同步連接失敗"
   },
+  "chat": {
+    "reasoning": "推理",
+    "reasoningNone": "無",
+    "reasoningLow": "低",
+    "reasoningMedium": "中",
+    "reasoningHigh": "高",
+    "reasoningExtraHigh": "超高",
+    "reasoningWithLevel": "推理：{{level}}"
+  },
   "chatPanel": {
     "enableAgentMode": "請在設置中啟用 Agent 模式"
+  },
+  "reasoningChain": {
+    "completed": "思考完成",
+    "process": "思考過程"
   },
   "toolCallCard": {
     "pending": "待審批",
