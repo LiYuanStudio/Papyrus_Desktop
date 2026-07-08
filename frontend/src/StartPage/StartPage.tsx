@@ -7,7 +7,6 @@ import ReviewQueue from './ReviewQueue';
 import { getSolarTerm, fetchSolarTerm } from './solarTerms';
 import { type SceneryContent, fetchSceneryContent } from './sceneryContent';
 import { api } from '../api';
-import { useCommonCardStyle, CommonCard, CardGroup } from '../components';
 import { formatDateBySetting } from '../utils/dateFormat.js';
 import './StartPage.css';
 
@@ -264,86 +263,12 @@ const StartCard = ({ scenery, headline, subline, greeting, buttonLabel, onButton
   );
 };
 
-const ShortcutCard = ({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) => {
-  const { hovered, setHovered, cardStyle, width, height } = useCommonCardStyle({
-    borderWidth: 2,
-  });
-  return (
-    <CommonCard
-      hovered={hovered}
-      setHovered={setHovered}
-      cardStyle={cardStyle}
-      width={width}
-      height={height}
-      role="button"
-      tabIndex={0}
-      aria-label={label}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
-      }}
-      style={{
-        flex: '0 0 auto',
-        padding: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxSizing: 'border-box',
-        gap: '12px',
-      }}
-    >
-      <div style={{
-        width: '48px',
-        height: '48px',
-        borderRadius: '50%',
-        background: hovered ? 'var(--color-primary-light)' : 'var(--color-fill-2)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 'var(--font-size-display-md)',
-        transition: 'background 0.2s',
-      }}>
-        {icon}
-      </div>
-      <Typography.Text
-        type={hovered ? 'primary' : 'secondary'}
-        style={{ fontSize: 'var(--font-size-md)', fontWeight: 500 }}
-      >
-        {label}
-      </Typography.Text>
-    </CommonCard>
-  );
-};
-
 const ShelfSections = ({ onStudyTag, onNavigate }: { onStudyTag?: (tag: string) => void; onNavigate?: (page: string, noteId?: string) => void }) => {
   const { t } = useTranslation();
   const cardHeight = 140;
 
-  const shortcuts = onNavigate ? [
-    { icon: '📝', label: t('sidebar.notes'), onClick: () => onNavigate('notes') },
-    { icon: '📁', label: t('sidebar.files'), onClick: () => onNavigate('files') },
-    { icon: '📊', label: t('sidebar.charts'), onClick: () => onNavigate('charts') },
-    { icon: '⚙️', label: t('sidebar.settings'), onClick: () => onNavigate('settings') },
-  ] : [];
-
   return (
     <>
-      {onNavigate && (
-        <ShelfSection label={t('startPage.shortcuts')}>
-          <CardGroup height={cardHeight}>
-            {shortcuts.map((shortcut, index) => (
-              <ShortcutCard
-                key={index}
-                icon={<span>{shortcut.icon}</span>}
-                label={shortcut.label}
-                onClick={shortcut.onClick}
-              />
-            ))}
-          </CardGroup>
-        </ShelfSection>
-      )}
-
       <ShelfSection label={t('startPage.review')}>
         <ReviewQueue height={cardHeight} onStartStudy={() => {
         }} />
