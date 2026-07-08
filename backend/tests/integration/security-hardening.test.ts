@@ -258,9 +258,22 @@ describe('Security Hardening Integration', () => {
       expect(response.headers['content-security-policy']).toBeDefined();
     });
 
-    it('forces attachment for non-image binary preview', async () => {
+    it('serves PDF preview inline with sandbox CSP', async () => {
       const content = Buffer.from('%PDF-1.4 fake').toString('base64');
       const file = saveFile('doc.pdf', content, 'application/pdf');
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/files/${file.id}/preview`,
+        headers: testAuthHeaders(),
+      });
+      expect(response.statusCode).toBe(200);
+      expect(String(response.headers['content-disposition'] ?? '')).toContain('inline');
+      expect(response.headers['content-security-policy']).toBeDefined();
+    });
+
+    it('forces attachment for non-previewable binary files', async () => {
+      const content = Buffer.from([0x50, 0x4b, 0x03, 0x04]).toString('base64');
+      const file = saveFile('archive.zip', content, 'application/zip');
       const response = await app.inject({
         method: 'GET',
         url: `/api/files/${file.id}/preview`,
