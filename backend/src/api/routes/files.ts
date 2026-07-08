@@ -5,6 +5,12 @@ import { listFiles, createFolder, saveFile, deleteFileItem, getFileById, isSafeF
 
 const MAX_PREVIEW_SIZE = 10 * 1024 * 1024;
 const THUMBNAIL_SIZE = 128;
+const INLINE_PREVIEW_PREFIXES = ['image/', 'text/'];
+
+function shouldServeInline(mimeType: string | null | undefined): boolean {
+  if (!mimeType) return false;
+  return INLINE_PREVIEW_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
+}
 
 export default async function filesRoutes(fastify: FastifyInstance): Promise<void> {
   // List all files/folders
@@ -105,7 +111,12 @@ export default async function filesRoutes(fastify: FastifyInstance): Promise<voi
 
     const content = fs.readFileSync(file.file_storage_path);
     reply.type(file.mime_type || 'application/octet-stream');
-    reply.header('Content-Disposition', 'inline');
+    if (shouldServeInline(file.mime_type)) {
+      reply.header('Content-Disposition', 'inline');
+      reply.header('Content-Security-Policy', "default-src 'none'; sandbox");
+    } else {
+      reply.header('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);
+    }
     reply.header('Content-Length', file.size);
     reply.send(content);
   });

@@ -14,9 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getPlatform: () => ipcRenderer.invoke('app:getPlatform'),
   isDev: () => ipcRenderer.invoke('app:isDev'),
-  // SECURITY: getAuthToken is exposed to renderer. If XSS occurs in renderer,
-  // an attacker could steal this token. Consider proxying API calls through
-  // ipcRenderer instead of exposing the raw token.
+  apiFetch: (payload) => ipcRenderer.invoke('api:fetch', payload),
+  getMediaUrl: (fileId, action) => ipcRenderer.invoke('api:getMediaUrl', fileId, action),
+  // Legacy: streaming chat still reads token for SSE headers.
   getAuthToken: () => ipcRenderer.invoke('app:getAuthToken'),
 
   // Shell operations

@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { app, initApp, logger } from '../../src/api/server.js';
 import { closeDb, saveProvider, saveApiKey, saveModel } from '../../src/db/database.js';
+import { patchAppInjectWithAuth } from '../test-auth.js';
 
 describe('API Integration Tests', () => {
   const testDir = path.join(os.tmpdir(), `papyrus-api-test-${Date.now()}`);
@@ -14,6 +15,7 @@ describe('API Integration Tests', () => {
     const { resetAIConfig } = await import('../../src/ai/config-instance.js');
     resetAIConfig(testDir);
     await initApp();
+    patchAppInjectWithAuth(app);
     logger.setLogDir(path.join(testDir, 'logs'));
     app.post('/api/test-crash', async () => {
       throw new Error('intentional test crash');
@@ -1549,7 +1551,8 @@ describe('API Integration Tests', () => {
       expect(provider?.name).toBe('Updated Provider');
       expect(provider?.enabled).toBe(false);
       expect(provider?.apiKeys.map((item) => item.id)).toEqual(['key-keep']);
-      expect(provider?.apiKeys[0]?.key).toBe('sk-keep-2');
+      expect(provider?.apiKeys[0]?.hasKey).toBe(true);
+      expect(provider?.apiKeys[0]?.key).toMatch(/^\*+$/);
     });
 
     it('POST /api/providers/:providerId/default should set default provider', async () => {
@@ -2264,7 +2267,7 @@ describe('API Integration Tests', () => {
           id: 'provider-ollama-chat',
           type: 'ollama',
           name: 'Ollama Chat',
-          baseUrl: 'https://ollama.example.com',
+          baseUrl: 'http://localhost:11434',
           enabled: true,
           isDefault: true,
           models: [{ id: 'model-ollama-chat', name: 'llama3', modelId: 'llama3', enabled: true }],
@@ -2338,7 +2341,7 @@ describe('API Integration Tests', () => {
           id: 'provider-ollama-regen',
           type: 'ollama',
           name: 'Ollama Regen',
-          baseUrl: 'https://ollama.example.com',
+          baseUrl: 'http://localhost:11434',
           enabled: true,
           isDefault: true,
           models: [{ id: 'model-ollama-regen', name: 'llama3', modelId: 'llama3', enabled: true }],
@@ -2455,7 +2458,7 @@ describe('API Integration Tests', () => {
           id: 'provider-ollama-translate',
           type: 'ollama',
           name: 'Ollama Translate',
-          baseUrl: 'https://ollama.example.com',
+          baseUrl: 'http://localhost:11434',
           enabled: true,
           isDefault: true,
           models: [{ id: 'model-ollama-translate', name: 'llama3', modelId: 'llama3', enabled: true }],
@@ -2531,19 +2534,17 @@ describe('API Integration Tests', () => {
       });
       expect(missingProviderResponse.statusCode).toBe(400);
 
-      await app.inject({
-        method: 'POST',
-        url: '/api/providers',
-        payload: {
-          id: 'provider-openai-private',
-          type: 'openai',
-          name: 'OpenAI Private',
-          baseUrl: 'http://127.0.0.1:9001',
-          enabled: true,
-          apiKeys: [{ id: 'key-openai-private', name: 'default', key: 'sk-private' }],
-          models: [{ id: 'model-openai-private', name: 'gpt-4', modelId: 'gpt-4', enabled: true }],
-        },
+      const { saveProvider, saveApiKey, saveModel } = await import('../../src/db/database.js');
+      const privateProviderId = saveProvider({
+        id: 'provider-openai-private',
+        type: 'openai',
+        name: 'OpenAI Private',
+        baseUrl: 'http://127.0.0.1:9001',
+        enabled: true,
+        isDefault: false,
       });
+      saveApiKey(privateProviderId, { id: 'key-openai-private', name: 'default', key: 'sk-private' });
+      saveModel(privateProviderId, { id: 'model-openai-private', name: 'gpt-4', modelId: 'gpt-4', enabled: true });
       aiConfig.config.current_provider = 'openai';
       aiConfig.config.current_model = 'gpt-4';
 
@@ -2585,7 +2586,7 @@ describe('API Integration Tests', () => {
           id: 'provider-ollama-public-completion',
           type: 'ollama',
           name: 'Ollama Public Completion',
-          baseUrl: 'https://ollama.example.com',
+          baseUrl: 'http://localhost:11434',
           enabled: true,
           models: [{ id: 'model-ollama-public', name: 'llama3', modelId: 'llama3', enabled: true }],
         },
@@ -2631,28 +2632,21 @@ describe('API Integration Tests', () => {
         global.fetch = savedFetch;
       }
 
-      await app.inject({
+      const privateOllamaPutResponse = await app.inject({
         method: 'PUT',
         url: '/api/providers/provider-ollama-public-completion',
         payload: {
           type: 'ollama',
           name: 'Ollama Public Completion',
-          baseUrl: 'http://127.0.0.1:11434',
+          baseUrl: 'http://192.168.1.10:11434',
           enabled: true,
           models: [{ id: 'model-ollama-public', name: 'llama3', modelId: 'llama3', enabled: true }],
         },
       });
 
-      aiConfig.config.current_provider = 'ollama';
-      aiConfig.config.current_model = 'llama3';
-
-      const privateOllamaResponse = await app.inject({
-        method: 'POST',
-        url: '/api/completion',
-        payload: { prefix: 'private ollama' },
-      });
-      expect(privateOllamaResponse.statusCode).toBe(200);
-      expect(privateOllamaResponse.body).toContain('SSRF');
+      expect(privateOllamaPutResponse.statusCode).toBe(400);
+      const privateOllamaBody = JSON.parse(privateOllamaPutResponse.body) as { error?: string };
+      expect(privateOllamaBody.error).toMatch(/localhost|SSRF|本地/);
     });
 
     it('POST /api/completion should end the SSE stream when upstream fetch throws', async () => {
@@ -2663,7 +2657,7 @@ describe('API Integration Tests', () => {
           id: 'provider-ollama-throw-completion',
           type: 'ollama',
           name: 'Ollama Throw Completion',
-          baseUrl: 'https://ollama-throw.example.com',
+          baseUrl: 'http://localhost:11435',
           enabled: true,
           isDefault: true,
           models: [{ id: 'model-ollama-throw', name: 'llama3', modelId: 'llama3', enabled: true }],

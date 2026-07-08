@@ -57,16 +57,27 @@ describe('MCPServer', () => {
     expect((res.body as Record<string, unknown>).status).toBe('ok');
   });
 
-  it('should list tools', async () => {
+  it('should list tools with valid auth', async () => {
+    server = new MCPServer({ port: 0, authToken: 'test-token' });
+    await server.start();
+    const port = server.getActualPort();
+
+    const res = await makeRequest(port, '/tools', {
+      headers: { Authorization: 'Bearer test-token' },
+    });
+    expect(res.status).toBe(200);
+    const body = res.body as Record<string, unknown>;
+    expect(Array.isArray(body.tools)).toBe(true);
+    expect(Array.isArray((body.categories as Record<string, unknown>).cards)).toBe(true);
+  });
+
+  it('should reject unauthenticated tools listing', async () => {
     server = new MCPServer({ port: 0, authToken: 'test-token' });
     await server.start();
     const port = server.getActualPort();
 
     const res = await makeRequest(port, '/tools');
-    expect(res.status).toBe(200);
-    const body = res.body as Record<string, unknown>;
-    expect(Array.isArray(body.tools)).toBe(true);
-    expect(Array.isArray((body.categories as Record<string, unknown>).cards)).toBe(true);
+    expect(res.status).toBe(401);
   });
 
   it('should reject unauthorized call', async () => {

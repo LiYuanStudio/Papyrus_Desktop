@@ -307,7 +307,7 @@ function createWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:* https:; img-src 'self' file: data: http://127.0.0.1:* http://localhost:* https: blob:; media-src 'self' http://127.0.0.1:* http://localhost:* blob:; font-src 'self' data:; frame-src 'self';",
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:*; img-src 'self' file: data: http://127.0.0.1:* http://localhost:* blob:; media-src 'self' http://127.0.0.1:* http://localhost:* blob:; font-src 'self' data:; frame-src 'self';",
         ],
       },
     });
@@ -506,7 +506,39 @@ function setupIPC() {
   // Check if development mode
   ipcMain.handle('app:isDev', () => isDevMode);
 
-  // Get backend auth token (for API requests from renderer)
+  // Proxy API requests through main process so the renderer never needs the raw token.
+  ipcMain.handle('api:fetch', async (_event, payload) => {
+    const apiPath = typeof payload?.path === 'string' ? payload.path : '';
+    const method = typeof payload?.method === 'string' ? payload.method : 'GET';
+    const body = payload?.body;
+    const extraHeaders = payload?.headers && typeof payload.headers === 'object' ? payload.headers : {};
+    const url = `http://${CONFIG.backendHost}:${CONFIG.backendPort}/api${apiPath}`;
+    const response = await fetch(url, {
+      method,
+      headers: {
+        ...extraHeaders,
+        'X-Papyrus-Token': PAPYRUS_AUTH_TOKEN,
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    const text = await response.text();
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      body: text,
+    };
+  });
+
+  // Media URLs for <img> tags that cannot attach auth headers.
+  ipcMain.handle('api:getMediaUrl', (_event, fileId, action) => {
+    const safeId = typeof fileId === 'string' ? fileId : '';
+    const safeAction = action === 'download' ? 'download' : action === 'preview' ? 'preview' : 'thumbnail';
+    return `http://${CONFIG.backendHost}:${CONFIG.backendPort}/api/files/${safeId}/${safeAction}?access_token=${encodeURIComponent(PAPYRUS_AUTH_TOKEN)}`;
+  });
+
+  // Legacy token accessor — kept for streaming endpoints until fully proxied.
   ipcMain.handle('app:getAuthToken', () => PAPYRUS_AUTH_TOKEN);
 
   // Quit the application (sets isQuitting so window.close() actually quits)

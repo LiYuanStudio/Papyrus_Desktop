@@ -1,5 +1,6 @@
 export {
   PapyrusTools,
+  PapyrusTools as CardTools,
   AIResponseParser,
   TOOL_REGISTRY,
   TOOL_LIST,

@@ -4,6 +4,7 @@ export interface ApiKeyItem {
   id: string;
   name: string;
   key: string;
+  hasKey?: boolean;
 }
 
 export interface Model {

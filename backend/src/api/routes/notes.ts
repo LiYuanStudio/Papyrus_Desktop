@@ -6,6 +6,7 @@ import { getAllNotes, createNote, updateNote, deleteNote, deleteNotes, getNoteBy
 import { importObsidianVault } from '../../core/notes.js';
 import { recordNoteCreated } from '../../core/progress.js';
 import { pushExtensionEvent } from '#/core/extension-events.js';
+import { isPathInsideDirectory } from '../../utils/security.js';
 
 export default async function notesRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/', async (_request, reply) => {
@@ -100,7 +101,7 @@ export default async function notesRoutes(fastify: FastifyInstance): Promise<voi
       return;
     }
     const homeDir = fs.realpathSync(path.resolve(os.homedir()));
-    if (!resolvedVaultPath.startsWith(homeDir + path.sep) && resolvedVaultPath !== homeDir) {
+    if (!isPathInsideDirectory(resolvedVaultPath, homeDir)) {
       reply.status(400).send({ success: false, error: 'Obsidian vault 路径必须在用户主目录下' });
       return;
     }

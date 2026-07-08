@@ -9,6 +9,13 @@ describe('auth', () => {
   let getAuthToken: () => string | null;
   let isAuthEnabled: () => boolean;
   let validateRequestToken: (token?: string) => boolean;
+  let isPublicApiPath: (url: string) => boolean;
+  let extractRequestToken: (
+    headerToken: string | string[] | undefined,
+    queryAccessToken?: string,
+  ) => string | undefined;
+  let allowsQueryTokenAuth: (url: string) => boolean;
+  let ensureAuthToken: () => string;
 
   beforeAll(async () => {
     fs.mkdirSync(testDir, { recursive: true });
@@ -21,6 +28,10 @@ describe('auth', () => {
     getAuthToken = authModule.getAuthToken;
     isAuthEnabled = authModule.isAuthEnabled;
     validateRequestToken = authModule.validateRequestToken;
+    isPublicApiPath = authModule.isPublicApiPath;
+    extractRequestToken = authModule.extractRequestToken;
+    allowsQueryTokenAuth = authModule.allowsQueryTokenAuth;
+    ensureAuthToken = authModule.ensureAuthToken;
   });
 
   afterAll(() => {
@@ -76,6 +87,34 @@ describe('auth', () => {
     const token = getOrCreateAuthToken();
     expect(token).not.toBe('short');
     expect(token.length).toBeGreaterThanOrEqual(32);
+  });
+
+  it('should only treat /api/health as public path', () => {
+    expect(isPublicApiPath('/api/health')).toBe(true);
+    expect(isPublicApiPath('/api/health?verbose=1')).toBe(true);
+    expect(isPublicApiPath('/api/providers')).toBe(false);
+    expect(isPublicApiPath('/api/export')).toBe(false);
+  });
+
+  it('should extract token from header or query', () => {
+    expect(extractRequestToken('header-token')).toBe('header-token');
+    expect(extractRequestToken(['array-token'])).toBe('array-token');
+    expect(extractRequestToken(undefined, 'query-token')).toBe('query-token');
+    expect(extractRequestToken(undefined)).toBeUndefined();
+  });
+
+  it('should allow query token only on file media routes', () => {
+    expect(allowsQueryTokenAuth('/api/files/abc/preview')).toBe(true);
+    expect(allowsQueryTokenAuth('/api/files/abc/thumbnail')).toBe(true);
+    expect(allowsQueryTokenAuth('/api/files/abc/download')).toBe(true);
+    expect(allowsQueryTokenAuth('/api/notes')).toBe(false);
+    expect(allowsQueryTokenAuth('/api/files/abc')).toBe(false);
+  });
+
+  it('should ensure auth token exists on startup helper', () => {
+    const token = ensureAuthToken();
+    expect(token.length).toBeGreaterThanOrEqual(32);
+    expect(getAuthToken()).toBe(token);
   });
 
   describe('edge cases', () => {

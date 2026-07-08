@@ -27,6 +27,7 @@ describe('Database', () => {
   let getNoteCount: typeof import('../../src/db/database.js').getNoteCount;
   let getAllFolders: typeof import('../../src/db/database.js').getAllFolders;
   let loadAllProviders: typeof import('../../src/db/database.js').loadAllProviders;
+  let loadAllProvidersForClient: typeof import('../../src/db/database.js').loadAllProvidersForClient;
   let saveProvider: typeof import('../../src/db/database.js').saveProvider;
   let deleteProvider: typeof import('../../src/db/database.js').deleteProvider;
   let setDefaultProvider: typeof import('../../src/db/database.js').setDefaultProvider;
@@ -73,6 +74,7 @@ describe('Database', () => {
     getNoteCount = db.getNoteCount as typeof getNoteCount;
     getAllFolders = db.getAllFolders as typeof getAllFolders;
     loadAllProviders = db.loadAllProviders as typeof loadAllProviders;
+    loadAllProvidersForClient = db.loadAllProvidersForClient as typeof loadAllProvidersForClient;
     saveProvider = db.saveProvider as typeof saveProvider;
     deleteProvider = db.deleteProvider as typeof deleteProvider;
     setDefaultProvider = db.setDefaultProvider as typeof setDefaultProvider;
@@ -334,6 +336,21 @@ describe('Database', () => {
       const found = providers.find((p) => p.id === id);
       // @ts-expect-error - tested above
       expect(found.enabled).toBe(true);
+    });
+
+    it('should mask API keys in loadAllProvidersForClient', () => {
+      const id = saveProvider({ type: 'openai', name: 'ClientMask', baseUrl: 'https://api.example.com', enabled: true });
+      saveApiKey(id, { id: 'mask-key', name: 'default', key: 'sk-client-secret-value' });
+
+      const internal = loadAllProviders();
+      const client = loadAllProvidersForClient();
+      const internalProvider = internal.find((p) => p.id === id);
+      const clientProvider = client.find((p) => p.id === id);
+
+      expect(internalProvider?.apiKeys[0]?.key).toBe('sk-client-secret-value');
+      expect(clientProvider?.apiKeys[0]?.hasKey).toBe(true);
+      expect(clientProvider?.apiKeys[0]?.key).not.toContain('sk-client-secret');
+      expect(clientProvider?.apiKeys[0]?.key).toMatch(/^\*+$/);
     });
   });
 

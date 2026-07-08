@@ -5,6 +5,7 @@ import { app, initApp, logger } from '../../src/api/server.js';
 import { closeDb, resetDb } from '../../src/db/database.js';
 import { PapyrusTools, CardTools } from '../../src/ai/tools.js';
 import { getToolManager, resetToolManager } from '../../src/ai/tool-manager.js';
+import { patchAppInjectWithAuth } from '../test-auth.js';
 
 describe('AI Tools Integration Tests', () => {
   const testDir = path.join(os.tmpdir(), `papyrus-tools-test-${Date.now()}`);
@@ -13,6 +14,7 @@ describe('AI Tools Integration Tests', () => {
     fs.mkdirSync(testDir, { recursive: true });
     process.env.PAPYRUS_DATA_DIR = testDir;
     await initApp();
+    patchAppInjectWithAuth(app);
     logger.setLogDir(path.join(testDir, 'logs'));
   });
 

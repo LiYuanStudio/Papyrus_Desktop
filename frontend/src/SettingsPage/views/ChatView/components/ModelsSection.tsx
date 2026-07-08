@@ -54,7 +54,7 @@ const ModelsSection = ({ providers, currentModelId, saveDefaultModel, deleteMode
                       {renderCapabilityIcons(model.capabilities, t)}
                     </div>
                     <Paragraph type="secondary" style={{ fontSize: 12, margin: '4px 0 0 0' }}>
-                      Key: {apiKey?.name || 'default'} {apiKey?.key ? `(${t('chatView.configured')})` : `(${t('chatView.notConfigured')})`}
+                      Key: {apiKey?.name || 'default'} {(apiKey?.hasKey || apiKey?.key) ? `(${t('chatView.configured')})` : `(${t('chatView.notConfigured')})`}
                     </Paragraph>
                   </div>
                   <Space size={4}>

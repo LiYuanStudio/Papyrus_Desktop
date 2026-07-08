@@ -14,6 +14,17 @@ export interface ElectronAPI {
   
   /** Check if running in development mode */
   isDev(): Promise<boolean>;
+
+  /** Proxy authenticated API requests through the main process */
+  apiFetch(payload: {
+    path: string;
+    method?: string;
+    body?: unknown;
+    headers?: Record<string, string>;
+  }): Promise<{ ok: boolean; status: number; statusText: string; body: string }>;
+
+  /** Build an authenticated media URL for img/video tags */
+  getMediaUrl(fileId: string, action: 'preview' | 'download' | 'thumbnail'): Promise<string>;
   
   /** Open an external URL in the default browser */
   openExternal(url: string): Promise<void>;
@@ -39,7 +50,7 @@ export interface ElectronAPI {
   /** Quit the entire application */
   quitApp(): Promise<void>;
 
-  /** Get the backend auth token */
+  /** Get the backend auth token (legacy — prefer apiFetch) */
   getAuthToken(): Promise<string | null>;
 
   /** Check if window is maximized */

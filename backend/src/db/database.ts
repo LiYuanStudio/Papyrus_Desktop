@@ -6,6 +6,7 @@ import { paths } from '../utils/paths.js';
 import { encryptApiKey, decryptApiKey } from '../core/crypto.js';
 import type { CardRecord, Note, Provider, FileRecord } from '../core/types.js';
 import type { PapyrusLogger } from '../utils/logger.js';
+import { maskApiKeyForDisplay } from '../utils/provider-security.js';
 
 let db: DatabaseSync | null = null;
 
@@ -859,6 +860,88 @@ export function loadAllProviders(_logger?: PapyrusLogger): Provider[] {
   }
 
   // 防御性去重：即使数据库出现重复，输出层也不渲染重复项
+  const seenProviders = new Set<string>();
+  const dedupedProviders: Provider[] = [];
+  for (const p of providers) {
+    const key = `${p.type}|${p.name}|${p.baseUrl}`;
+    if (seenProviders.has(key)) continue;
+    seenProviders.add(key);
+
+    const seenModels = new Set<string>();
+    const dedupedModels = p.models.filter(m => {
+      if (seenModels.has(m.modelId)) return false;
+      seenModels.add(m.modelId);
+      return true;
+    });
+
+    dedupedProviders.push({ ...p, models: dedupedModels });
+  }
+
+  return dedupedProviders;
+}
+
+// 为客户端 API 加载 providers，不回传明文 API Key。
+// 原因：GET /api/providers 曾被未认证客户端直接读取全部密钥。
+// 未复用 loadAllProviders 后脱敏：避免无意义的解密再掩码，降低密钥暴露窗口。
+export function loadAllProvidersForClient(_logger?: PapyrusLogger): Provider[] {
+  const database = getDb();
+  const providerStmt = database.prepare('SELECT * FROM providers ORDER BY created_at');
+  const providerRows = providerStmt.all() as Array<{
+    id: string;
+    type: string;
+    name: string;
+    base_url: string;
+    enabled: number;
+    is_default: number;
+  }>;
+
+  const keyStmt = database.prepare('SELECT id, name, encrypted_key FROM api_keys WHERE provider_id = ? ORDER BY name');
+  const modelStmt = database.prepare('SELECT * FROM provider_models WHERE provider_id = ? ORDER BY name');
+
+  const providers: Provider[] = [];
+  for (const row of providerRows) {
+    const keyRows = keyStmt.all(row.id) as Array<{ id: string; name: string; encrypted_key: string }>;
+    const apiKeys = keyRows.map((k) => {
+      const masked = maskApiKeyForDisplay(Boolean(k.encrypted_key));
+      return {
+        id: k.id,
+        name: k.name,
+        key: masked.key,
+        hasKey: masked.hasKey,
+      };
+    });
+
+    const modelRows = modelStmt.all(row.id) as Array<{
+      id: string;
+      name: string;
+      model_id: string;
+      port: string;
+      capabilities: string;
+      api_key_id: string;
+      enabled: number;
+    }>;
+    const models = modelRows.map(m => ({
+      id: m.id,
+      name: m.name,
+      modelId: m.model_id,
+      port: m.port,
+      capabilities: jsonFromStr(m.capabilities) as string[],
+      apiKeyId: m.api_key_id ?? null,
+      enabled: Boolean(m.enabled),
+    }));
+
+    providers.push({
+      id: row.id,
+      type: row.type,
+      name: row.name,
+      baseUrl: row.base_url,
+      enabled: Boolean(row.enabled),
+      isDefault: Boolean(row.is_default),
+      apiKeys,
+      models,
+    });
+  }
+
   const seenProviders = new Set<string>();
   const dedupedProviders: Provider[] = [];
   for (const p of providers) {

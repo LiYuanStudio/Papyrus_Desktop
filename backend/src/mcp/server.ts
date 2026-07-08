@@ -76,7 +76,14 @@ export class MCPServer {
           return;
         }
 
+        const authHeader = req.headers.authorization ?? '';
+        const isAuthorized = authHeader === `Bearer ${this.authToken}`;
+
         if (req.method === 'GET' && req.url === '/tools') {
+          if (!isAuthorized) {
+            sendJson(res, { error: 'Unauthorized' }, 401, origin);
+            return;
+          }
           sendJson(res, getMcpToolsCatalog(), 200, origin);
           return;
         }
@@ -86,8 +93,7 @@ export class MCPServer {
           return;
         }
 
-        const authHeader = req.headers.authorization ?? '';
-        if (authHeader !== `Bearer ${this.authToken}`) {
+        if (!isAuthorized) {
           sendJson(res, { error: 'Unauthorized' }, 401, origin);
           return;
         }

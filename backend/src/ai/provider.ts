@@ -10,6 +10,7 @@ import { LLMCache } from './llm-cache.js';
 import { getProviderConfigFromDB } from './db-sync.js';
 import { getClientId } from '../utils/client-id.js';
 import { fetchWithProxy } from '../utils/proxy.js';
+import { validateProviderBaseUrl } from '../utils/provider-security.js';
 import { PapyrusTools } from './tools.js';
 import type { OpenAIToolDef } from './tools.js';
 import {
@@ -1009,8 +1010,9 @@ Output only the translation, no explanations.`;
     const baseUrl = providerName === 'gemini' ? `${rawBaseUrl}/openai` : rawBaseUrl;
     const apiKey = providerConfig.api_key || '';
 
-    if (isPrivateUrl(rawBaseUrl)) {
-      throw new Error('SSRF: 禁止通过非本地 provider 访问私有地址');
+    const urlError = validateProviderBaseUrl(rawBaseUrl, providerName);
+    if (urlError) {
+      throw new Error(urlError);
     }
 
     // Enforce HTTPS for non-local providers to protect API keys in transit
@@ -1148,6 +1150,10 @@ Output only the translation, no explanations.`;
     providerConfig: { base_url: string },
     mode?: string,
   ): AsyncGenerator<StreamChunk> {
+    const urlError = validateProviderBaseUrl(providerConfig.base_url, 'ollama');
+    if (urlError) {
+      throw new Error(urlError);
+    }
     const baseUrl = providerConfig.base_url.replace(/\/$/, '');
 
     const enrichedMessages = mode === 'agent'
