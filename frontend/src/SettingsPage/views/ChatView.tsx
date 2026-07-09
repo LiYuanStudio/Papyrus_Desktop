@@ -51,6 +51,7 @@ const ChatView = ({ onBack }: ChatViewProps) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [, setProvidersLoading] = useState(false);
   const [currentModelId, setCurrentModelId] = useState<string>('');
+  const [translationModelId, setTranslationModelId] = useState<string>('');
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [modelModalVisible, setModelModalVisible] = useState(false);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
@@ -87,19 +88,69 @@ const ChatView = ({ onBack }: ChatViewProps) => {
     loadProviders();
   }, []);
 
+  /**
+   * 根据已保存的 AI 配置，把 current_model / translation_model 解析为模型行 id。
+   * 原因：UI 用 DB 行 id 高亮卡片，而配置存的是 API modelId + provider type。
+   * 未仅用 isDefault：翻译模型可能与默认聊天模型不同；但 current_model 为空时仍回退 isDefault，与聊天工具栏一致。
+   */
+  const hydrateModelSelections = (providerList: Provider[]) => {
+    api.getAIConfig()
+      .then(data => {
+        const cfg = data.success ? data.config : undefined;
+        let resolvedCurrentId = '';
+
+        if (cfg?.current_model) {
+          for (const p of providerList) {
+            if (cfg.current_provider && p.type !== cfg.current_provider) continue;
+            const match = p.models.find(m => m.modelId === cfg.current_model || m.id === cfg.current_model);
+            if (match) {
+              resolvedCurrentId = match.id;
+              break;
+            }
+          }
+        }
+
+        // 与 useModelSelector 对齐：配置缺失/不匹配时高亮默认供应商首个启用模型
+        if (!resolvedCurrentId) {
+          const defaultProvider = providerList.find(p => p.isDefault && p.enabled)
+            ?? providerList.find(p => p.enabled);
+          const defaultModel = defaultProvider?.models.find(m => m.enabled);
+          if (defaultModel) {
+            resolvedCurrentId = defaultModel.id;
+          }
+        }
+
+        if (resolvedCurrentId) {
+          setCurrentModelId(resolvedCurrentId);
+        }
+
+        if (cfg?.translation_model) {
+          let resolvedTranslationId = '';
+          for (const p of providerList) {
+            if (cfg.translation_provider && p.type !== cfg.translation_provider) continue;
+            const match = p.models.find(
+              m => m.modelId === cfg.translation_model || m.id === cfg.translation_model,
+            );
+            if (match) {
+              resolvedTranslationId = match.id;
+              break;
+            }
+          }
+          setTranslationModelId(resolvedTranslationId);
+        } else {
+          setTranslationModelId('');
+        }
+      })
+      .catch(console.error);
+  };
+
   const loadProviders = () => {
     setProvidersLoading(true);
     api.listProviders()
       .then(data => {
         if (data.success && data.providers) {
           setProviders(data.providers);
-          const defaultProvider = data.providers.find(p => p.isDefault && p.enabled);
-          if (defaultProvider) {
-            const defaultModel = defaultProvider.models.find(m => m.enabled);
-            if (defaultModel && !currentModelId) {
-              setCurrentModelId(defaultModel.id);
-            }
-          }
+          hydrateModelSelections(data.providers);
         }
       })
       .catch(console.error)
@@ -232,6 +283,31 @@ const ChatView = ({ onBack }: ChatViewProps) => {
       notifyAIConfigChanged();
     } catch (err) {
       console.error('Failed to sync model config to backend:', err);
+      Message.error(t('chatView.syncFailed'));
+    }
+  };
+
+  /**
+   * 将指定模型设为翻译专用模型，并写入 translation_provider + translation_model。
+   * 与 saveDefaultModel 对称，保证翻译可走独立供应商密钥。
+   * 未只写 modelId：跨供应商时必须同时保存 provider type。
+   */
+  const saveTranslationModel = async (modelId: string) => {
+    setTranslationModelId(modelId);
+    try {
+      const provider = providers.find(p => p.models.some(m => m.id === modelId));
+      const model = provider?.models.find(m => m.id === modelId);
+      const updated: Partial<import('../../api').AIConfig> = {
+        translation_model: model?.modelId || modelId,
+      };
+      if (provider) {
+        updated.translation_provider = provider.type;
+      }
+      await api.saveAIConfig(updated);
+      notifyAIConfigChanged();
+      Message.success(t('chatView.translationModelSet'));
+    } catch (err) {
+      console.error('Failed to sync translation model config to backend:', err);
       Message.error(t('chatView.syncFailed'));
     }
   };
@@ -514,7 +590,9 @@ const ChatView = ({ onBack }: ChatViewProps) => {
                 <ModelsSection
                   providers={providers}
                   currentModelId={currentModelId}
+                  translationModelId={translationModelId}
                   saveDefaultModel={saveDefaultModel}
+                  saveTranslationModel={saveTranslationModel}
                   deleteModel={deleteModel}
                   openModelModal={openModelModal}
                   renderCapabilityIcons={renderCapabilityIcons}

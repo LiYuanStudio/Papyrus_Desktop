@@ -192,6 +192,13 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         aiConfig.saveConfig();
       }
 
+      // 同步清空翻译专用配置，避免指向已删除供应商
+      if (providerToDelete?.type && providerToDelete.type === aiConfig.config.translation_provider) {
+        aiConfig.config.translation_provider = '';
+        aiConfig.config.translation_model = '';
+        aiConfig.saveConfig();
+      }
+
       reply.send({ success: true, message: 'Provider deleted' });
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
@@ -296,12 +303,31 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
 
   fastify.delete('/:providerId/models/:modelId', async (request, reply) => {
     try {
-      const { modelId } = request.params as { modelId: string };
+      const { providerId, modelId } = request.params as { providerId: string; modelId: string };
+      // 删除前读取 model_id，便于同步清空翻译/当前模型配置
+      const provider = loadAllProviders().find((p) => p.id === providerId);
+      const modelRow = provider?.models.find((m) => m.id === modelId);
       const deleted = deleteModel(modelId);
       if (!deleted) {
         reply.status(404).send({ success: false, error: 'Model not found' });
         return;
       }
+
+      // 配置里可能存 API modelId 或历史行 id，删除时两者都要匹配清空
+      const translationRef = aiConfig.config.translation_model;
+      const matchesTranslation =
+        Boolean(translationRef) &&
+        (translationRef === modelRow?.modelId ||
+          translationRef === modelRow?.id ||
+          translationRef === modelId);
+      if (matchesTranslation) {
+        if (!aiConfig.config.translation_provider || aiConfig.config.translation_provider === provider?.type) {
+          aiConfig.config.translation_provider = '';
+          aiConfig.config.translation_model = '';
+          aiConfig.saveConfig();
+        }
+      }
+
       reply.send({ success: true, message: 'Model deleted' });
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';

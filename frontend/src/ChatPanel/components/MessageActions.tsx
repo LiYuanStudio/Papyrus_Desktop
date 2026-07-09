@@ -21,7 +21,8 @@ export interface MessageActionsProps {
   isGenerating: boolean;
   messages: Message[];
   editingMessageId: string | null;
-  modelId?: string;
+  /** 聊天当前选中模型 API ID，作为未配置翻译模型时的 fallback */
+  fallbackModelId?: string;
   onStartEditing: (messageId: string, content: string) => void;
   onMessagesChange: React.Dispatch<React.SetStateAction<Message[]>>;
   onRegenerateAssistant: (assistantMessageId: string, parentUserMessageId: string) => Promise<void>;
@@ -33,7 +34,7 @@ export function MessageActions({
   isGenerating,
   messages,
   editingMessageId,
-  modelId,
+  fallbackModelId,
   onStartEditing,
   onMessagesChange,
   onRegenerateAssistant,
@@ -255,7 +256,7 @@ export function MessageActions({
       <TranslateModal
         visible={translateVisible}
         sourceText={message.content}
-        modelId={modelId}
+        fallbackModelId={fallbackModelId}
         onClose={() => setTranslateVisible(false)}
       />
     </>

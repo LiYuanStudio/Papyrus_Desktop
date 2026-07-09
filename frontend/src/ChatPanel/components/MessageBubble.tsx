@@ -140,6 +140,7 @@ export function MessageBubble({
           isGenerating={isGenerating}
           messages={messages}
           editingMessageId={editingMessageId}
+          fallbackModelId={modelId}
           onStartEditing={onStartEditing}
           onMessagesChange={onMessagesChange}
           onRegenerateAssistant={onRegenerateAssistant}
@@ -206,7 +207,7 @@ export function MessageBubble({
           isGenerating={isGenerating}
           messages={messages}
           editingMessageId={editingMessageId}
-          modelId={logoModelId}
+          fallbackModelId={modelId}
           onStartEditing={onStartEditing}
           onMessagesChange={onMessagesChange}
           onRegenerateAssistant={onRegenerateAssistant}

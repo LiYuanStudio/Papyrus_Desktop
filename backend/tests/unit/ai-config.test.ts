@@ -45,6 +45,55 @@ describe('AIConfig', () => {
     expect(config2.config.features.agent_enabled).toBe(true);
   });
 
+  it('should persist translation model config and resolve with fallback', () => {
+    const config1 = new AIConfig(tempDir);
+    config1.config.current_provider = 'openai';
+    config1.config.current_model = 'gpt-4o';
+    config1.config.translation_provider = 'deepseek';
+    config1.config.translation_model = 'deepseek-chat';
+    config1.saveConfig();
+
+    const config2 = new AIConfig(tempDir);
+    expect(config2.config.translation_provider).toBe('deepseek');
+    expect(config2.config.translation_model).toBe('deepseek-chat');
+    expect(config2.hasTranslationTarget()).toBe(true);
+    expect(config2.resolveTranslationTarget()).toEqual({
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+    });
+    // 已配置完整翻译目标时，忽略聊天 fallback model
+    expect(config2.resolveTranslationTarget('gpt-4o-mini')).toEqual({
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+    });
+
+    config2.config.translation_provider = '';
+    config2.config.translation_model = '';
+    expect(config2.hasTranslationTarget()).toBe(false);
+    expect(config2.resolveTranslationTarget()).toEqual({
+      provider: 'openai',
+      model: 'gpt-4o',
+    });
+    // 未配置翻译目标时，使用请求侧 fallback（fresh-provider / 聊天内存选中）
+    expect(config2.resolveTranslationTarget('gpt-4o-mini')).toEqual({
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+    });
+  });
+
+  it('should not mix translation_provider with current_model when pair incomplete', () => {
+    const config = new AIConfig(tempDir);
+    config.config.current_provider = 'openai';
+    config.config.current_model = 'gpt-4o';
+    config.config.translation_provider = 'deepseek';
+    config.config.translation_model = '';
+    expect(config.hasTranslationTarget()).toBe(false);
+    expect(config.resolveTranslationTarget()).toEqual({
+      provider: 'openai',
+      model: 'gpt-4o',
+    });
+  });
+
   it('getMaskedConfig should return empty providers', () => {
     const config = new AIConfig(tempDir);
     const masked = config.getMaskedConfig();

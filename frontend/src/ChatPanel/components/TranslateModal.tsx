@@ -9,11 +9,21 @@ import { copyToClipboard } from '../utils/clipboard';
 export interface TranslateModalProps {
   visible: boolean;
   sourceText: string;
-  modelId?: string;
+  /**
+   * 聊天面板当前选中模型 API ID。
+   * 仅在未配置完整 translation_* 时由后端作为 fallback；已配置翻译模型时会被忽略。
+   */
+  fallbackModelId?: string;
   onClose: () => void;
 }
 
-export function TranslateModal({ visible, sourceText, modelId, onClose }: TranslateModalProps) {
+/**
+ * 聊天消息翻译弹窗。
+ * 始终把聊天当前模型作为 fallback 传给后端，保证 fresh-provider（current_model 为空）时仍可翻译；
+ * 后端在已配置 translation_* 时优先使用设置页选择，不会被聊天工具栏覆盖。
+ * 未在弹窗内再拉配置：避免与后端解析逻辑分叉。
+ */
+export function TranslateModal({ visible, sourceText, fallbackModelId, onClose }: TranslateModalProps) {
   const { t } = useTranslation();
   const [translatedText, setTranslatedText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,13 +40,15 @@ export function TranslateModal({ visible, sourceText, modelId, onClose }: Transl
 
     const run = async () => {
       try {
+        const body: { text: string; model?: string } = { text: sourceText };
+        if (fallbackModelId?.trim()) {
+          body.model = fallbackModelId.trim();
+        }
+
         const response = await authFetch('/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: sourceText,
-            model: modelId,
-          }),
+          body: JSON.stringify(body),
           signal: abortRef.current?.signal,
         });
 
@@ -102,7 +114,7 @@ export function TranslateModal({ visible, sourceText, modelId, onClose }: Transl
       abortRef.current?.abort();
       abortRef.current = null;
     };
-  }, [visible, sourceText, modelId, t]);
+  }, [visible, sourceText, fallbackModelId, t]);
 
   const handleCopy = () => {
     if (!translatedText) return;

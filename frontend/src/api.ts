@@ -310,6 +310,10 @@ export type FeaturesConfig = {
 export type AIConfig = {
   current_provider: string;
   current_model: string;
+  /** 翻译专用供应商 type；空则回退 current_provider */
+  translation_provider?: string;
+  /** 翻译专用模型 API ID；空则回退 current_model */
+  translation_model?: string;
   providers: Record<string, ProviderConfig>;
   parameters: ParametersConfig;
   features: FeaturesConfig;

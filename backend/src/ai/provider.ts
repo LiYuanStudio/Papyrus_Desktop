@@ -960,8 +960,15 @@ export class AIManager {
     }
   }
 
-  async *translateStream(text: string, overrideModel?: string): AsyncGenerator<StreamChunk> {
-    const providerName = this.config.config.current_provider;
+  /**
+   * 流式翻译文本。
+   * 完整 translation_* 成对配置时走专用目标；否则用 fallbackModel / 聊天默认。
+   * fallbackModel 不会覆盖已配置的翻译模型，避免聊天工具栏抢走设置页选择。
+   * 未再使用「override 优先于 translation_model」：那会让设置里的翻译模型形同虚设。
+   */
+  async *translateStream(text: string, fallbackModel?: string): AsyncGenerator<StreamChunk> {
+    const resolved = this.config.resolveTranslationTarget(fallbackModel);
+    const providerName = resolved.provider;
     const providerConfig = getProviderConfigFromDB(providerName);
     if (!providerConfig) {
       yield { type: 'error', data: `未知 provider: ${providerName}` };
@@ -977,7 +984,7 @@ Output only the translation, no explanations.`;
       { role: 'user', content: text },
     ];
     const params = this.config.config.parameters;
-    const model = overrideModel || this.config.config.current_model;
+    const model = resolved.model;
 
     try {
       const stream = providerName === 'ollama'
