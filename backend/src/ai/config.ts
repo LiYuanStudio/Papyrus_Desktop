@@ -194,13 +194,42 @@ export class AIConfig {
 
   /**
    * 解析翻译请求应使用的供应商与模型。
-   * 优先使用 translation_*；未配置时回退到聊天默认，避免破坏旧数据与未设置场景。
-   * 未强制要求 translation_* 必填：与「可选专用模型」产品设计一致。
+   * 仅当 translation_provider 与 translation_model 成对配置时才使用专用翻译目标；
+   * 否则整组回退到聊天默认（或请求侧 fallbackModel），避免「供应商 A + 模型 B」错配。
+   * 未做字段级独立 fallback：半配置状态比回退到聊天默认更危险。
+   *
+   * @param fallbackModel 聊天面板当前选中模型 API ID；仅在未配置完整翻译目标时使用
    */
-  resolveTranslationTarget(): { provider: string; model: string } {
-    const provider = this.config.translation_provider || this.config.current_provider;
-    const model = this.config.translation_model || this.config.current_model;
-    return { provider, model };
+  resolveTranslationTarget(fallbackModel?: string): { provider: string; model: string } {
+    const translationProvider = this.config.translation_provider.trim();
+    const translationModel = this.config.translation_model.trim();
+    if (translationProvider && translationModel) {
+      return { provider: translationProvider, model: translationModel };
+    }
+
+    const fallback = (fallbackModel ?? '').trim();
+    if (fallback) {
+      return {
+        provider: this.config.current_provider,
+        model: fallback,
+      };
+    }
+
+    return {
+      provider: this.config.current_provider,
+      model: this.config.current_model,
+    };
+  }
+
+  /**
+   * 是否已配置完整的翻译专用模型（provider + model 成对）。
+   * 用于路由/前端判断是否应忽略聊天侧 fallback model。
+   */
+  hasTranslationTarget(): boolean {
+    return (
+      this.config.translation_provider.trim().length > 0 &&
+      this.config.translation_model.trim().length > 0
+    );
   }
 
   getMaskedConfig(): AIConfigData {

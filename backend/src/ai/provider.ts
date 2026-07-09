@@ -962,12 +962,12 @@ export class AIManager {
 
   /**
    * 流式翻译文本。
-   * 使用 translation_provider/model（若已配置），否则回退到聊天默认；
-   * overrideModel 仅覆盖模型 ID，供应商仍按翻译配置解析，避免跨供应商密钥错配。
-   * 未继续强制使用 current_provider：用户可能为翻译单独选择更便宜/更快的模型。
+   * 完整 translation_* 成对配置时走专用目标；否则用 fallbackModel / 聊天默认。
+   * fallbackModel 不会覆盖已配置的翻译模型，避免聊天工具栏抢走设置页选择。
+   * 未再使用「override 优先于 translation_model」：那会让设置里的翻译模型形同虚设。
    */
-  async *translateStream(text: string, overrideModel?: string): AsyncGenerator<StreamChunk> {
-    const resolved = this.config.resolveTranslationTarget();
+  async *translateStream(text: string, fallbackModel?: string): AsyncGenerator<StreamChunk> {
+    const resolved = this.config.resolveTranslationTarget(fallbackModel);
     const providerName = resolved.provider;
     const providerConfig = getProviderConfigFromDB(providerName);
     if (!providerConfig) {
@@ -984,7 +984,7 @@ Output only the translation, no explanations.`;
       { role: 'user', content: text },
     ];
     const params = this.config.config.parameters;
-    const model = overrideModel || resolved.model;
+    const model = resolved.model;
 
     try {
       const stream = providerName === 'ollama'

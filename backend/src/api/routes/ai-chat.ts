@@ -334,8 +334,16 @@ export default async function aiChatRoutes(fastify: FastifyInstance): Promise<vo
       return;
     }
 
-    // 使用翻译专用供应商（未配置则回退聊天默认），避免翻译模型与当前聊天供应商密钥不一致
-    const { provider: providerName } = aiConfig.resolveTranslationTarget();
+    // 成对翻译配置优先；否则用请求体 model（聊天当前选中）或 current_* 回退
+    const fallbackModel =
+      typeof payload.model === 'string' && payload.model.trim() ? payload.model.trim() : undefined;
+    const { provider: providerName, model: resolvedModel } =
+      aiConfig.resolveTranslationTarget(fallbackModel);
+    if (!resolvedModel) {
+      reply.status(400).send({ success: false, error: '翻译模型未配置' });
+      return;
+    }
+
     const providerConfig = getProviderConfigFromDB(providerName);
     if (!providerConfig) {
       reply.status(400).send({ success: false, error: 'Provider 未配置' });
@@ -361,8 +369,8 @@ export default async function aiChatRoutes(fastify: FastifyInstance): Promise<vo
     });
 
     try {
-      // 请求体 model 仅作可选覆盖；未传时由 translateStream 使用 translation_model / current_model
-      for await (const chunk of aiManager.translateStream(payload.text, payload.model)) {
+      // payload.model 仅在未配置完整 translation_* 时作为 fallback
+      for await (const chunk of aiManager.translateStream(payload.text, fallbackModel)) {
         if (chunk.type === 'content') {
           const text = typeof chunk.data === 'string' ? chunk.data : '';
           reply.raw.write(`data: ${JSON.stringify({ type: 'text', data: text })}\n\n`);

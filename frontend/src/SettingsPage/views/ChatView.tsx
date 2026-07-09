@@ -91,36 +91,52 @@ const ChatView = ({ onBack }: ChatViewProps) => {
   /**
    * 根据已保存的 AI 配置，把 current_model / translation_model 解析为模型行 id。
    * 原因：UI 用 DB 行 id 高亮卡片，而配置存的是 API modelId + provider type。
-   * 未仅用 isDefault：翻译模型可能与默认聊天模型不同。
+   * 未仅用 isDefault：翻译模型可能与默认聊天模型不同；但 current_model 为空时仍回退 isDefault，与聊天工具栏一致。
    */
   const hydrateModelSelections = (providerList: Provider[]) => {
     api.getAIConfig()
       .then(data => {
-        if (!data.success || !data.config) return;
-        const cfg = data.config;
+        const cfg = data.success ? data.config : undefined;
+        let resolvedCurrentId = '';
 
-        if (cfg.current_model) {
+        if (cfg?.current_model) {
           for (const p of providerList) {
             if (cfg.current_provider && p.type !== cfg.current_provider) continue;
             const match = p.models.find(m => m.modelId === cfg.current_model || m.id === cfg.current_model);
             if (match) {
-              setCurrentModelId(match.id);
+              resolvedCurrentId = match.id;
               break;
             }
           }
         }
 
-        if (cfg.translation_model) {
+        // 与 useModelSelector 对齐：配置缺失/不匹配时高亮默认供应商首个启用模型
+        if (!resolvedCurrentId) {
+          const defaultProvider = providerList.find(p => p.isDefault && p.enabled)
+            ?? providerList.find(p => p.enabled);
+          const defaultModel = defaultProvider?.models.find(m => m.enabled);
+          if (defaultModel) {
+            resolvedCurrentId = defaultModel.id;
+          }
+        }
+
+        if (resolvedCurrentId) {
+          setCurrentModelId(resolvedCurrentId);
+        }
+
+        if (cfg?.translation_model) {
+          let resolvedTranslationId = '';
           for (const p of providerList) {
             if (cfg.translation_provider && p.type !== cfg.translation_provider) continue;
             const match = p.models.find(
               m => m.modelId === cfg.translation_model || m.id === cfg.translation_model,
             );
             if (match) {
-              setTranslationModelId(match.id);
+              resolvedTranslationId = match.id;
               break;
             }
           }
+          setTranslationModelId(resolvedTranslationId);
         } else {
           setTranslationModelId('');
         }

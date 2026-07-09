@@ -313,7 +313,14 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         return;
       }
 
-      if (modelRow?.modelId && modelRow.modelId === aiConfig.config.translation_model) {
+      // 配置里可能存 API modelId 或历史行 id，删除时两者都要匹配清空
+      const translationRef = aiConfig.config.translation_model;
+      const matchesTranslation =
+        Boolean(translationRef) &&
+        (translationRef === modelRow?.modelId ||
+          translationRef === modelRow?.id ||
+          translationRef === modelId);
+      if (matchesTranslation) {
         if (!aiConfig.config.translation_provider || aiConfig.config.translation_provider === provider?.type) {
           aiConfig.config.translation_provider = '';
           aiConfig.config.translation_model = '';
