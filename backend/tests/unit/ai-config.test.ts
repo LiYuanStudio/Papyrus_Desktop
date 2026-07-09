@@ -45,6 +45,30 @@ describe('AIConfig', () => {
     expect(config2.config.features.agent_enabled).toBe(true);
   });
 
+  it('should persist translation model config and resolve with fallback', () => {
+    const config1 = new AIConfig(tempDir);
+    config1.config.current_provider = 'openai';
+    config1.config.current_model = 'gpt-4o';
+    config1.config.translation_provider = 'deepseek';
+    config1.config.translation_model = 'deepseek-chat';
+    config1.saveConfig();
+
+    const config2 = new AIConfig(tempDir);
+    expect(config2.config.translation_provider).toBe('deepseek');
+    expect(config2.config.translation_model).toBe('deepseek-chat');
+    expect(config2.resolveTranslationTarget()).toEqual({
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+    });
+
+    config2.config.translation_provider = '';
+    config2.config.translation_model = '';
+    expect(config2.resolveTranslationTarget()).toEqual({
+      provider: 'openai',
+      model: 'gpt-4o',
+    });
+  });
+
   it('getMaskedConfig should return empty providers', () => {
     const config = new AIConfig(tempDir);
     const masked = config.getMaskedConfig();

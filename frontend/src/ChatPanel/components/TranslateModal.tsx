@@ -9,11 +9,15 @@ import { copyToClipboard } from '../utils/clipboard';
 export interface TranslateModalProps {
   visible: boolean;
   sourceText: string;
-  modelId?: string;
   onClose: () => void;
 }
 
-export function TranslateModal({ visible, sourceText, modelId, onClose }: TranslateModalProps) {
+/**
+ * 聊天消息翻译弹窗：请求后端 /translate，由服务端按 translation_model 配置选模型。
+ * 不再传入聊天当前模型，避免设置里选的翻译模型被聊天工具栏覆盖。
+ * 未在前端再选模型：设置页已提供专用选择，弹窗保持极简。
+ */
+export function TranslateModal({ visible, sourceText, onClose }: TranslateModalProps) {
   const { t } = useTranslation();
   const [translatedText, setTranslatedText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +39,6 @@ export function TranslateModal({ visible, sourceText, modelId, onClose }: Transl
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: sourceText,
-            model: modelId,
           }),
           signal: abortRef.current?.signal,
         });
@@ -102,7 +105,7 @@ export function TranslateModal({ visible, sourceText, modelId, onClose }: Transl
       abortRef.current?.abort();
       abortRef.current = null;
     };
-  }, [visible, sourceText, modelId, t]);
+  }, [visible, sourceText, t]);
 
   const handleCopy = () => {
     if (!translatedText) return;

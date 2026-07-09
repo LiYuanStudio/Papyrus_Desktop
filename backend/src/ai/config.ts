@@ -38,6 +38,18 @@ export interface AIConfigData {
   providers: Record<string, ProviderConfig>;
   current_provider: string;
   current_model: string;
+  /**
+   * 翻译专用供应商 type（如 openai / deepseek）。
+   * 为空时回退到 current_provider，保证未配置翻译模型时行为与旧版一致。
+   * 未与 current_provider 合并：翻译可选用与聊天不同的供应商与密钥。
+   */
+  translation_provider: string;
+  /**
+   * 翻译专用模型 API ID。
+   * 为空时回退到 current_model。
+   * 未复用 completion 独立配置：翻译需要显式模型选择，与聊天默认模型同属 AIConfig。
+   */
+  translation_model: string;
   parameters: ParametersConfig;
   features: FeaturesConfig;
   log: LogConfig;
@@ -81,6 +93,8 @@ export class AIConfig {
       providers: {},
       current_provider: '',
       current_model: '',
+      translation_provider: '',
+      translation_model: '',
       parameters: {
         temperature: 0.7,
         top_p: 0.9,
@@ -121,11 +135,21 @@ export class AIConfig {
     try {
       const dbCurrentProvider = readUiSetting('ai.current_provider');
       const dbCurrentModel = readUiSetting('ai.current_model');
+      const dbTranslationProvider = readUiSetting('ai.translation_provider');
+      const dbTranslationModel = readUiSetting('ai.translation_model');
       const dbParameters = readUiSetting('ai.parameters');
       const dbFeatures = readUiSetting('ai.features');
       const dbLog = readUiSetting('ai.log');
 
-      if (!dbCurrentProvider && !dbCurrentModel && !dbParameters && !dbFeatures && !dbLog) {
+      if (
+        !dbCurrentProvider &&
+        !dbCurrentModel &&
+        !dbTranslationProvider &&
+        !dbTranslationModel &&
+        !dbParameters &&
+        !dbFeatures &&
+        !dbLog
+      ) {
         this.config = defaultConfig;
         return;
       }
@@ -134,6 +158,8 @@ export class AIConfig {
         providers: {},
         current_provider: dbCurrentProvider ?? defaultConfig.current_provider,
         current_model: dbCurrentModel ?? defaultConfig.current_model,
+        translation_provider: dbTranslationProvider ?? defaultConfig.translation_provider,
+        translation_model: dbTranslationModel ?? defaultConfig.translation_model,
         parameters: dbParameters
           ? { ...defaultConfig.parameters, ...JSON.parse(dbParameters) }
           : defaultConfig.parameters,
@@ -154,6 +180,8 @@ export class AIConfig {
     try {
       writeUiSetting('ai.current_provider', this.config.current_provider);
       writeUiSetting('ai.current_model', this.config.current_model);
+      writeUiSetting('ai.translation_provider', this.config.translation_provider);
+      writeUiSetting('ai.translation_model', this.config.translation_model);
       writeUiSetting('ai.parameters', JSON.stringify(this.config.parameters));
       writeUiSetting('ai.features', JSON.stringify(this.config.features));
       writeUiSetting('ai.log', JSON.stringify(this.config.log));
@@ -162,6 +190,17 @@ export class AIConfig {
       console.error('保存 AI 配置到数据库失败:', e instanceof Error ? e.message : String(e));
       return false;
     }
+  }
+
+  /**
+   * 解析翻译请求应使用的供应商与模型。
+   * 优先使用 translation_*；未配置时回退到聊天默认，避免破坏旧数据与未设置场景。
+   * 未强制要求 translation_* 必填：与「可选专用模型」产品设计一致。
+   */
+  resolveTranslationTarget(): { provider: string; model: string } {
+    const provider = this.config.translation_provider || this.config.current_provider;
+    const model = this.config.translation_model || this.config.current_model;
+    return { provider, model };
   }
 
   getMaskedConfig(): AIConfigData {

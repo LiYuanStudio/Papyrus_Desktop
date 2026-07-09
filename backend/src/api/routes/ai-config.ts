@@ -30,6 +30,8 @@ export default async function aiConfigRoutes(fastify: FastifyInstance): Promise<
       config: {
         current_provider: masked.current_provider,
         current_model: masked.current_model,
+        translation_provider: masked.translation_provider,
+        translation_model: masked.translation_model,
         providers: providersFromDB,
         parameters: masked.parameters,
         features: masked.features,
@@ -46,6 +48,12 @@ export default async function aiConfigRoutes(fastify: FastifyInstance): Promise<
       }
       if (payload.current_model !== undefined) {
         aiConfig.config.current_model = payload.current_model;
+      }
+      if (payload.translation_provider !== undefined) {
+        aiConfig.config.translation_provider = payload.translation_provider;
+      }
+      if (payload.translation_model !== undefined) {
+        aiConfig.config.translation_model = payload.translation_model;
       }
 
       if (payload.parameters) {

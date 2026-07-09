@@ -7,6 +7,8 @@ export interface ProviderConfig {
 export interface AIConfig {
   current_provider: string;
   current_model: string;
+  translation_provider?: string;
+  translation_model?: string;
   providers: Record<string, ProviderConfig>;
   parameters: {
     temperature: number;

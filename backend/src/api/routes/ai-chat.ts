@@ -334,7 +334,8 @@ export default async function aiChatRoutes(fastify: FastifyInstance): Promise<vo
       return;
     }
 
-    const providerName = aiConfig.config.current_provider;
+    // 使用翻译专用供应商（未配置则回退聊天默认），避免翻译模型与当前聊天供应商密钥不一致
+    const { provider: providerName } = aiConfig.resolveTranslationTarget();
     const providerConfig = getProviderConfigFromDB(providerName);
     if (!providerConfig) {
       reply.status(400).send({ success: false, error: 'Provider 未配置' });
@@ -360,6 +361,7 @@ export default async function aiChatRoutes(fastify: FastifyInstance): Promise<vo
     });
 
     try {
+      // 请求体 model 仅作可选覆盖；未传时由 translateStream 使用 translation_model / current_model
       for await (const chunk of aiManager.translateStream(payload.text, payload.model)) {
         if (chunk.type === 'content') {
           const text = typeof chunk.data === 'string' ? chunk.data : '';

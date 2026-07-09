@@ -28,6 +28,12 @@ export function loadAIConfigFromJson(aiConfig: AIConfig): boolean {
     if (typeof raw.current_model === 'string') {
       aiConfig.config.current_model = raw.current_model;
     }
+    if (typeof raw.translation_provider === 'string') {
+      aiConfig.config.translation_provider = raw.translation_provider;
+    }
+    if (typeof raw.translation_model === 'string') {
+      aiConfig.config.translation_model = raw.translation_model;
+    }
     if (raw.parameters && typeof raw.parameters === 'object' && !Array.isArray(raw.parameters)) {
       aiConfig.config.parameters = { ...aiConfig.config.parameters, ...raw.parameters };
     }
@@ -105,7 +111,7 @@ export function migrateJsonProvidersToDb(aiConfig: AIConfig): string[] {
 
 /**
  * 从数据库加载完整 AI 配置到 AIConfig 实例内存。
- * - 读取 current_provider / current_model / parameters / features / log 从 ui_settings 表
+ * - 读取 current_provider / current_model / translation_* / parameters / features / log 从 ui_settings 表
  * - 同步 isDefault provider 到 current_provider / current_model
  * - 从此不再涉及 ai_config.json
  *
@@ -116,12 +122,17 @@ export function loadAIConfigFromDb(aiConfig: AIConfig, forceSyncDefault: boolean
     // 从 ui_settings 加载非 provider 配置
     const dbCurrentProvider = readUiSetting('ai.current_provider');
     const dbCurrentModel = readUiSetting('ai.current_model');
+    const dbTranslationProvider = readUiSetting('ai.translation_provider');
+    const dbTranslationModel = readUiSetting('ai.translation_model');
     const dbParameters = readUiSetting('ai.parameters');
     const dbFeatures = readUiSetting('ai.features');
     const dbLog = readUiSetting('ai.log');
 
     if (dbCurrentProvider) aiConfig.config.current_provider = dbCurrentProvider;
     if (dbCurrentModel) aiConfig.config.current_model = dbCurrentModel;
+    // 允许空字符串：用户可清空翻译专用配置以回退到聊天默认模型
+    if (dbTranslationProvider !== undefined) aiConfig.config.translation_provider = dbTranslationProvider;
+    if (dbTranslationModel !== undefined) aiConfig.config.translation_model = dbTranslationModel;
     if (dbParameters) {
       try {
         const parsed = JSON.parse(dbParameters);

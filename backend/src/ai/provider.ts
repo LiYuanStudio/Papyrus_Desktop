@@ -960,8 +960,15 @@ export class AIManager {
     }
   }
 
+  /**
+   * 流式翻译文本。
+   * 使用 translation_provider/model（若已配置），否则回退到聊天默认；
+   * overrideModel 仅覆盖模型 ID，供应商仍按翻译配置解析，避免跨供应商密钥错配。
+   * 未继续强制使用 current_provider：用户可能为翻译单独选择更便宜/更快的模型。
+   */
   async *translateStream(text: string, overrideModel?: string): AsyncGenerator<StreamChunk> {
-    const providerName = this.config.config.current_provider;
+    const resolved = this.config.resolveTranslationTarget();
+    const providerName = resolved.provider;
     const providerConfig = getProviderConfigFromDB(providerName);
     if (!providerConfig) {
       yield { type: 'error', data: `未知 provider: ${providerName}` };
@@ -977,7 +984,7 @@ Output only the translation, no explanations.`;
       { role: 'user', content: text },
     ];
     const params = this.config.config.parameters;
-    const model = overrideModel || this.config.config.current_model;
+    const model = overrideModel || resolved.model;
 
     try {
       const stream = providerName === 'ollama'

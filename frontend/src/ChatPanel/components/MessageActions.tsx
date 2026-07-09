@@ -21,7 +21,6 @@ export interface MessageActionsProps {
   isGenerating: boolean;
   messages: Message[];
   editingMessageId: string | null;
-  modelId?: string;
   onStartEditing: (messageId: string, content: string) => void;
   onMessagesChange: React.Dispatch<React.SetStateAction<Message[]>>;
   onRegenerateAssistant: (assistantMessageId: string, parentUserMessageId: string) => Promise<void>;
@@ -33,7 +32,6 @@ export function MessageActions({
   isGenerating,
   messages,
   editingMessageId,
-  modelId,
   onStartEditing,
   onMessagesChange,
   onRegenerateAssistant,
@@ -255,7 +253,6 @@ export function MessageActions({
       <TranslateModal
         visible={translateVisible}
         sourceText={message.content}
-        modelId={modelId}
         onClose={() => setTranslateVisible(false)}
       />
     </>
