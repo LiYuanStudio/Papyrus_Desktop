@@ -1,8 +1,14 @@
 # Papyrus 版本信息
 
-## 当前版本：v2.0.0-beta.11
+## 当前版本：v2.0.0-beta.12
 
 ### 🎉 主要更新
+
+#### v2.0.0-beta.12 更新内容
+- **设置**: 新增翻译模型选择
+- **聊天**: 优化窄面板布局并丰富消息操作
+- **安全**: 加固 API 认证、SSRF 防护与密钥暴露面
+- **存储**: 主数据为 SQLite（`node:sqlite`，WAL）
 
 #### v2.0.0-beta.11 更新内容
 - **前端重构**: 更新图标资源并重构前端代码结构
@@ -130,7 +136,8 @@ Papyrus/
 │   │   ├── api/             # Fastify 路由
 │   │   ├── core/            # 核心业务逻辑
 │   │   ├── ai/              # AI 功能模块
-│   │   ├── db/              # JSON 数据持久化
+│   │   ├── db/              # SQLite（node:sqlite，WAL）
+│   │   ├── cli/             # Desktop CLI 管理
 │   │   └── utils/           # 工具函数
 │   └── package.json
 ├── frontend/                # React + TypeScript 前端
@@ -139,6 +146,7 @@ Papyrus/
 │   │   ├── ScrollPage/      # 卷轴复习
 │   │   ├── NotesPage/       # 笔记管理
 │   │   ├── SettingsPage/    # 设置
+│   │   ├── ChatPanel/       # AI 聊天
 │   │   └── ...
 │   └── package.json
 └── electron/                # Electron 主进程
@@ -152,7 +160,7 @@ Papyrus/
 | 前端 | React 19, TypeScript 5, Arco Design, Vite 8, Tailwind CSS |
 | 桌面 | Electron 41, electron-builder |
 | 算法 | SM-2 间隔重复 |
-| 存储 | JSON 文件 |
+| 存储 | SQLite（`node:sqlite`，WAL），`$HOME/PapyrusData/papyrus.db` |
 
 ---
 
@@ -212,4 +220,4 @@ MIT License
 
 ---
 
-**Papyrus v2.0.0-beta.11** - 让学习更智能，让记忆更科学。
+**Papyrus v2.0.0-beta.12** - 让学习更智能，让记忆更科学。

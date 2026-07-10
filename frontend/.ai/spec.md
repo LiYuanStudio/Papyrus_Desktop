@@ -5,7 +5,7 @@
 - React 19 + TypeScript
 - Arco Design (字节跳动组件库 v2.66)
 - Vite 5 开发构建
-- FastAPI 后端 API (`/api/*`)
+- Fastify 后端 API (`/api/*`)
 
 ## 代码规范
 

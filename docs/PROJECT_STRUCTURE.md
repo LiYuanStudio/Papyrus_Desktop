@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-> 最后更新: 2026-06-04
+> 最后更新: 2026-07-10（v2.0.0-beta.12）
 
 Papyrus 是一款现代化的桌面学习应用，采用 **Node.js + Fastify 后端 + React 19 TypeScript 前端 + Electron 41 桌面壳** 架构。
 
@@ -41,8 +41,9 @@ Papyrus/
 │   │   │       ├── relations.ts   # 关系工具
 │   │   │       ├── settings.ts    # 设置工具
 │   │   │       └── extensions.ts  # 扩展工具
-│   │   ├── db/                    # JSON 数据持久化
-│   │   │   └── database.ts        # 数据库操作
+│   │   ├── db/                    # SQLite（node:sqlite，WAL）
+│   │   │   └── database.ts        # 数据库操作与 schema
+│   │   ├── cli/                   # Desktop CLI 管理辅助
 │   │   ├── integrations/          # 外部集成
 │   │   │   └── file-watcher.ts    # 文件监听（Obsidian Vault）
 │   │   ├── mcp/                   # MCP 服务端点
@@ -67,6 +68,7 @@ Papyrus/
 │   │   ├── ExtensionsPage/        # 扩展管理
 │   │   ├── SettingsPage/          # 设置（AI配置、无障碍、外观、快捷键）
 │   │   ├── ChatPanel/             # AI 聊天面板
+│   │   ├── DesktopPage/           # 画布/白板占位（尚未接入路由）
 │   │   ├── components/            # 公共组件
 │   │   ├── hooks/                 # 自定义 Hooks
 │   │   ├── contexts/              # React Context
@@ -120,8 +122,7 @@ Papyrus/
 |------|------|
 | `frontend/src/contexts/AccessibilityContext.tsx` | 无障碍上下文 |
 | `frontend/src/components/ScreenReaderAnnouncer.tsx` | 屏幕阅读器播报 |
-| `docs/guides/ACCESSIBILITY_GUIDE.md` | 无障碍开发指南 |
-| `docs/guides/A11Y_IMPLEMENTATION.md` | 无障碍实施记录 |
+| `docs/guides/ACCESSIBILITY_GUIDE.md` | 无障碍开发指南与验证清单 |
 | `docs/guides/A11Y_SETTINGS.md` | 无障碍设置说明 |
 
 ### 核心组件
@@ -132,11 +133,13 @@ Papyrus/
 | `Sidebar.tsx` | 侧边导航栏 |
 | `TitleBar.tsx` | 顶部标题栏 |
 | `SearchBox.tsx` | 全局搜索 |
-| `ChatPanel.tsx` | AI 聊天面板 |
-| `SettingsPage.tsx` | 设置页面 |
-| `StartPage.tsx` | 开始页面 |
-| `ScrollPage.tsx` | 卷轴复习页面 |
-| `NotesPage.tsx` | 笔记管理页面 |
+| `ChatPanel/` | AI 聊天面板（目录组件） |
+| `SettingsPage/` | 设置页面 |
+| `StartPage/` | 开始页面 |
+| `ScrollPage/` | 卷轴复习页面 |
+| `NotesPage/` | 笔记管理页面 |
+| `FilesPage/` | 文件库 |
+| `ExtensionsPage/` | 扩展管理 |
 
 ---
 
@@ -145,7 +148,7 @@ Papyrus/
 ### 技术栈
 - **框架**: Fastify 5
 - **语言**: TypeScript 5（ES Module，导入带 `.js` 后缀）
-- **存储**: JSON 文件（本地持久化）
+- **存储**: SQLite via `node:sqlite`（WAL），默认 `$HOME/PapyrusData/papyrus.db`
 - **算法**: SM-2 间隔重复
 - **测试**: Jest + ts-jest
 
@@ -160,7 +163,8 @@ Papyrus/
 | `core/crypto.ts` | AES-GCM 加密 |
 | `core/relations.ts` | 关系管理 |
 | `core/files.ts` | 文件操作 |
-| `db/database.ts` | JSON 数据持久化 |
+| `db/database.ts` | SQLite 持久化 |
+| `cli/` | Desktop CLI 管理 |
 
 ### API 端点
 
@@ -175,13 +179,23 @@ Papyrus/
 | `/api/notes/:id` | GET/PATCH/DELETE | 笔记操作 |
 | `/api/notes/import/obsidian` | POST | Obsidian 导入 |
 | `/api/files` | GET/POST/DELETE | 文件管理 |
-| `/api/relations` | GET/POST/DELETE | 关系管理 |
+| `/api/notes/:noteId/relations` | GET/POST | 笔记关系 |
+| `/api/relations/:id` | PATCH/DELETE | 关系更新/删除 |
 | `/api/extensions` | GET/POST/DELETE | 扩展管理 |
 | `/api/search` | GET | 全局搜索 |
-| `/api/ai-chat` | POST | AI 聊天 |
-| `/api/ai-config` | GET/PATCH | AI 配置 |
+| `/api/chat` | POST | AI 聊天（SSE） |
+| `/api/sessions` | GET/POST/DELETE | AI 会话 |
+| `/api/tools/*` | GET/POST | AI 工具目录/审批/历史 |
+| `/api/config/ai` | GET/POST | AI 配置 |
+| `/api/completion` | POST | AI 补全 |
 | `/api/providers` | GET/POST/DELETE | AI 提供商管理 |
-| `/api/progress` | GET | 复习进度 |
+| `/api/progress/*` | GET | 复习进度 |
+| `/api/backup` | POST | 数据库备份 |
+| `/api/export` | GET | 数据导出 |
+| `/api/import` | POST | 数据导入 |
+| `/api/data/reset` | POST | 清空数据 |
+| `/api/cli/*` | GET/POST | Desktop CLI 状态/安装/更新/运行 |
+| `/api/ui-settings` | GET/POST | UI 设置 |
 | `/api/mcp/*` | — | MCP 服务 |
 
 ---
@@ -203,8 +217,6 @@ Papyrus/
 
 ### AI 功能
 - [AI 功能说明](AI_README.md)
-- [AI 工具演示](AI_TOOLS_DEMO.md)
-- [工具调用审批设计](tool_call_approval.md)
 
 ---
 
@@ -245,11 +257,15 @@ npm run electron:build   # 全平台构建
 
 ## 最近更新
 
+### 2026-07 v2.0.0-beta.12
+- ✅ SQLite（`node:sqlite`，WAL）作为主存储
+- ✅ `/api/cli`、`/api/ui-settings`、backup/export/import 等数据路由
+- ✅ 翻译模型选择、聊天窄面板与安全加固
+
 ### 2026-05 Node.js/Fastify 后端重写完成
 - ✅ Node.js 24 + TypeScript 5 + Fastify 5 后端
 - ✅ React 19 + Vite 8 + Arco Design 前端
 - ✅ Electron 41 桌面封装
-- ✅ 20+ API 路由
 - ✅ AI Agent 工具系统（7 类工具）
 - ✅ 30+ AI 提供商支持
 - ✅ MCP 服务端点

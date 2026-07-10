@@ -1,6 +1,6 @@
 # Papyrus 产品需求文档 (PRD)
 
-> 版本: v2.0.0-beta.11
+> 版本: v2.0.0-beta.12
 > 最后更新: 2026-06-04
 > 状态: Beta 开发中
 
@@ -140,7 +140,7 @@
 | 构建 | Vite | 8 |
 | 桌面 | Electron | 41.1.0 |
 | 算法 | SM-2 | - |
-| 存储 | JSON 文件 | - |
+| 存储 | SQLite（node:sqlite，WAL） | - |
 | AI SDK | OpenAI SDK | 4.96 |
 | 校验 | Zod | 3.25 |
 
@@ -406,7 +406,7 @@ interface AIConfig {
 | v2.1 | 云端同步、移动端适配 | 规划中 |
 | v3.0 | 协作功能、API 开放平台 | 远期规划 |
 
-### 7.2 当前版本 (v2.0.0-beta.11)
+### 7.2 当前版本 (v2.0.0-beta.12)
 
 **已完成**:
 - ✅ Node.js + Fastify 后端（TypeScript，ES Module）
@@ -447,9 +447,9 @@ interface AIConfig {
 
 ### 8.2 参考文档
 
-- [文件索引](FILE_INDEX.md)
 - [项目结构](PROJECT_STRUCTURE.md)
 - [API 文档](API.md)
+- [改动指南](CHANGE-GUIDE.md)
 - [无障碍指南](guides/ACCESSIBILITY_GUIDE.md)
 
 ### 8.3 相关链接
@@ -467,3 +467,4 @@ interface AIConfig {
 | v1.0 | 2026-03-29 | 初始版本 | - |
 | v1.1 | 2026-03-29 | 添加窗口模式支持、更新 Electron v41.1.0 | - |
 | v2.0 | 2026-06-04 | 重写为 Node.js/Fastify 架构，更新至 beta.11 | - |
+| v2.1 | 2026-07-10 | 存储统一为 SQLite；文档同步至 beta.12 | - |

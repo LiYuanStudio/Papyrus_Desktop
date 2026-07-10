@@ -169,6 +169,7 @@ PAPYRUS_PORT=8080 npm run dev:backend
 
 - **前端**: React 19 + TypeScript + Vite + Arco Design + Tailwind CSS
 - **后端**: Node.js 24 + TypeScript 5 + Fastify 5
+- **存储**: SQLite（`node:sqlite`，WAL），默认 `$HOME/PapyrusData/papyrus.db`（可用 `PAPYRUS_DATA_DIR` 覆盖）
 - **桌面**: Electron 41 + electron-builder
 - **测试**: Jest（后端）
 - **通信**: REST API（端口 8000）

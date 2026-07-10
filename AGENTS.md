@@ -1,6 +1,6 @@
 ﻿# Papyrus 项目开发信息
 
-> 版本: 2.0.0-beta.11 | 许可: MIT | 仓库: https://github.com/PapyrusOR/Papyrus_Desktop
+> 版本: 2.0.0-beta.12 | 许可: MIT | 仓库: https://github.com/PapyrusOR/Papyrus_Desktop
 
 ## 项目简介
 
@@ -51,7 +51,8 @@ Papyrus-beta12/
 │   │   │   ├── crypto.ts       # AES-GCM 加密
 │   │   │   ├── relations.ts    # 关系管理
 │   │   │   └── files.ts        # 文件操作
-│   │   ├── db/                 # 数据持久化 (JSON)
+│   │   ├── db/                 # SQLite 持久化 (node:sqlite, WAL)
+│   │   ├── cli/                # Desktop CLI 管理辅助
 │   │   ├── integrations/       # 外部集成 (file-watcher/Obsidian)
 │   │   ├── mcp/                # MCP 服务端点
 │   │   └── utils/              # 工具 (auth, logger, paths, proxy, client-id)
@@ -175,7 +176,8 @@ backend/src/
 │       ├── relations.ts    # 关系工具
 │       ├── settings.ts     # 设置工具
 │       └── extensions.ts   # 扩展工具
-├── db/database.ts          # JSON 数据持久化
+├── db/database.ts          # SQLite（node:sqlite，WAL）
+├── cli/                    # Desktop CLI 管理
 ├── integrations/           # 外部集成
 │   └── file-watcher.ts     # 文件监听（Obsidian Vault）
 ├── mcp/server.ts           # MCP 服务端点
@@ -227,13 +229,8 @@ frontend/src/
 | `/api/review` | review.ts | 间隔重复复习 |
 | `/api/notes` | notes.ts | 笔记管理 |
 | `/api/search` | search.ts | 全局搜索 |
-| `/api/ai-chat` | ai-chat.ts | AI 聊天 |
-| `/api/ai-common` | ai-common.ts | AI 公共逻辑 |
-| `/api/ai-completion` | ai-completion.ts | AI 补全 |
-| `/api/ai-config` | ai-config.ts | AI 配置 |
-| `/api/ai-messages` | ai-messages.ts | AI 消息管理 |
-| `/api/ai-sessions` | ai-sessions.ts | AI 会话管理 |
-| `/api/ai-tools` | ai-tools.ts | AI 工具调用 |
+| `/api`（AI 聚合） | ai.ts → ai-chat / ai-sessions / ai-messages / ai-tools / ai-config / ai-completion | `/api/chat`、`/api/sessions`、`/api/tools/*`、`/api/config/ai`、`/api/completion` |
+| `/api`（数据） | data.ts | `/api/backup`、`/api/export`、`/api/import`、`/api/data/reset` |
 | `/api/progress` | progress.ts | 复习进度 |
 | `/api/config/logs` | logs.ts | 日志配置 |
 | `/api/markdown` | markdown.ts | Markdown 渲染 |
@@ -243,9 +240,13 @@ frontend/src/
 | `/api/notes/:noteId` | note-versions.ts | 笔记版本历史 |
 | `/api/cards/:cardId` | card-versions.ts | 卡片版本历史 |
 | `/api/files` | files.ts | 文件管理 |
-| `/api/relations` | relations.ts | 关系管理 |
+| `/api`（关系） | relations.ts | `/api/notes/:noteId/relations`、`/api/relations/:id` 等 |
 | `/api/extensions` | extensions.ts | 扩展管理 |
+| `/api/cli` | cli.ts | Desktop CLI 安装/更新/运行 |
+| `/api/ui-settings` | ui-settings.ts | UI / 侧边栏设置 |
 | `/api/health` | (server.ts 内联) | 健康检查 |
+
+> 说明：`ai-common.ts` 是共享模块，不是独立注册的路由插件。
 
 ---
 
@@ -418,9 +419,11 @@ GitHub Actions 工作流（`.github/workflows/release-optimized.yml`）：
 
 ### 数据存储
 
-- 本地 JSON 文件存储（非数据库）
-- 数据目录：`$HOME/PapyrusData`（可通过 `PAPYRUS_DATA_DIR` 覆盖）
+- SQLite via `node:sqlite`（WAL，`foreign_keys ON`）
+- 主库文件：`$HOME/PapyrusData/papyrus.db`（可通过 `PAPYRUS_DATA_DIR` 覆盖）
+- 按需备份：`POST /api/backup` → `$HOME/PapyrusData/backups/`
 - 日志目录：`$HOME/PapyrusData/logs`
+- 遗留 JSON（`data.json`、`ai_config.json`）仅兼容；AI 配置启动时迁入 DB
 
 ### 环境变量
 

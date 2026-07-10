@@ -2,9 +2,9 @@
 
 **English** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
-> Papyrus Desktop **v2.0.0-beta.11** — TypeScript / Fastify backend, React 19 frontend, Electron 41 desktop shell.
+> Papyrus Desktop **v2.0.0-beta.12** — TypeScript / Fastify backend, React 19 frontend, Electron 41 desktop shell.
 
-![Version](https://img.shields.io/badge/version-v2.0.0--beta.11-blue)
+![Version](https://img.shields.io/badge/version-v2.0.0--beta.12-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-24-339933)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000)
@@ -45,7 +45,7 @@ Pre-built installers are published on the [Releases](https://github.com/PapyrusO
 | macOS | arm64 | DMG (`.dmg`), ZIP (`.zip`) |
 | Linux | x64 | AppImage, DEB (`.deb`), TAR.GZ |
 
-> ⚠️ `v2.0.0-beta.11` is a beta. The data schema is stable, but the UI and APIs may still evolve before `v2.0.0`.
+> ⚠️ `v2.0.0-beta.12` is a beta. The data schema is stable, but the UI and APIs may still evolve before `v2.0.0`.
 
 ---
 
@@ -165,8 +165,9 @@ Papyrus/
 │   └── src/
 │       ├── api/              # Fastify routes & server entry (server.ts)
 │       ├── core/             # Cards, notes, SM-2, versioning, crypto
-│       ├── db/               # JSON persistence + migrations
+│       ├── db/               # SQLite (node:sqlite, WAL) + schema init
 │       ├── ai/               # Provider abstraction, tool manager, LLM cache
+│       ├── cli/              # Desktop CLI manager helpers
 │       ├── mcp/              # MCP REST endpoints (notes / vault CRUD)
 │       ├── integrations/     # Obsidian import, file watcher (chokidar)
 │       └── utils/            # Shared utilities
@@ -175,8 +176,11 @@ Papyrus/
 │       ├── StartPage/        # Home (recent notes, review queue, solar terms)
 │       ├── ScrollPage/       # Flashcard study (the "scroll")
 │       ├── NotesPage/        # Notes management & graph view
+│       ├── FilesPage/        # File library
+│       ├── ExtensionsPage/   # Extension management
 │       ├── SettingsPage/     # Settings, AI config, accessibility
-│       └── ChartsPage/       # Stats & progress charts
+│       ├── ChartsPage/       # Stats & progress charts
+│       └── ChatPanel/        # AI chat panel
 ├── electron/                 # Main process + preload (Electron 41)
 ├── scripts/                  # build-electron.js, extract-changelog.js
 ├── e2e/                      # Playwright E2E tests
@@ -189,7 +193,7 @@ Papyrus/
 - **Frontend** — React 19, TypeScript 5, Vite, Arco Design, Tailwind CSS
 - **Desktop** — Electron 41 + electron-builder
 - **Algorithm** — SM-2 spaced repetition
-- **Storage** — local JSON files, content-hashed versions
+- **Storage** — SQLite via `node:sqlite` (WAL), content-hashed versions
 - **CI/CD** — GitHub Actions matrix (Windows x64, macOS arm64, Linux x64)
 
 ---
@@ -242,10 +246,11 @@ git push origin main --tags
 
 By default, user data lives under `paths.dataDir` (defaults to `$HOME/PapyrusData`, override with `PAPYRUS_DATA_DIR`):
 
-- `ai_config.json` — provider, model, encrypted API keys
-- `Papyrusdata.json` — cards & SM-2 review state
-- `notes.json` — notes
-- `~/.papyrus/auth.token` — token required for write APIs (generated on first run)
+- `papyrus.db` — SQLite database (WAL mode): cards, notes, providers, chat, versions, files, relations, extensions, progress, UI settings
+- `backups/` — on-demand DB backups from `POST /api/backup`
+- `logs/` — application logs
+- Legacy JSON files (`data.json`, `ai_config.json`) may still exist for compatibility; AI config is migrated into the DB on startup
+- Auth token for write APIs (Electron mode) via `PAPYRUS_AUTH_TOKEN` / generated local token
 
 ---
 
@@ -255,7 +260,7 @@ By default, user data lives under `paths.dataDir` (defaults to `$HOME/PapyrusDat
 2. **Local models** — Ollama is free but needs decent hardware.
 3. **Network** — cloud providers need a stable connection.
 4. **Privacy** — local models stay local; cloud providers see the prompts you send.
-5. **Concurrency** — JSON-file storage is single-writer; don't run multiple instances against the same data dir.
+5. **Concurrency** — prefer a single app instance per data directory; SQLite WAL allows readers, but concurrent writers from multiple processes are not supported.
 
 ---
 
@@ -279,8 +284,6 @@ By default, user data lives under `paths.dataDir` (defaults to `$HOME/PapyrusDat
 
 ### AI features
 - [AI overview](docs/AI_README.md)
-- [AI tools demo](docs/AI_TOOLS_DEMO.md)
-- [Tool-call approval design](docs/tool_call_approval.md)
 
 ---
 

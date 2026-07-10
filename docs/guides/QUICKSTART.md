@@ -261,16 +261,16 @@ npm run dev
 - [完整文档](../README.md)
 - [更新日志](../../CHANGELOG.md)
 - [版本信息](VERSION.md)
-- [AI 功能详解](../AI_TOOLS_DEMO.md)
+- [AI 功能说明](../AI_README.md)
 
 ---
 
 ## 💡 小贴士
 
-1. **数据备份**：程序自动备份，也可手动导出
+1. **数据备份**：主库为 `$HOME/PapyrusData/papyrus.db`（SQLite）；可通过 `POST /api/backup` 或应用内导出备份
 2. **快捷键**：全程键盘操作，提高效率
 3. **本地优先**：使用 Ollama 可完全离线使用
-4. **隐私保护**：API Key 加密存储，数据本地存储
+4. **隐私保护**：API Key 加密存储，数据本地 SQLite 存储
 
 ---
 

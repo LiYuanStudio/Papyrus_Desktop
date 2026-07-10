@@ -1,5 +1,7 @@
 # Papyrus CLI Manager 设计草案
 
+> **落地状态（v2.0.0-beta.12）**：Desktop 已提供 `/api/cli`（`status` / `install` / `update` / `run`）。下文仍是完整设计草案；实现细节以 `backend/src/api/routes/cli.ts` 与 `backend/src/cli/` 为准。
+
 本文记录后续把 `Papyrus_Cli` 融入 Desktop 的推荐方案，目标是：**用户只安装 Papyrus Desktop，Desktop 按需自动获取 CLI，AI / Skill / 插件可以稳定调用 CLI，而不要求用户手动安装 Node 或 CLI。**
 
 ## 目标
