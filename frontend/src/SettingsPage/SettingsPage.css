@@ -52,7 +52,7 @@
 
 /* 主页面 */
 .settings-main {
-  padding: 96px 64px 64px;
+  padding: 48px 64px 64px;
   min-height: 100%;
 }
 /* 分类网格 - 固定三列布局 */
@@ -60,6 +60,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
+  margin-top: 32px;
 }
 
 /* 分类卡片 - 沿用开始页面标准：1px边框，悬停变2px蓝色 */

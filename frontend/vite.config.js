@@ -2,14 +2,17 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
+import { fileURLToPath } from 'url'
 import os from 'os'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 const rootPkg = JSON.parse(
   readFileSync(resolve(__dirname, '..', 'package.json'), 'utf8')
 )
 const appVersion = rootPkg.version ?? 'unknown'
 
-function readDevAuthToken(): string | null {
+function readDevAuthToken() {
   if (process.env.PAPYRUS_AUTH_TOKEN) {
     return process.env.PAPYRUS_AUTH_TOKEN
   }
