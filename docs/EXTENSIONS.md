@@ -56,6 +56,7 @@ MCP (Model Context Protocol) 接口为扩展提供了完整的笔记管理能力
 
 - **Base URL**: `http://127.0.0.1:8000/api/mcp`
 - **Content-Type**: `application/json`
+- **Auth（Electron / 写操作）**: 请求头携带 `Authorization: Bearer <token>`（与 `PAPYRUS_AUTH_TOKEN` 一致）。本地纯开发模式可能未启用 token，以实际后端配置为准。
 
 ### 接口列表
 
@@ -537,7 +538,7 @@ def get_my_notes(self):
 fetch('http://127.0.0.1:8000/api/mcp/notes')
 ```
 
-如需从其他域名访问，可修改 `src/papyrus_api/main.py` 中的 CORS 配置。
+如需从其他域名访问，可修改 `backend/src/api/server.ts` 中的 CORS 配置（本地应用默认仅绑定 `127.0.0.1`）。
 
 ---
 

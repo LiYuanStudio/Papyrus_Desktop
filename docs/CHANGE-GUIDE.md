@@ -51,9 +51,9 @@ Papyrus 的版本号至少散落在 6 个位置，手动修改极易遗漏，导
 
 ```bash
 # 场景 1：直接设置版本号（适合发布前定版）
-npm run set-version 2.0.0-beta.11
+npm run set-version 2.0.0-beta.12
 # 或
-node scripts/set-version.js 2.0.0-beta.11
+node scripts/set-version.js 2.0.0-beta.12
 
 # 场景 2：基于当前版本自动 bump（适合日常迭代）
 npm run bump:patch    # 2.0.0 -> 2.0.1

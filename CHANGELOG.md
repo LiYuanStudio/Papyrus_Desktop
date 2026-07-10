@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v2.0.0-beta.12] - 2026-07-10
+
+### 🎉 New Features
+- **Settings**: 设置中新增翻译模型选择
+- **Chat**: 优化窄面板布局并丰富消息操作
+
+### 🐛 Bug Fixes
+- **Security**: 加固 API 认证、SSRF 防护与密钥暴露面
+- **Frontend**: 修复 token 复用与 PDF 预览相关问题
+- **CI**: 恢复完整的 release-optimized 工作流文件
+
+### 💡 Improvements
+- **UI**: 移除首页快捷卡片；优化搜索栏长度与 Agent 标志布局
+- **Chat**: 将模型选择器移入 ChatToolbar；未拉起状态下隐藏 Agent 模式文案
+- **Release**: 清理 mock 资源并修复 CI 工作流冲突
+
+---
+
 ## [v2.0.0-beta.11] - 2026-05-13
 
 ### 🐛 Bug Fixes
@@ -190,7 +208,8 @@ When creating a new release:
 
 ---
 
-[Unreleased]: https://github.com/PapyrusOR/Papyrus_Desktop/compare/v2.0.0-beta.11...HEAD
+[Unreleased]: https://github.com/PapyrusOR/Papyrus_Desktop/compare/v2.0.0-beta.12...HEAD
+[v2.0.0-beta.12]: https://github.com/PapyrusOR/Papyrus_Desktop/compare/v2.0.0-beta.11...v2.0.0-beta.12
 [v2.0.0-beta.11]: https://github.com/PapyrusOR/Papyrus_Desktop/compare/v2.0.0-beta.10...v2.0.0-beta.11
 [v2.0.0-beta.10]: https://github.com/PapyrusOR/Papyrus_Desktop/compare/v2.0.0-beta.9...v2.0.0-beta.10
 [v2.0.0-beta.9]: https://github.com/PapyrusOR/Papyrus_Desktop/compare/v2.0.0-beta.8...v2.0.0-beta.9

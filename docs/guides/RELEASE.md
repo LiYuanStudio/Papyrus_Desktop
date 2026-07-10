@@ -104,7 +104,7 @@ git push --tags
 # https://cli.github.com/
 
 # 查看工作流运行状态
-gh run list --workflow=release.yml
+gh run list --workflow=release-optimized.yml
 
 # 查看实时日志
 gh run watch
@@ -216,7 +216,7 @@ GitHub Actions 启动
 ### 通过 GitHub CLI
 
 ```bash
-gh workflow run release.yml -f tag=v2.0.0
+gh workflow run release-optimized.yml -f tag=v2.0.0
 ```
 
 ---
@@ -249,7 +249,7 @@ git push origin v2.0.0
 **检查 3**：工作流文件是否存在
 
 ```bash
-ls .github/workflows/release.yml
+ls .github/workflows/release-optimized.yml
 ```
 
 ### 构建失败
@@ -257,7 +257,7 @@ ls .github/workflows/release.yml
 **查看日志**：
 
 ```bash
-gh run list --workflow=release.yml
+gh run list --workflow=release-optimized.yml
 gh run view <run-id>
 ```
 
@@ -265,8 +265,8 @@ gh run view <run-id>
 
 | 问题 | 解决 |
 |------|------|
-| Python 依赖缺失 | 检查 `requirements.txt` |
-| Node 构建失败 | 检查 `frontend/` 依赖 |
+| Node / npm 依赖缺失 | 在根目录与 `backend/`、`frontend/` 执行 `npm install` |
+| Node 构建失败 | 检查 `frontend/` / `backend/` 依赖与 Node 24+ |
 | Electron 签名失败 | macOS 需要证书配置 |
 
 ### CHANGELOG 未正确显示

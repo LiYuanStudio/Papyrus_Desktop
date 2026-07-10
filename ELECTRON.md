@@ -21,8 +21,8 @@ Papyrus/
 │   ├── dist/                # tsc 编译输出（运行入口：dist/api/server.js）
 │   └── package.json
 ├── assets/                  # 应用图标等资源
-├── package.json             # 根目录（Electron 主入口 + electron-builder 配置）
-└── electron-builder.json    # 打包配置
+├── package.json             # 根目录（Electron 主入口）
+└── .electron-builder.config.js  # electron-builder 打包配置
 ```
 
 ## 快速开始
@@ -119,13 +119,13 @@ Electron 主进程，负责：
 - 构建 Node 后端（`tsc` 输出到 `backend/dist/`）
 - 调用 `electron-builder` 打包
 
-### electron-builder.json / package.json `build`
+### `.electron-builder.config.js`
 
-打包配置：
+打包配置（由 `scripts/build-electron.js` / `electron-builder --config` 引用）：
 - 应用标识和元数据
-- 平台特定配置
+- 平台特定配置（Windows NSIS、macOS DMG、Linux AppImage/DEB）
 - 文件包含 / 排除规则（包含 `electron/**`、`frontend/dist/**`、`backend/dist/**`、`backend/package.json`）
-- 输出格式配置
+- Electron 版本：41.x（与根 `package.json` 的 `electron` 依赖一致）
 
 ## 环境变量
 
@@ -185,7 +185,7 @@ Electron 主进程，负责：
 1. 更新版本号 (`package.json`)
 2. 在 `CHANGELOG.md` 中归档当前 `[Unreleased]` 内容到对应版本
 3. 运行构建命令验证本地能产出安装包
-4. 打 tag 并推送，GitHub Actions（`.github/workflows/release.yml`）会自动构建并发布到 Releases
+4. 打 tag 并推送，GitHub Actions（`.github/workflows/release-optimized.yml`）会自动构建并发布到 Releases
 
 ```bash
 # 本地构建所有平台（需对应宿主机器或交叉构建支持）
@@ -193,3 +193,10 @@ npm run electron:build:win
 npm run electron:build:mac
 npm run electron:build:linux
 ```
+
+## Electron 41 说明
+
+- 依赖版本：`electron@^41.1.0`（根 `package.json`）
+- 开发模式通过 `npm run electron:dev` → `scripts/build-electron.js dev` 拉起
+- 生产打包通过 `npm run electron:build[:win|:mac|:linux]`，配置文件为 `.electron-builder.config.js`
+- 后端由主进程以 Node 子进程方式启动 `backend/dist/api/server.js`，就绪后轮询 `/api/health`

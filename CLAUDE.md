@@ -2,7 +2,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Papyrus Desktop — a minimalist, keyboard-driven, AI Agent-powered **spaced repetition (SRS) flashcard** desktop app. Built with an Electron shell wrapping a Fastify 5 backend and React 19 + Arco Design frontend.
+Papyrus Desktop **v2.0.0-beta.12** — a minimalist, keyboard-driven, AI Agent-powered **spaced repetition (SRS) flashcard** desktop app. Built with an Electron shell wrapping a Fastify 5 backend and React 19 + Arco Design frontend.
 
 ## Commands
 
@@ -44,10 +44,11 @@ scripts/     — Build/release automation
 
 ### Backend (`backend/src/`)
 - **`api/server.ts`** — Fastify entry point, registers all routes as plugins, CORS, rate limiting, auth
-- **`api/routes/`** — 20+ route modules, each a Fastify plugin. Key prefixes: `/api/cards`, `/api/notes`, `/api/review`, `/api/ai-chat`, `/api/progress`, `/api/search`, `/api/relations`, `/api/files`, `/api/extensions`
+- **`api/routes/`** — Route modules as Fastify plugins. Key prefixes: `/api/cards`, `/api/notes`, `/api/review`, `/api/chat` (via `ai.ts` aggregate), `/api/progress`, `/api/search`, `/api/files`, `/api/extensions`, `/api/cli`, `/api/ui-settings`, plus `/api/backup` / `/api/export` / `/api/import` / `/api/data/reset` from `data.ts`
 - **`core/`** — Pure business logic: `cards.ts`, `notes.ts`, `sm2.ts` (SM-2 algorithm), `versioning.ts`, `crypto.ts` (AES-GCM), `relations.ts`, `files.ts`
 - **`ai/`** — AI agent system: `provider.ts` (multi-provider via OpenAI SDK), `tool-manager.ts`, `llm-cache.ts`, `tools/` (7 tool categories: cards, notes, relations, files, data, extensions, settings)
-- **`db/database.ts`** — SQLite via `node:sqlite` (WAL mode). Tables: cards, notes, provider_models, api_keys, note_versions, card_versions, files, relations, chat_sessions, chat_messages, extensions
+- **`db/database.ts`** — SQLite via `node:sqlite` (WAL mode). Tables: cards, notes, providers, provider_models, api_keys, note_versions, card_versions, files, relations, chat_sessions, chat_messages, extensions, daily_progress, ui_settings
+- **`cli/`** — Desktop CLI manager helpers
 - **`utils/`** — auth, logger, paths, proxy, client-id
 
 ### Frontend (`frontend/src/`)
@@ -67,9 +68,11 @@ scripts/     — Build/release automation
 - 30+ compatible providers (OpenAI, Anthropic, Ollama, DeepSeek, Gemini, etc.)
 
 ### Data Layer
-- SQLite via `node:sqlite` (WAL mode). Data in `$HOME/PapyrusData` (override via `PAPYRUS_DATA_DIR`)
+- SQLite via `node:sqlite` (WAL mode). DB file: `$HOME/PapyrusData/papyrus.db` (override via `PAPYRUS_DATA_DIR`)
+- On-demand backups via `POST /api/backup` → `backups/`
 - API keys encrypted at rest with AES-256-GCM
 - Content-addressed versioning for notes and cards
+- Legacy `ai_config.json` is migrated into the DB on startup; cards/notes live in SQLite
 
 ## Key Conventions
 

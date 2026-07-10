@@ -4,6 +4,10 @@ Base URL: `/api`
 
 后端默认监听 `127.0.0.1:8000`，可通过 `PAPYRUS_PORT` 环境变量覆盖。
 
+持久化：SQLite（`node:sqlite`，WAL），默认 `$HOME/PapyrusData/papyrus.db`。
+
+Electron 模式下写接口通常需要 `Authorization` / auth token（`PAPYRUS_AUTH_TOKEN`）。
+
 ---
 
 ## 健康检查
@@ -137,13 +141,19 @@ Base URL: `/api`
 
 ## 关系管理 (Relations)
 
-### GET /relations
-列出所有关系。
+### GET /notes/:noteId/relations
+列出指定笔记的关系。
 
-### POST /relations
-创建关系。
+### POST /notes/:noteId/relations
+为笔记创建关系。
 
-### DELETE /relations/:id
+### GET /notes/:noteId/graph
+获取笔记关系图数据。
+
+### PATCH /relations/:relationId
+更新关系。
+
+### DELETE /relations/:relationId
 删除关系。
 
 ---
@@ -153,27 +163,33 @@ Base URL: `/api`
 ### GET /extensions
 列出已安装扩展。
 
-### POST /extensions/install
-安装扩展。
+### POST /extensions
+安装 / 注册扩展。
 
-### DELETE /extensions/:name
+### POST /extensions/install-local
+从本地路径安装扩展。
+
+### DELETE /extensions/:id
 卸载扩展。
 
-### POST /extensions/:name/enable
-启用扩展。
-
-### POST /extensions/:name/disable
-禁用扩展。
+### POST /extensions/:id/enabled
+启用 / 禁用扩展。
 
 ---
 
-## 设置 (Settings)
+## UI 设置 (UI Settings)
 
-### GET /settings
-获取所有设置。
+### GET /ui-settings
+获取 UI 设置。
 
-### PATCH /settings
-更新设置。
+### POST /ui-settings
+更新 UI 设置。
+
+### GET /ui-settings/sidebar
+获取侧边栏设置。
+
+### POST /ui-settings/sidebar
+更新侧边栏设置。
 
 ---
 
@@ -184,35 +200,72 @@ Base URL: `/api`
 
 ---
 
-## AI 功能
+## 数据备份 / 导入导出
 
-### POST /ai/chat
-AI 聊天（流式 SSE）。
+### POST /backup
+将当前 SQLite 库备份到 `$PAPYRUS_DATA_DIR/backups/`。
 
-### GET /ai/sessions
-获取聊天会话列表。
+### GET /export
+导出数据。
 
-### POST /ai/sessions
-创建新会话。
+### POST /import
+导入数据。
 
-### DELETE /ai/sessions/:id
-删除会话。
-
-### GET /ai/messages/:sessionId
-获取会话消息。
-
-### POST /ai/tools/execute
-执行 AI 工具调用。
+### POST /data/reset
+清空应用数据（危险操作）。
 
 ---
 
-## AI 配置
+## Desktop CLI
+
+### GET /cli/status
+查询 CLI 安装状态。
+
+### POST /cli/install
+安装 CLI。
+
+### POST /cli/update
+更新 CLI。
+
+### POST /cli/run
+运行 CLI 命令。
+
+---
+
+## AI 功能
+
+### POST /chat
+AI 聊天（流式 SSE）。由 `ai.ts` 聚合注册。
+
+### GET /sessions
+获取聊天会话列表。
+
+### POST /sessions
+创建新会话。
+
+### DELETE /sessions/:sessionId
+删除会话。
+
+### GET /tools/catalog
+工具目录。
+
+### GET|POST /tools/config
+工具配置。
+
+### POST /tools/approve/:callId
+批准工具调用。
+
+### POST /tools/reject/:callId
+拒绝工具调用。
 
 ### GET /config/ai
-获取 AI 配置。
+获取 AI 配置（密钥脱敏）。
 
-### PATCH /config/ai
+### POST /config/ai
 更新 AI 配置。
+
+### POST /completion
+AI 补全。
 
 ---
 
@@ -231,12 +284,27 @@ AI 聊天（流式 SSE）。
 
 ## 进度 (Progress)
 
-### GET /progress
-获取复习进度统计。
+### GET /progress/streak
+连续复习天数。
+
+### GET /progress/history
+复习历史。
+
+### GET /progress/heatmap
+复习热力图数据。
 
 ---
 
 ## MCP 服务
+
+### GET /mcp/health
+MCP 健康检查。
+
+### GET /mcp/tools
+MCP 工具列表。
+
+### POST /mcp/call
+调用 MCP 工具。
 
 ### GET /mcp/notes
 MCP 笔记列表。
@@ -301,5 +369,6 @@ console.log(`导入 ${result.imported} 条，跳过 ${result.skipped} 条`);
 
 | 版本 | 更新内容 |
 |------|----------|
+| v2.0.0-beta.12 | 对齐现网路径；补 cli / ui-settings / backup / export / import；注明 SQLite |
 | v2.0.0-beta.11 | 补全 API 文档，移除预留标记 |
 | v2.0.0-beta.4 | 初始 API 文档 |

@@ -34,8 +34,9 @@ npm run dev
 
 Default URL: http://127.0.0.1:5173
 
-## Backend API (reserved)
+## Backend API
 
-Backend communication is planned via FastAPI under `/api/*`.
+The Fastify backend serves REST APIs under `/api/*` (default `http://127.0.0.1:8000`).
 
-During development you can proxy it from Vite (see `frontend/vite.config.js`).
+During development Vite proxies `/api` to the backend (see `frontend/vite.config.js`).
+Data is stored in SQLite (`$HOME/PapyrusData/papyrus.db`).

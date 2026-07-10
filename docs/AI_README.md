@@ -155,6 +155,7 @@ backend/src/
 
 ## 版本
 
-- AI 模块: v2.0.0-beta.11
+- AI 模块: v2.0.0-beta.12
+- 配置以 SQLite 中的 providers / api_keys 为准；遗留 `ai_config.json` 仅在启动时迁移后删除
 - SM-2 算法: 已集成
 - 支持提供商: 30+
