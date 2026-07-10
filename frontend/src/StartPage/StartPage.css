@@ -55,7 +55,7 @@
 
 .start-shelf-measure {
   position: absolute;
-  height: calc(61.8vh - 128px);
+  height: calc(61.8vh - 48px - var(--font-size-display-xl));
   visibility: hidden;
   pointer-events: none;
 }
@@ -78,10 +78,12 @@
 /* ---- 卡片外框（PendingCard / DoneCard 共用） ---- */
 .start-card-frame {
   position: absolute;
-  top: 152px;
-  left: 96px;
-  right: 96px;
-  height: calc(61.8vh - 128px);
+  /* 标题下方 24px：padding-top + 标题字号 + 间距 */
+  top: calc(48px + var(--font-size-display-xl) + 24px);
+  /* 与卷轴页窗景 / 书架区同宽：左右各 64px */
+  left: 64px;
+  right: 64px;
+  height: calc(61.8vh - 48px - var(--font-size-display-xl));
   border: 1px solid var(--color-text-3);
   border-radius: 16px;
   overflow: hidden;
