@@ -1,6 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import { aiManager } from './ai-chat.js';
 
+/**
+ * 查找可继续使用的空白会话。
+ * 原因：默认新会话可能使用时间戳作为标题，messageCount 才是判断尚未开始对话的稳定信号。
+ * 未按标题匹配：标题可本地化、自动生成或被用户修改，字符串规则容易漏判并继续制造重复会话。
+ */
+function findReusableBlankSession() {
+  return aiManager.listSessions().find((session) => session.messageCount === 0);
+}
+
 export default async function aiSessionsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/sessions', async (_request, reply) => {
     reply.send({
@@ -12,7 +21,11 @@ export default async function aiSessionsRoutes(fastify: FastifyInstance): Promis
 
   fastify.post('/sessions', async (request, reply) => {
     const payload = (request.body ?? {}) as { title?: string };
-    const session = aiManager.createSession(payload.title, true);
+    const requestedTitle = payload.title?.trim();
+    const reusableSession = requestedTitle ? undefined : findReusableBlankSession();
+    const session = reusableSession
+      ? aiManager.switchSession(reusableSession.id)
+      : aiManager.createSession(requestedTitle, true);
     reply.send({
       success: true,
       session,

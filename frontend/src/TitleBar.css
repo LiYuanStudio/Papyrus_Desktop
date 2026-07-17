@@ -26,7 +26,7 @@
   padding-left: 70px;
 }
 
-.titlebar.titlebar-macos .titlebar-logo,
+.titlebar.titlebar-macos .titlebar-sidebar-toggle,
 .titlebar.titlebar-macos .titlebar-menus {
   margin-left: 0;
 }
@@ -37,34 +37,45 @@
   app-region: no-drag;
 }
 
-/* logo */
-.titlebar-logo {
+/* 侧边栏状态按钮占用原 Papyrus 标志的标题栏插槽。 */
+.titlebar-sidebar-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 48px;
   width: 48px;
   height: 40px;
-  line-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
 }
 
-.titlebar-logo-icon {
+.titlebar-sidebar-icon {
   display: block;
   width: 24px;
   height: 24px;
-  object-fit: contain;
 }
 
-body[arco-theme='dark'] .titlebar-logo-icon {
-  filter: invert(1);
+.titlebar-sidebar-icon-pane {
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
+.titlebar-sidebar-icon-expanded .titlebar-sidebar-icon-pane {
+  opacity: 0.22;
+}
 
-
-.titlebar-logo:hover,
-.titlebar-logo:active {
+.titlebar-sidebar-toggle:hover,
+.titlebar-sidebar-toggle:active {
   background: var(--color-fill-2);
-  cursor: pointer;
+  color: var(--color-text-1);
+}
+
+.titlebar-sidebar-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 /* menu items */
@@ -208,6 +219,12 @@ body[arco-theme='dark'] .titlebar-logo-icon {
 .titlebar-menu-item:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .titlebar-sidebar-icon-pane {
+    transition: none;
+  }
 }
 
 /* 搜索下拉菜单动画 */

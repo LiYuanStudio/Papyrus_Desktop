@@ -32,6 +32,7 @@
   },
   "settings": {
     "title": "設置",
+    "back": "返回設置主頁",
     "appearance": "外觀與窗景",
     "appearanceDesc": "主題、顏色、字體大小、窗景",
     "general": "通用",
@@ -45,6 +46,7 @@
     "shortcutsDesc": "鍵盤快捷鍵設置",
     "accessibility": "無障礙",
     "accessibilityDesc": "視覺輔助、動畫、對比度",
+    "statisticsDesc": "複習趨勢、熱力圖與學習進度",
     "data": "數據設置",
     "dataDesc": "備份、導出、重置",
     "extensions": "擴展管理",

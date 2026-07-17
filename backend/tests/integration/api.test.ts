@@ -1713,6 +1713,41 @@ describe('API Integration Tests', () => {
   });
 
   describe('AI Sessions and Messages API', () => {
+    it('POST /api/sessions should reuse an existing blank session when no title is provided', async () => {
+      const clearResponse = await app.inject({
+        method: 'DELETE',
+        url: '/api/sessions',
+      });
+      expect(clearResponse.statusCode).toBe(200);
+
+      const firstResponse = await app.inject({
+        method: 'POST',
+        url: '/api/sessions',
+        payload: {},
+      });
+      const secondResponse = await app.inject({
+        method: 'POST',
+        url: '/api/sessions',
+        payload: {},
+      });
+
+      expect(firstResponse.statusCode).toBe(200);
+      expect(secondResponse.statusCode).toBe(200);
+
+      const firstSession = JSON.parse(firstResponse.body).session;
+      const secondSession = JSON.parse(secondResponse.body).session;
+      expect(firstSession.messageCount).toBe(0);
+      expect(secondSession.id).toBe(firstSession.id);
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/api/sessions',
+      });
+      const blankSessions = JSON.parse(listResponse.body).sessions
+        .filter((session: { messageCount: number }) => session.messageCount === 0);
+      expect(blankSessions).toHaveLength(1);
+    });
+
     it('session endpoints should create, rename, switch, list and delete sessions', async () => {
       const createResponse = await app.inject({
         method: 'POST',

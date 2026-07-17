@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 0 48px 0;
+  padding: 8px 0;
   flex-shrink: 0;
   transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
   overflow: hidden;
@@ -66,6 +66,13 @@
   left: 7px;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.sidebar-start-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  color: currentColor;
 }
 
 .sidebar-chat-side-icon {
@@ -135,26 +142,6 @@
   border-color: var(--color-primary);
 }
 
-/* 切换按钮特殊样式 */
-.sidebar-toggle {
-  border: 1px solid var(--color-border-2);
-}
-
-.sidebar-toggle:hover {
-  border-color: var(--color-border-hover);
-}
-
-.sidebar-toggle.sidebar-item-active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-white);
-}
-
-.sidebar-toggle.sidebar-item-active:hover {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-}
-
 /* 历史对话占据导航与底部工具之间的剩余空间。 */
 .sidebar-chat-history-spacer {
   flex: 1;
@@ -175,10 +162,9 @@
 .sidebar-chat-history-header {
   height: 32px;
   flex-shrink: 0;
-  padding: 0 6px 0 8px;
+  padding: 0 8px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   color: var(--color-text-3);
 }
 
@@ -191,28 +177,6 @@
   font-weight: 600;
 }
 
-.sidebar-chat-history-new {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--color-text-2);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sidebar-chat-history-new:hover,
-.sidebar-chat-history-new:focus-visible {
-  border-color: var(--color-border-hover);
-  background: var(--color-fill-2);
-  color: var(--color-text-1);
-}
-
-.sidebar-chat-history-new:focus-visible,
 .sidebar-chat-history-item:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;

@@ -32,6 +32,7 @@
   },
   "settings": {
     "title": "设置",
+    "back": "返回设置主页",
     "appearance": "外观与窗景",
     "appearanceDesc": "主题、颜色、字体大小、窗景",
     "general": "通用",
@@ -45,6 +46,7 @@
     "shortcutsDesc": "键盘快捷键设置",
     "accessibility": "无障碍",
     "accessibilityDesc": "视觉辅助、动画、对比度",
+    "statisticsDesc": "复习趋势、热力图与学习进度",
     "data": "数据设置",
     "dataDesc": "备份、导出、重置",
     "extensions": "扩展管理",

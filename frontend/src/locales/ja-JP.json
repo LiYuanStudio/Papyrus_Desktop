@@ -32,6 +32,7 @@
   },
   "settings": {
     "title": "設定",
+    "back": "設定に戻る",
     "appearance": "外観",
     "appearanceDesc": "テーマ、色、フォントサイズ、背景",
     "general": "一般",
@@ -45,6 +46,7 @@
     "shortcutsDesc": "キーボードショートカット設定",
     "accessibility": "アクセシビリティ",
     "accessibilityDesc": "視覚支援、アニメーション、コントラスト",
+    "statisticsDesc": "復習傾向、ヒートマップ、学習進捗",
     "data": "データ設定",
     "dataDesc": "バックアップ、エクスポート、リセット",
     "extensions": "拡張機能",

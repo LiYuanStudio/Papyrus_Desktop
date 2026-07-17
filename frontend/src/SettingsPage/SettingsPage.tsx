@@ -14,6 +14,7 @@ import {
   IconCommon,
 } from '@arco-design/web-react/icon';
 import IconAccessibility from '../icons/IconAccessibility';
+import IconCharts from '../icons/IconCharts';
 import ExtensionsPage from '../ExtensionsPage/ExtensionsPage';
 import './SettingsPage.css';
 import {
@@ -23,6 +24,7 @@ import {
   ToolView,
   ShortcutsView,
   AccessibilityView,
+  StatisticsView,
   DataView,
   AboutView,
 } from './views';
@@ -71,6 +73,13 @@ const getSettingCategories = (t: (key: string) => string) => [
     desc: t('settings.accessibilityDesc'),
     icon: IconAccessibility,
     color: 'var(--color-gold-6, #c5b507)',
+  },
+  {
+    key: 'statistics',
+    title: t('chartsPage.title'),
+    desc: t('settings.statisticsDesc'),
+    icon: IconCharts,
+    color: 'var(--color-primary)',
   },
   {
     key: 'data',
@@ -195,6 +204,7 @@ const SettingsPage = () => {
       mcp: <ToolView onBack={handleBack} />,
       shortcuts: <ShortcutsView onBack={handleBack} />,
       accessibility: <AccessibilityView onBack={handleBack} />,
+      statistics: <StatisticsView onBack={handleBack} />,
       data: <DataView onBack={handleBack} />,
       extensions: <ExtensionsPage onBack={handleBack} />,
       about: <AboutView onBack={handleBack} />,

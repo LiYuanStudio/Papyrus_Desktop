@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@arco-design/web-react';
-import { IconLeft, IconNav, IconPlayArrow, IconFolder, IconMindMapping, IconSettings, IconLock, IconUnlock, IconMoon, IconSun, IconRobot } from '@arco-design/web-react/icon';
-import IconCharts from './icons/IconCharts';
+import { IconPlus, IconFolder, IconMindMapping, IconSettings, IconLock, IconUnlock, IconMoon, IconSun, IconRobot } from '@arco-design/web-react/icon';
+import IconPapyrus from './icons/IconPapyrus';
 import IconScroll from './icons/IconScroll';
 import { SidebarChatHistory } from './components/SidebarChatHistory';
 import type { ChatPanelSide, ChatSession } from './api';
@@ -15,7 +15,6 @@ import './Sidebar.css';
  */
 interface SidebarProps {
   collapsed: boolean;
-  onToggle: () => void;
   chatOpen: boolean;
   onChatToggle: () => void;
   chatSide: ChatPanelSide;
@@ -55,7 +54,6 @@ const ChatSideIcon = ({ side }: { side: ChatPanelSide }) => (
 
 const Sidebar = ({
   collapsed,
-  onToggle,
   chatOpen,
   onChatToggle,
   chatSide,
@@ -71,10 +69,8 @@ const Sidebar = ({
   const { t } = useTranslation();
 
   const items = [
-    { key: 'start', icon: IconPlayArrow, label: t('sidebar.start') },
     { key: 'scroll', icon: IconScroll, label: t('sidebar.scroll') },
     { key: 'notes', icon: IconMindMapping, label: t('sidebar.notes') },
-    { key: 'charts', icon: IconCharts, label: t('sidebar.charts') },
     { key: 'files', icon: IconFolder, label: t('sidebar.files') },
   ];
 
@@ -115,16 +111,29 @@ const Sidebar = ({
 
   return (
     <nav className={`sidebar${collapsed ? '' : ' sidebar-expanded'}`} aria-label="主导航">
-      <button
-        className={`sidebar-item sidebar-toggle${!collapsed ? ' sidebar-item-active' : ''}`}
-        onClick={onToggle}
-        aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-        aria-expanded={!collapsed}
-        type="button"
-      >
-        <span className="sidebar-icon">{collapsed ? <IconNav /> : <IconLeft />}</span>
-        <span className="sidebar-label">{collapsed ? t('sidebar.sidebar') : t('sidebar.shrink')}</span>
-      </button>
+      <Tooltip content={t('sidebar.start')} position="right" mini disabled={!collapsed}>
+        <button
+          className={`sidebar-item${activePage === 'start' ? ' sidebar-item-active' : ''}`}
+          onClick={() => onPageChange('start')}
+          aria-current={activePage === 'start' ? 'page' : undefined}
+          aria-label={t('sidebar.start')}
+          type="button"
+        >
+          <span className="sidebar-icon"><IconPapyrus /></span>
+          <span className="sidebar-label">{t('sidebar.start')}</span>
+        </button>
+      </Tooltip>
+      <Tooltip content={t('sidebar.newChat')} position="right" mini disabled={!collapsed}>
+        <button
+          className="sidebar-item"
+          onClick={onNewChat}
+          aria-label={t('sidebar.newChat')}
+          type="button"
+        >
+          <span className="sidebar-icon"><IconPlus /></span>
+          <span className="sidebar-label">{t('sidebar.newChat')}</span>
+        </button>
+      </Tooltip>
       {items.map((item) => {
         const IconComponent = item.icon;
         return (
@@ -147,7 +156,6 @@ const Sidebar = ({
         sessions={chatSessions}
         loading={chatSessionsLoading}
         activeSessionId={activeChatSessionId}
-        onNewChat={onNewChat}
         onSelectSession={onChatSessionSelect}
       />
       <Tooltip

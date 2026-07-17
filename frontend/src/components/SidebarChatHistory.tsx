@@ -1,5 +1,5 @@
 import { Spin } from '@arco-design/web-react';
-import { IconHistory, IconPlus } from '@arco-design/web-react/icon';
+import { IconHistory } from '@arco-design/web-react/icon';
 import { useTranslation } from 'react-i18next';
 import type { ChatSession } from '../api';
 
@@ -13,7 +13,6 @@ interface SidebarChatHistoryProps {
   sessions: ChatSession[];
   loading: boolean;
   activeSessionId: string | null;
-  onNewChat: () => void;
   onSelectSession: (sessionId: string) => void;
 }
 
@@ -27,7 +26,6 @@ export function SidebarChatHistory({
   sessions,
   loading,
   activeSessionId,
-  onNewChat,
   onSelectSession,
 }: SidebarChatHistoryProps) {
   const { t } = useTranslation();
@@ -43,15 +41,6 @@ export function SidebarChatHistory({
           <IconHistory aria-hidden="true" />
           <span id="sidebar-chat-history-title">{t('sidebar.chatHistory')}</span>
         </div>
-        <button
-          className="sidebar-chat-history-new"
-          type="button"
-          onClick={onNewChat}
-          aria-label={t('sidebar.newChat')}
-          title={t('sidebar.newChat')}
-        >
-          <IconPlus />
-        </button>
       </div>
 
       <div className="sidebar-chat-history-list" aria-live="polite">

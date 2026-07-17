@@ -20,13 +20,55 @@ const Shortcut = ({ keys }: { keys: string }) => (
 type PageChangeOptions = { noteId?: string; fileId?: string; cardId?: string };
 
 interface TitleBarProps {
+  sidebarCollapsed: boolean;
+  onSidebarToggle: () => void;
   onPageChange?: (page: string, options?: string | PageChangeOptions) => void;
   onNewNote?: () => void;
   onNewCard?: () => void;
   onSearchResult?: (result: SearchResult) => void;
 }
 
-const TitleBar = ({ onPageChange, onNewNote, onNewCard, onSearchResult }: TitleBarProps) => {
+/**
+ * 用圆角窗口轮廓和左侧分栏表示主侧边栏的当前展开状态。
+ * 原因：图标与用户提供的参考图一致，左栏填充可在不增加文字占用的情况下传达状态。
+ * 未使用位图：内联 SVG 能随主题继承颜色，并保持不同缩放比例下的边缘清晰。
+ */
+const SidebarStateIcon = ({ expanded }: { expanded: boolean }) => (
+  <svg
+    className={`titlebar-sidebar-icon${expanded ? ' titlebar-sidebar-icon-expanded' : ''}`}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path
+      className="titlebar-sidebar-icon-pane"
+      d="M8.5 5.4H6.8A2.4 2.4 0 004.4 7.8v8.4a2.4 2.4 0 002.4 2.4h1.7V5.4z"
+      fill="currentColor"
+    />
+    <rect
+      x="3.6"
+      y="4.6"
+      width="16.8"
+      height="14.8"
+      rx="3"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    />
+    <path d="M8.5 5.4v13.2" stroke="currentColor" strokeWidth="1.6" />
+  </svg>
+);
+
+const TitleBar = ({
+  sidebarCollapsed,
+  onSidebarToggle,
+  onPageChange,
+  onNewNote,
+  onNewCard,
+  onSearchResult,
+}: TitleBarProps) => {
   const { t } = useTranslation();
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [importContent, setImportContent] = useState('');
@@ -461,9 +503,16 @@ const TitleBar = ({ onPageChange, onNewNote, onNewCard, onSearchResult }: TitleB
   return (
     <>
       <div className={`titlebar${isMacos ? ' titlebar-macos' : ''}`}>
-        <div className="titlebar-logo">
-          <img src="./icon.png" alt="Papyrus Desktop" className="titlebar-logo-icon" />
-        </div>
+        <button
+          className="titlebar-sidebar-toggle no-drag"
+          type="button"
+          onClick={onSidebarToggle}
+          aria-label={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          aria-expanded={!sidebarCollapsed}
+          title={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+        >
+          <SidebarStateIcon expanded={!sidebarCollapsed} />
+        </button>
 
         {/* File/Edit menus - hidden on macOS (use system menu bar instead) */}
         {!isMacos && (

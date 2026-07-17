@@ -32,6 +32,7 @@
   },
   "settings": {
     "title": "Settings",
+    "back": "Back to Settings",
     "appearance": "Appearance",
     "appearanceDesc": "Theme, colors, font size, scenery",
     "general": "General",
@@ -45,7 +46,8 @@
     "shortcutsDesc": "Keyboard shortcut settings",
     "accessibility": "Accessibility",
     "accessibilityDesc": "Visual aids, animations, contrast",
-    "data": "Data",
+    "statisticsDesc": "Review trends, heatmap, and learning progress",
+    "data": "Data Settings",
     "dataDesc": "Backup, export, reset",
     "extensions": "Extensions",
     "extensionsDesc": "Install, enable, and configure extensions",

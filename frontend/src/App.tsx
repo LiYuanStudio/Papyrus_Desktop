@@ -18,17 +18,16 @@ import StatusBar from './StatusBar';
 import StartPage from './StartPage/StartPage';
 import ScrollPage from './ScrollPage/ScrollPage';
 import NotesPage from './NotesPage/NotesPage';
-import ChartsPage from './ChartsPage/ChartsPage';
 import FilesPage from './FilesPage/FilesPage';
 import SettingsPage from './SettingsPage/SettingsPage';
 import SectionNavigation from './components/SectionNavigation';
 import { api, getAuthToken, type ChatPanelSide, type ChatSession, type SearchResult } from './api';
 import { addRecentItem } from './utils/recentFiles';
 
-const PAGE_ORDER = ['start', 'scroll', 'notes', 'charts', 'files', 'settings'];
+const PAGE_ORDER = ['start', 'scroll', 'notes', 'files', 'settings'];
 
 const CHAT_WIDTH_STORAGE_KEY = 'papyrus_chat_width';
-const CHAT_DEFAULT_WIDTH = 320;
+const CHAT_DEFAULT_WIDTH = 500;
 const SIDEBAR_COLLAPSED_WIDTH = 48;
 const SIDEBAR_EXPANDED_WIDTH = 240;
 
@@ -332,7 +331,6 @@ const App = () => {
     start: t('app.pageTitles.start'),
     scroll: t('app.pageTitles.scroll'),
     notes: t('app.pageTitles.notes'),
-    charts: t('app.pageTitles.charts'),
     files: t('app.pageTitles.files'),
     settings: t('app.pageTitles.settings'),
   };
@@ -356,7 +354,6 @@ const App = () => {
       ),
       notes: <NotesPage initialNoteId={initialNoteId} onInitialNoteIdUsed={() => setInitialNoteId(undefined)} />,
       files: <FilesPage initialFileId={initialFileId} onInitialFileIdUsed={() => setInitialFileId(undefined)} />,
-      charts: <ChartsPage />,
       settings: <SettingsPage />,
     };
 
@@ -506,6 +503,8 @@ const App = () => {
 
       {/* 标题栏 */}
       <TitleBar
+        sidebarCollapsed={sidebarCollapsed}
+        onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         onPageChange={handlePageChange}
         onSearchResult={handleSearchResult}
         onNewNote={() => handleNewAction('newNote')}
@@ -517,7 +516,6 @@ const App = () => {
         {/* 侧边栏导航 */}
         <Sidebar
           collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           chatOpen={chatOpen}
           onChatToggle={() => setChatOpen(!chatOpen)}
           chatSide={chatSide}
