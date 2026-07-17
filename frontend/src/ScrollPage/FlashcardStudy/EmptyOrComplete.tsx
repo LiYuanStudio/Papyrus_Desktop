@@ -49,7 +49,7 @@ export function EmptyOrComplete({
             gap: '32px',
             padding: '24px 48px',
             background: 'var(--color-fill-2)',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-lg)',
             marginTop: '16px',
           }}
         >
@@ -91,7 +91,7 @@ export function EmptyOrComplete({
           marginTop: '16px',
           padding: '16px 24px',
           background: 'var(--color-fill-2)',
-          borderRadius: '12px',
+          borderRadius: 'var(--radius-lg)',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
@@ -113,7 +113,8 @@ export function EmptyOrComplete({
         onClick={onExit}
         style={{
           marginTop: '8px',
-          borderRadius: '20px',
+          // 圆角统一走 token;背景 PRIMARY_COLOR 本身已是 var(--color-primary)
+          borderRadius: 'var(--radius-xl)',
           padding: '0 32px',
           backgroundColor: PRIMARY_COLOR,
         }}

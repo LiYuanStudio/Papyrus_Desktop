@@ -2,10 +2,10 @@ import { PRIMARY_COLOR } from '../theme-constants';
 
 export { PRIMARY_COLOR };
 
-// 统一按钮样式
+// 统一按钮样式(胶囊圆角改走 --radius-xl token,值同为 20px,与设计阶梯对齐)
 export const UNIFIED_BTN_STYLE = {
   height: '40px',
-  borderRadius: '20px',
+  borderRadius: 'var(--radius-xl)',
   padding: '0 20px',
   fontSize: '14px',
 };

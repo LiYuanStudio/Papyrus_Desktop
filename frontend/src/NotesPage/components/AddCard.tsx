@@ -19,16 +19,19 @@ export const AddCard = ({ onClick }: AddCardProps) => {
       onClick={onClick}
       style={{
         height: `${CARD_HEIGHT}px`,
-        borderRadius: '16px',
-        border: `1px dashed ${hovered ? PRIMARY_COLOR : 'var(--color-text-3)'}`,
-        background: hovered ? `${PRIMARY_COLOR}08` : 'transparent',
+        // 圆角对齐卡片语言 --radius-lg
+        borderRadius: 'var(--radius-lg)',
+        // 虚线边框原误用文字色 text-3,改用发丝边框 token(深色模式同样成立)
+        border: `1px dashed ${hovered ? PRIMARY_COLOR : 'var(--color-border-hairline)'}`,
+        // 修复: `${PRIMARY_COLOR}08` 是无效 CSS 拼接,hover 底色改走 --color-primary-light
+        background: hovered ? 'var(--color-primary-light)' : 'transparent',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '12px',
         cursor: 'pointer',
-        transition: 'border-color 0.2s, background 0.2s',
+        transition: 'border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard)',
         boxSizing: 'border-box' as const,
       }}
     >
@@ -40,7 +43,7 @@ export const AddCard = ({ onClick }: AddCardProps) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        transition: 'background 0.2s',
+        transition: 'background var(--duration-normal) var(--ease-standard)',
       }}>
         <IconPlus style={{ 
           fontSize: '24px', 

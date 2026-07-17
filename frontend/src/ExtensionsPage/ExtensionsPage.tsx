@@ -60,12 +60,14 @@ const ExtensionCard = ({ ext, onToggle, onUninstall, onSettings }: { ext: Extens
         <div style={{
           width: '44px',
           height: '44px',
-          borderRadius: '10px',
-          background: ext.isEnabled ? PRIMARY_COLOR : 'var(--color-fill-2)',
+          borderRadius: 'var(--radius-md)',
+          // 启用态用主色浅底 + 主色图标, 替代纯蓝大色块(深色下大色块过重);
+          // 未启用保持中性填充底, 两种主题下都不写死颜色
+          background: ext.isEnabled ? 'var(--color-primary-light)' : 'var(--color-fill-2)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: ext.isEnabled ? '#fff' : 'var(--color-text-2)',
+          color: ext.isEnabled ? 'var(--color-primary)' : 'var(--color-text-2)',
           fontSize: '20px',
           fontWeight: 600,
         }}>
@@ -93,7 +95,7 @@ const ExtensionCard = ({ ext, onToggle, onUninstall, onSettings }: { ext: Extens
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '8px', fontSize: '12px', color: 'var(--color-text-3)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <IconStarFill style={{ fontSize: '12px', color: '#FF7D00' }} />
+            <IconStarFill style={{ fontSize: '12px', color: 'var(--color-warning)' }} />
             {ext.rating}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -382,8 +384,9 @@ const ExtensionsPage = ({ onBack }: ExtensionsPageProps) => {
           <Empty description="扩展商店即将上线" style={{ marginTop: '48px' }} />
         )}
 
+        {/* 设置面板按统一卡片语言收敛: 发丝边框 + 大圆角 + 静态浅阴影 + bg-1 底 */}
         {activeTab === 'settings' && (
-          <Card style={{ borderRadius: '16px', border: '1px solid var(--color-text-3)' }}>
+          <Card style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border-hairline)', boxShadow: 'var(--shadow-1)', background: 'var(--color-bg-1)' }}>
             <Typography.Title heading={3} style={{ margin: '0 0 24px', fontWeight: 500, fontSize: '18px' }}>扩展设置</Typography.Title>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <SettingItem title='自动更新' description='自动检查并安装扩展更新' defaultChecked />

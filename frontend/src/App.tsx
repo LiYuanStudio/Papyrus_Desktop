@@ -529,7 +529,7 @@ const App = () => {
   );
 
   return (
-    <div className="tw-relative tw-flex tw-flex-col tw-mx-auto tw-w-full tw-h-screen tw-overflow-hidden tw-bg-arco-bg-1">
+    <div className="tw-relative tw-flex tw-flex-col tw-mx-auto tw-w-full tw-h-screen tw-overflow-hidden tw-bg-arco-bg-canvas">
       {/* Skip Link - 无障碍导航（AA 级） */}
       <a
         href="#main-content"
@@ -606,7 +606,7 @@ const App = () => {
 
         {chatSide === 'right' && renderChatPanel()}
         <button
-          className="tw-flex-shrink-0 tw-w-5 tw-h-16 tw-flex tw-items-center tw-justify-center tw-bg-arco-bg-1 tw-cursor-pointer tw-text-arco-text-3 hover:tw-bg-arco-fill-2 hover:tw-text-arco-text-1 tw-outline-none tw-shadow-none"
+          className="tw-flex-shrink-0 tw-w-5 tw-h-16 tw-flex tw-items-center tw-justify-center tw-bg-arco-bg-1 tw-cursor-pointer tw-text-arco-text-3 hover:tw-bg-arco-fill-2 hover:tw-text-arco-text-1 tw-outline-none"
           style={{
             borderRadius: chatSide === 'left' ? '0 8px 8px 0' : '8px 0 0 8px',
             position: 'fixed',
@@ -618,8 +618,8 @@ const App = () => {
             transition: isDragging ? 'none' : `${chatSide === 'left' ? 'left' : 'right'} 0.3s cubic-bezier(0.4,0,0.2,1)`,
             margin: 0,
             padding: 0,
-            border: 'none',
-            boxShadow: 'none',
+            border: '1px solid var(--color-border-hairline)',
+            boxShadow: 'var(--shadow-1)',
             WebkitAppearance: 'none',
             MozAppearance: 'none',
           }}

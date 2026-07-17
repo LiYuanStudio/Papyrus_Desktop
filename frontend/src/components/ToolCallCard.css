@@ -4,52 +4,39 @@
 
 .tool-call-card {
   margin: 8px 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid;
   overflow: hidden;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard);
   min-width: 0;
   max-width: 100%;
 }
 
+/* 状态小卡统一语言: hairline 描边 + 浅功能色底;状态色改由图标/状态标签承载,不再用彩色描边。
+   深色专用覆盖删除: 各 *-light token 深浅模式自适应,无需硬编码 rgba。 */
+
 /* 状态样式 - Pending */
 .tool-call-pending {
   background: var(--color-warning-light);
-  border-color: var(--color-warning);
-}
-
-body[arco-theme='dark'] .tool-call-pending {
-  background: rgba(255, 125, 0, 0.15);
+  border-color: var(--color-border-hairline);
 }
 
 /* 状态样式 - Executing */
 .tool-call-executing {
   background: var(--color-primary-light);
-  border-color: var(--color-primary);
-}
-
-body[arco-theme='dark'] .tool-call-executing {
-  background: rgba(32, 108, 207, 0.2);
+  border-color: var(--color-border-hairline);
 }
 
 /* 状态样式 - Success */
 .tool-call-success {
   background: var(--color-success-light);
-  border-color: var(--color-success);
-}
-
-body[arco-theme='dark'] .tool-call-success {
-  background: rgba(0, 180, 42, 0.15);
+  border-color: var(--color-border-hairline);
 }
 
 /* 状态样式 - Failed */
 .tool-call-failed {
   background: var(--color-danger-light);
-  border-color: var(--color-danger);
-}
-
-body[arco-theme='dark'] .tool-call-failed {
-  background: rgba(245, 63, 63, 0.15);
+  border-color: var(--color-border-hairline);
 }
 
 /* Collapse 覆盖 */
@@ -81,11 +68,8 @@ body[arco-theme='dark'] .tool-call-failed {
 }
 
 .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header:hover {
-  background: rgba(0, 0, 0, 0.03);
-}
-
-body[arco-theme='dark'] .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header:hover {
-  background: rgba(255, 255, 255, 0.05);
+  /* hover 底用 fill token 替代硬编码 rgba,深浅自适应,与 ReasoningChain 折叠头 hover 一致 */
+  background: var(--color-fill-2);
 }
 
 .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-content {
@@ -216,8 +200,8 @@ body[arco-theme='dark'] .tool-call-collapse > .arco-collapse-item > .arco-collap
 
 .tool-call-section-body {
   background: var(--color-bg-1);
-  border-radius: 6px;
-  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-hairline);
   overflow: hidden;
 }
 
@@ -265,7 +249,7 @@ body[arco-theme='dark'] .tool-call-collapse > .arco-collapse-item > .arco-collap
 .tool-call-error {
   padding: 12px;
   background: var(--color-danger-light);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .tool-call-error-message {

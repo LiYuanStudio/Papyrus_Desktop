@@ -13,7 +13,7 @@
   flex-shrink: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-1);
-  border-bottom: 1px solid var(--color-border-3);
+  border-bottom: 1px solid var(--color-border-hairline);
   position: relative;
   z-index: 100;
   /* Make titlebar draggable in frameless window */
@@ -132,27 +132,31 @@
   app-region: no-drag;
 }
 
+/* 搜索框: 填充式灰底替代硬描边,hover 加深,focus 浮白 + 柔光晕 —— 更现代的中控台观感 */
 .titlebar-search .arco-input-inner-wrapper,
 .titlebar-center .arco-input-wrapper .arco-input-inner-wrapper,
 .titlebar-search-input .arco-input-inner-wrapper {
   height: 26px;
   border-radius: 32px !important;
-  border: 1px solid var(--color-border-3);
-  background: var(--color-bg-1);
+  border: 1px solid transparent;
+  background: var(--color-fill-2);
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
 
 .titlebar-search .arco-input-inner-wrapper:hover,
 .titlebar-center .arco-input-wrapper .arco-input-inner-wrapper:hover,
 .titlebar-search-input .arco-input-inner-wrapper:hover {
-  border-color: var(--color-primary);
+  background: var(--color-fill-3);
+  border-color: transparent;
 }
 
 /* 焦点指示挂在外层 wrapper 上,用 box-shadow 跟随 32px 圆角,而不是内层 input 的方形 outline */
 .titlebar-search .arco-input-inner-wrapper:focus-within,
 .titlebar-center .arco-input-wrapper .arco-input-inner-wrapper:focus-within,
 .titlebar-search-input .arco-input-inner-wrapper:focus-within {
+  background: var(--color-bg-1);
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px rgba(32, 108, 207, 0.25);
+  box-shadow: 0 0 0 3px rgba(32, 108, 207, 0.12);
 }
 
 .titlebar-search .arco-input:focus,

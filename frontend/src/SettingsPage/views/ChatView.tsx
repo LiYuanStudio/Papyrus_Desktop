@@ -381,12 +381,13 @@ const ChatView = ({ onBack }: ChatViewProps) => {
                       height: 48,
                       borderRadius: '50%',
                       overflow: 'hidden',
-                      background: userProfile.avatarUrl ? 'transparent' : '#206CCF',
+                      // 默认头像底色/文字色换语义 token，替代写死的品牌蓝与白色
+                      background: userProfile.avatarUrl ? 'transparent' : 'var(--color-primary)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: 16,
-                      color: '#fff',
+                      color: 'var(--color-white)',
                       fontWeight: 500,
                       flexShrink: 0,
                     }}

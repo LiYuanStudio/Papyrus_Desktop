@@ -128,7 +128,7 @@ const AppearanceView = ({ onBack }: AppearanceViewProps) => {
         gap: 12,
         padding: 16,
         background: 'var(--color-fill-2)',
-        borderRadius: 8,
+        borderRadius: 'var(--radius-md)',
         marginTop: 8,
       }}>
         <IconPalette style={{ color: 'var(--color-text-3)', fontSize: 20, marginTop: 2 }} />
@@ -177,7 +177,7 @@ const AppearanceView = ({ onBack }: AppearanceViewProps) => {
                 style={{
                   width: 80,
                   height: 45,
-                  borderRadius: 6,
+                  borderRadius: 'var(--radius-sm)',
                   overflow: 'hidden',
                   cursor: 'pointer',
                   border: startPageScenery.config.image === item.image ? '2px solid var(--color-primary)' : '2px solid transparent',

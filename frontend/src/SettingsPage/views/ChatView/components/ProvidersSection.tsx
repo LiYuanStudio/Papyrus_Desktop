@@ -112,7 +112,8 @@ const ProvidersSection = ({ providers, loadProviders, deleteProvider, setDefault
       {editingProviders.map(provider => {
         const isExpanded = expandedProviders.has(provider.id);
         return (
-          <Card key={provider.id} style={{ marginBottom: 12, borderRadius: 12, border: '1px solid var(--color-border-2)' }} bodyStyle={{ padding: 16 }}>
+          // 供应商卡片统一卡片语言：hairline 边 + 大圆角(静态投影由 .settings-page .arco-card 提供)
+          <Card key={provider.id} style={{ marginBottom: 12, borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border-hairline)' }} bodyStyle={{ padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div 
                 style={{ flex: 1, cursor: 'pointer' }} 
@@ -174,13 +175,13 @@ const ProvidersSection = ({ providers, loadProviders, deleteProvider, setDefault
                           <Input
                             value={apiKey.name}
                             onChange={(v) => updateApiKey(provider.id, apiKey.id, { name: v })}
-                            style={{ width: 100, border: '1px solid var(--color-border-2)', borderRadius: '6px', background: 'var(--color-bg-2)', fontSize: 12, textAlign: 'center' }}
+                            style={{ width: 100, border: '1px solid var(--color-border-2)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg-2)', fontSize: 12, textAlign: 'center' }}
                           />
                           <Input.Password 
                             value={apiKey.key}
                             onChange={(v) => updateApiKey(provider.id, apiKey.id, { key: v })}
                             placeholder={apiKey.hasKey && !apiKey.key ? t('chatView.configured') : `Enter ${t('chatView.apiKey')}`}
-                            style={{ flex: 1, border: '1px solid var(--color-border-2)', borderRadius: '6px', background: 'var(--color-bg-2)' }}
+                            style={{ flex: 1, border: '1px solid var(--color-border-2)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg-2)' }}
                           />
                           {index === 0 ? (
                             <Button 
@@ -188,7 +189,7 @@ const ProvidersSection = ({ providers, loadProviders, deleteProvider, setDefault
                               icon={<IconPlus />} 
                               size="mini"
                               onClick={() => addApiKey(provider.id)}
-                              style={{ background: 'var(--color-primary)', borderRadius: '4px' }}
+                              style={{ background: 'var(--color-primary)', borderRadius: 'var(--radius-sm)' }}
                             />
                           ) : (
                             <Button 

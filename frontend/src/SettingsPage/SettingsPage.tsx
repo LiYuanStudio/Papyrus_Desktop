@@ -51,7 +51,8 @@ const getSettingCategories = (t: (key: string) => string) => [
     title: t('settings.chat'),
     desc: t('settings.chatDesc'),
     icon: IconRobot,
-    color: 'var(--color-purple-6, #722ED1)',
+    // 功能强调色走 Arco 色板变量（rgb 三元组），深色模式下自动变亮，不写死 hex
+    color: 'rgb(var(--purple-6))',
   },
   {
     key: 'mcp',
@@ -72,7 +73,7 @@ const getSettingCategories = (t: (key: string) => string) => [
     title: t('settings.accessibility'),
     desc: t('settings.accessibilityDesc'),
     icon: IconAccessibility,
-    color: 'var(--color-gold-6, #c5b507)',
+    color: 'rgb(var(--gold-6))',
   },
   {
     key: 'statistics',
@@ -86,14 +87,14 @@ const getSettingCategories = (t: (key: string) => string) => [
     title: t('settings.data'),
     desc: t('settings.dataDesc'),
     icon: IconStorage,
-    color: 'var(--color-cyan-6, #14C9C9)',
+    color: 'rgb(var(--cyan-6))',
   },
   {
     key: 'extensions',
     title: t('settings.extensions'),
     desc: t('settings.extensionsDesc'),
     icon: IconCommon,
-    color: 'var(--color-purple-6, #722ED1)',
+    color: 'rgb(var(--purple-6))',
   },
   {
     key: 'about',

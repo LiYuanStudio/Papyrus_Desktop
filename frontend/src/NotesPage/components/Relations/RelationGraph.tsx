@@ -39,6 +39,25 @@ export const RelationGraph: React.FC<RelationGraphProps> = ({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [currentDepth, setCurrentDepth] = useState(depth);
 
+  // Canvas 无法直接写 CSS var(): 从 computed style 解析语义 token 并缓存,仅主题切换时重取,
+  // 避免每帧 getComputedStyle;修复写死的浅色节点(#FFFFFF 底/#1D2129 字)在深色模式下刺眼的问题
+  const themeColorsRef = useRef<{ theme: string | null; nodeBg: string; nodeText: string; primary: string } | null>(null);
+  const getThemeColors = () => {
+    const theme = document.body.getAttribute('arco-theme');
+    const cached = themeColorsRef.current;
+    if (cached && cached.theme === theme) return cached;
+    const styles = getComputedStyle(document.body);
+    const read = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+    const next = {
+      theme,
+      nodeBg: read('--color-bg-1', '#FFFFFF'),
+      nodeText: read('--color-text-1', '#1D2129'),
+      primary: read('--color-primary', '#165DFF'),
+    };
+    themeColorsRef.current = next;
+    return next;
+  };
+
   // 物理模拟数据
   const simulationRef = useRef<{
     nodes: Array<GraphNode & { x: number; y: number; vx: number; vy: number }>;
@@ -189,6 +208,7 @@ export const RelationGraph: React.FC<RelationGraphProps> = ({
     if (!ctx) return;
 
     const { nodes, links } = simulationRef.current;
+    const themeColors = getThemeColors();
 
     ctx.clearRect(0, 0, width, height);
     ctx.save();
@@ -244,13 +264,14 @@ export const RelationGraph: React.FC<RelationGraphProps> = ({
 
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = node.is_center ? '#165DFF' : '#FFFFFF';
+      // 节点底/描边/文字改走主题 token(见 getThemeColors),中心节点用主色
+      ctx.fillStyle = node.is_center ? themeColors.primary : themeColors.nodeBg;
       ctx.fill();
-      ctx.strokeStyle = node.is_center ? '#165DFF' : '#86909C';
+      ctx.strokeStyle = node.is_center ? themeColors.primary : '#86909C';
       ctx.lineWidth = node.is_center ? 0 : 2;
       ctx.stroke();
 
-      ctx.fillStyle = node.is_center ? '#FFFFFF' : '#1D2129';
+      ctx.fillStyle = node.is_center ? '#FFFFFF' : themeColors.nodeText;
       ctx.font = `${node.is_center ? 'bold ' : ''}12px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

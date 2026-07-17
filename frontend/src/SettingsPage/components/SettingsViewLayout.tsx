@@ -48,7 +48,8 @@ export const SettingsViewLayout = ({
       display: 'flex',
       overflow: 'hidden',
       position: 'relative',
-      background: 'var(--color-bg-1)',
+      // 页面工作区底色用 canvas，让 bg-1 的侧边栏与分区卡片自然浮出
+      background: 'var(--color-bg-canvas)',
       height: '100%',
     }}>
       <div style={{
@@ -90,14 +91,15 @@ export const SettingsViewLayout = ({
                   gap: 8,
                   padding: '10px 12px',
                   cursor: 'pointer',
-                  borderRadius: 8,
+                  // 与 SettingsSidebar 菜单项同一套精修：小圆角 + 标准缓动
+                  borderRadius: 'var(--radius-sm)',
                   marginBottom: 4,
                   background: isActive ? 'var(--color-primary-light)' : 'transparent',
                   color: isActive ? 'var(--color-primary)' : 'var(--color-text-1)',
                   border: 'none',
                   width: '100%',
                   textAlign: 'left',
-                  transition: 'all 0.2s',
+                  transition: 'background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard)',
                   userSelect: 'none',
                 }}
               >
@@ -153,8 +155,12 @@ export const SettingsViewLayout = ({
               </div>
             )}
             <div className="settings-section" style={{
-              background: 'var(--color-bg-2)',
-              borderRadius: 8,
+              // 分区容器升级为统一卡片语言：bg-1 + hairline 边 + 静态投影，
+              // 替代原来的 bg-2 灰块，深色模式下层级更清晰
+              background: 'var(--color-bg-1)',
+              border: '1px solid var(--color-border-hairline)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: 'var(--shadow-1)',
               padding: '16px 20px',
               marginBottom: index === sections.length - 1 ? 0 : 24,
             }}>

@@ -172,14 +172,15 @@ const NotesPage = ({ initialNoteId, onInitialNoteIdUsed }: NotesPageProps) => {
       display: 'flex', 
       overflow: 'hidden',
       position: 'relative',
-      background: 'var(--color-bg-1)',
+      // 页面工作区底色走画布 token,让 bg-1 面板/卡片自然浮出
+      background: 'var(--color-bg-canvas)',
     }}>
       {/* 文件树侧边栏 - 只在详情模式显示 */}
       <div
         style={{
           display: 'flex',
           overflow: 'hidden',
-          transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'width var(--duration-normal) var(--ease-standard)',
           width: viewMode === 'detail' ? sidebarWidth + 4 : 0,
         }}
       >
@@ -198,7 +199,7 @@ const NotesPage = ({ initialNoteId, onInitialNoteIdUsed }: NotesPageProps) => {
                 width: '4px',
                 cursor: isResizing ? 'col-resize' : 'ew-resize',
                 background: isResizing ? PRIMARY_COLOR : 'transparent',
-                transition: 'background 0.2s',
+                transition: 'background var(--duration-fast) var(--ease-standard)',
               }}
               onMouseEnter={(e) => {
                 if (!isResizing) e.currentTarget.style.background = 'var(--color-border-2)';

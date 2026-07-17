@@ -19,11 +19,13 @@ export const FolderTab = ({ folder, count, isActive, onClick }: FolderTabProps) 
     onClick={onClick}
     style={{
       padding: '10px 16px',
-      borderRadius: '10px',
+      borderRadius: 'var(--radius-md)',
       cursor: 'pointer',
-      background: isActive ? `${PRIMARY_COLOR}15` : 'transparent',
+      // 修复: `${PRIMARY_COLOR}15` 会拼出 "var(--color-primary)15" 无效 CSS,选中底色静默失效;
+      // 改用 --color-primary-light token(深色模式同步正确)
+      background: isActive ? 'var(--color-primary-light)' : 'transparent',
       border: `1px solid ${isActive ? PRIMARY_COLOR : 'transparent'}`,
-      transition: 'all 0.2s',
+      transition: 'all var(--duration-normal) var(--ease-standard)',
       display: 'flex',
       alignItems: 'center',
       gap: '8px',

@@ -25,16 +25,19 @@ const AddCard = ({ label, onClick }: AddCardProps) => {
         flex: '0 0 auto',
         width: '220px',
         height: '140px',
-        borderRadius: '16px',
-        border: `2px dashed ${hovered ? PRIMARY_COLOR : 'var(--color-text-3)'}`,
-        background: 'transparent',
+        borderRadius: 'var(--radius-lg)',
+        // 虚线占位卡: hairline 替代误用的文字色,hover 时品牌蓝 + 浮起,与其他卡片语言一致
+        border: `1px dashed ${hovered ? PRIMARY_COLOR : 'var(--color-border-hairline)'}`,
+        background: hovered ? 'var(--color-bg-1)' : 'transparent',
+        boxShadow: hovered ? 'var(--shadow-1)' : 'none',
+        transform: hovered ? 'translateY(-2px)' : 'none',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '16px',
         cursor: 'pointer',
-        transition: 'border-color 0.2s, background 0.2s',
+        transition: 'border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard)',
         boxSizing: 'border-box',
       }}
     >

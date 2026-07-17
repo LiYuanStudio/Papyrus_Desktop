@@ -155,11 +155,12 @@ const ModelModal = ({ visible, onClose, onModelSaved, providers, editingModel, s
       autoFocus={false}
       focusLock
     >
-      <div style={{ background: 'var(--color-fill-2)', borderRadius: '16px', padding: '16px', border: '1px solid var(--color-border-2)' }}>
+      {/* 表单分组容器：fill-2 底 + hairline 边 + 大圆角,与添加供应商弹窗一致 */}
+      <div style={{ background: 'var(--color-fill-2)', borderRadius: 'var(--radius-lg)', padding: '16px', border: '1px solid var(--color-border-hairline)' }}>
         <Form form={modelForm} layout="vertical">
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.provider')}</Title>} field="providerId" initialValue={selectedProviderId || '1'}>
             <Select
-              style={{ borderRadius: '8px' }}
+              style={{ borderRadius: 'var(--radius-md)' }}
               onChange={handleProviderChange}
             >
               {enabledProviders.map(p => (
@@ -173,20 +174,20 @@ const ModelModal = ({ visible, onClose, onModelSaved, providers, editingModel, s
             </Select>
           </FormItem>
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.modelName')}</Title>} field="name">
-            <Input placeholder={t('chatView.modelNamePlaceholder')} style={{ borderRadius: '8px' }} />
+            <Input placeholder={t('chatView.modelNamePlaceholder')} style={{ borderRadius: 'var(--radius-md)' }} />
           </FormItem>
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.modelId')}</Title>} field="modelId">
-            <Input placeholder={t('chatView.modelIdPlaceholder')} style={{ borderRadius: '8px' }} />
+            <Input placeholder={t('chatView.modelIdPlaceholder')} style={{ borderRadius: 'var(--radius-md)' }} />
           </FormItem>
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.port')}</Title>} field="port" initialValue={enabledProviders[0]?.type || 'openai'}>
-            <Select style={{ borderRadius: '8px' }}>
+            <Select style={{ borderRadius: 'var(--radius-md)' }}>
               {PORT_OPTIONS.map(opt => (
                 <Option key={opt.value} value={opt.value}>{opt.label}</Option>
               ))}
             </Select>
           </FormItem>
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.apiKeyScheme')}</Title>} field="apiKeyId">
-            <Select style={{ borderRadius: '8px' }}>
+            <Select style={{ borderRadius: 'var(--radius-md)' }}>
               {(() => {
                 const providerId = modelFormProviderId || modelForm.getFieldValue('providerId') || '1';
                 const provider = providers.find(p => p.id === providerId);

@@ -371,9 +371,11 @@ export const NoteDetailView = ({
               <Dropdown droplist={
                 <div style={{ 
                   background: 'var(--color-bg-1)', 
-                  border: '1px solid var(--color-border-2)',
-                  borderRadius: '4px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  // 弹层统一语言: 发丝边框 + 圆角阶梯 + shadow-3;overflow 裁掉菜单项 hover 背景的直角溢出
+                  border: '1px solid var(--color-border-hairline)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-3)',
+                  overflow: 'hidden',
                 }}>
                   {headingMenuItems.map(item => (
                     <div
@@ -387,6 +389,8 @@ export const NoteDetailView = ({
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
+                        // hover 背景为 JS 切换,补短过渡避免生硬
+                        transition: 'background var(--duration-fast) var(--ease-standard)',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = 'var(--color-fill-2)';
@@ -469,7 +473,9 @@ export const NoteDetailView = ({
                   fontSize: '13px',
                   color: 'var(--color-text-2)',
                   cursor: 'pointer',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--radius-sm)',
+                  // hover 背景为 JS 切换,补短过渡避免生硬
+                  transition: 'background var(--duration-fast) var(--ease-standard)',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'var(--color-fill-2)';
@@ -503,8 +509,9 @@ export const NoteDetailView = ({
             style={{
               padding: '16px',
               background: 'var(--color-fill-2)',
-              borderRadius: '8px',
-              border: '1px solid var(--color-border-2)',
+              // 圆角并入 sm/md 阶梯;边框由 border-2 换发丝色,弱化填充面板的边界感
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border-hairline)',
               marginBottom: '24px',
               display: 'flex',
               flexWrap: 'wrap',

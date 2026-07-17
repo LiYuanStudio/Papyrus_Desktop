@@ -115,6 +115,20 @@ interface StatsData {
   dailyTarget: number;
 }
 
+// 图表"已复习/次要将"段配色: 品牌蓝 25% 透明。
+// 原因: PRIMARY_COLOR 是 var(--color-primary), CSS 变量无法拼接 alpha 十六进制后缀;
+// 直接写 rgba 分量, 深浅主题下都只是主色减淡, 不引入新色相。
+const CHART_PRIMARY_SOFT = 'rgba(32, 108, 207, 0.25)';
+
+// 热力图色阶: 基于品牌蓝的透明度阶梯(0.3/0.6/0.9), 替代原硬编码绿色阶,
+// 在浅色(#f7f7f5 画布)与深色(#141416 画布)下都只靠主色浓淡表达强度。
+const HEATMAP_COLORS = [
+  'var(--color-fill-2)',
+  'rgba(32, 108, 207, 0.3)',
+  'rgba(32, 108, 207, 0.6)',
+  'rgba(32, 108, 207, 0.9)',
+];
+
 // 统计卡片
 const StatCard = ({ title, value, suffix, icon }: { title: string; value: string | number; suffix?: string; icon: React.ReactNode }) => {
   const { hovered, setHovered, cardStyle } = useCommonCardStyle({
@@ -137,7 +151,7 @@ const StatCard = ({ title, value, suffix, icon }: { title: string; value: string
       <div style={{
         width: '44px',
         height: '44px',
-        borderRadius: '12px',
+        borderRadius: 'var(--radius-md)',
         background: 'var(--color-fill-2)',
         display: 'flex',
         alignItems: 'center',
@@ -270,13 +284,13 @@ const WeekChart = ({ cards }: { cards: CardType[] }) => {
               <div style={{
                 width: '32px',
                 height: `${Math.max(height, 5)}%`,
-                borderRadius: '6px',
+                borderRadius: 'var(--radius-sm)',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column-reverse',
               }}>
                 <div style={{ height: `${learnedHeight}%`, background: PRIMARY_COLOR }} />
-                <div style={{ height: `${100 - learnedHeight}%`, background: `${PRIMARY_COLOR}40` }} />
+                <div style={{ height: `${100 - learnedHeight}%`, background: CHART_PRIMARY_SOFT }} />
               </div>
               <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
                 {item.date}
@@ -332,13 +346,8 @@ const Heatmap = ({ data }: { data: HeatmapItem[] }) => {
   }, [data]);
 
   const getColor = (level: number) => {
-    const colors = [
-      'var(--color-fill-2)',
-      '#1F4D2A',
-      '#2E7D32',
-      '#4CAF50',
-    ];
-    return colors[level];
+    // 色阶来自 HEATMAP_COLORS(品牌蓝透明度阶梯); level 越界时回退到空档底色, 避免索引出界
+    return HEATMAP_COLORS[level] ?? 'var(--color-fill-2)';
   };
 
   return (
@@ -499,7 +508,8 @@ const ChartsPage = () => {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '32px' }}>
-        <Card style={{ borderRadius: '16px', border: '1px solid var(--color-text-3)', height: '280px' }}>
+        {/* 图表容器按统一卡片语言: 发丝边框 + 大圆角 + 静态浅阴影 + bg-1 底 */}
+        <Card style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border-hairline)', boxShadow: 'var(--shadow-1)', background: 'var(--color-bg-1)', height: '280px' }}>
           <Typography.Text bold style={{ fontSize: '15px', display: 'block', marginBottom: '16px' }}>
             {i18n.t('chartsPage.weeklyTrend')}
           </Typography.Text>
@@ -509,7 +519,7 @@ const ChartsPage = () => {
               <Typography.Text type='secondary'>{i18n.t('chartsPage.newLearned')}</Typography.Text>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <div style={{ width: '8px', height: '8px', background: `${PRIMARY_COLOR}40`, borderRadius: '2px' }} />
+              <div style={{ width: '8px', height: '8px', background: CHART_PRIMARY_SOFT, borderRadius: '2px' }} />
               <Typography.Text type='secondary'>{i18n.t('chartsPage.reviewed')}</Typography.Text>
             </div>
           </div>
@@ -518,7 +528,7 @@ const ChartsPage = () => {
           </div>
         </Card>
 
-        <Card style={{ borderRadius: '16px', border: '1px solid var(--color-text-3)' }}>
+        <Card style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border-hairline)', boxShadow: 'var(--shadow-1)', background: 'var(--color-bg-1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <Typography.Text bold style={{ fontSize: '15px' }}>
               {i18n.t('chartsPage.pastYearRecord')}
@@ -526,10 +536,9 @@ const ChartsPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
               <Typography.Text type='secondary'>{i18n.t('common.less')}</Typography.Text>
               <div style={{ display: 'flex', gap: '2px' }}>
-                <div style={{ width: '14px', height: '14px', borderRadius: '3px', background: 'var(--color-fill-2)' }} />
-                <div style={{ width: '14px', height: '14px', borderRadius: '3px', background: '#1F4D2A' }} />
-                <div style={{ width: '14px', height: '14px', borderRadius: '3px', background: '#2E7D32' }} />
-                <div style={{ width: '14px', height: '14px', borderRadius: '3px', background: '#4CAF50' }} />
+                {HEATMAP_COLORS.map((color, i) => (
+                  <div key={i} style={{ width: '14px', height: '14px', borderRadius: '3px', background: color }} />
+                ))}
               </div>
               <Typography.Text type='secondary'>{i18n.t('common.more')}</Typography.Text>
             </div>

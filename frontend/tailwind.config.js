@@ -46,6 +46,7 @@ export default {
           5: 'var(--color-bg-5)',
           white: 'var(--color-bg-white)',
           popup: 'var(--color-bg-popup)',
+          canvas: 'var(--color-bg-canvas)',
         },
         // Arco 文字色
         'arco-text': {
@@ -68,6 +69,7 @@ export default {
           3: 'var(--color-border-3)',
           4: 'var(--color-border-4)',
           hover: 'var(--color-border-hover)',
+          hairline: 'var(--color-border-hairline)',
         },
         // 链接色
         link: {
@@ -81,6 +83,18 @@ export default {
         'arco': '4px',
         'arco-md': '4px',
         'arco-lg': '8px',
+        // 卡片/弹层圆角 —— 对应 theme.css 圆角阶梯 token
+        'card': 'var(--radius-lg)',
+        'pop': 'var(--radius-xl)',
+      },
+      // 阴影/缓动 token 映射 —— 与 theme.css 的 :root 定义一一对应
+      boxShadow: {
+        '1': 'var(--shadow-1)',
+        '2': 'var(--shadow-2)',
+        '3': 'var(--shadow-3)',
+      },
+      transitionTimingFunction: {
+        'standard': 'var(--ease-standard)',
       },
       animation: {
         'page-up': 'pageSlideUp 0.25s ease-out forwards',

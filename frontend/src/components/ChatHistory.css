@@ -89,9 +89,9 @@
   justify-content: space-between;
   padding: 12px 16px;
   margin: 0 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-normal) var(--ease-standard);
   border: 1px solid transparent;
 }
 
@@ -104,9 +104,10 @@
   visibility: visible;
 }
 
+/* 选中项: 浅功能色底 + hairline 描边;标题文字另用主色,选中态依旧清晰 */
 .chat-history-item-active {
-  background: var(--color-primary-light-1);
-  border-color: var(--color-primary-light-2);
+  background: var(--color-primary-light);
+  border-color: var(--color-border-hairline);
 }
 
 .chat-history-item-active .chat-history-item-title {
@@ -187,15 +188,13 @@
 }
 
 .chat-history-action-btn-danger:hover {
-  background: var(--color-danger-light-1);
+  /* 统一用项目 danger-light token,深浅模式自适应(Arco 的 danger-light-1 在深色下偏亮) */
+  background: var(--color-danger-light);
   color: var(--color-danger);
 }
 
-/* 深色模式适配 */
-body[arco-theme="dark"] .chat-history-item-active {
-  background: rgba(var(--color-primary-rgb), 0.15);
-  border-color: rgba(var(--color-primary-rgb), 0.3);
-}
+/* 深色适配覆盖已删除: 原规则引用了未定义的 --color-primary-rgb(rgba() 非法、声明恒被丢弃),
+   且 primary-light / hairline token 本身深浅自适应,无需额外覆盖。 */
 
 /* 滚动条样式 */
 .chat-history-body::-webkit-scrollbar {

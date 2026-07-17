@@ -3,31 +3,15 @@
    遵循字节设计规范和 WCAG 无障碍标准
    ============================================ */
 
-/* CSS 变量定义 */
-:root {
-  /* 主色调 */
-  --color-primary: #206CCF;
-  --color-primary-light: rgba(32, 108, 207, 0.08);
-  --color-primary-hover: #1654a8;
-  
-  /* 成功/危险/警告色 */
-  --color-success: #00B42A;
-  --color-success-light: rgba(0, 180, 42, 0.08);
-  --color-danger: #F53F3F;
-  --color-danger-light: rgba(245, 63, 63, 0.08);
-  --color-warning: #FF7D00;
-  --color-warning-light: rgba(255, 125, 0, 0.08);
-  
-  /* 边框颜色 */
-  --color-border-hover: #9FD4FD;
-  --color-border-danger: rgba(245, 63, 63, 0.5);
-}
+/* 设计 token 全部由全局 theme.css 提供（主色/功能色/圆角/阴影/动效/hairline/canvas），
+   本文件不再重复定义，避免两处色值漂移；仅保留设置页特有选择器。 */
 
 /* 设置页面容器 */
 .settings-page {
   width: 100%;
   height: 100%;
-  background: var(--color-bg-1);
+  /* 画布底色：让 bg-1 卡片在微暖灰底上自然浮出 */
+  background: var(--color-bg-canvas);
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
 }
@@ -38,7 +22,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-bg-1);
+  background: var(--color-bg-canvas);
 }
 
 .settings-statistics-header {
@@ -99,23 +83,26 @@
   margin-top: 32px;
 }
 
-/* 分类卡片 - 沿用开始页面标准：1px边框，悬停变2px蓝色 */
+/* 分类卡片 - 统一卡片语言：1px hairline 实边 + 静态投影，hover 抬升并加深投影
+   原因：inset 描边误用文字色显脏，换成发丝边框 + 柔和投影更接近纸面悬浮层级；
+   未保留 hover 浅蓝粗边：2px 边切换引发布局抖动，改用过渡更平滑的抬升 + 主色边。 */
 .settings-category-card {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 24px;
-  border-radius: 16px;
-  border: 2px solid transparent;
-  background: transparent;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  background: var(--color-bg-1);
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px var(--color-text-3);
-  transition: box-shadow 0.2s, border-color 0.2s;
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
 }
 
 .settings-category-card:hover {
-  box-shadow: none;
-  border: 2px solid var(--color-border-hover);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
 }
 
 .settings-category-card:focus-visible {
@@ -243,9 +230,12 @@
   align-items: center;
 }
 
+/* 设置项分隔线 - 发丝边框
+   原因：原写法只设 border-color 没有 border-style，分隔线实际不可见；
+   补上 1px hairline 顶边，让分组边界可见且不抢眼。 */
 .settings-item-divider {
   margin: 16px 0 0 0;
-  border-color: var(--color-border-2);
+  border-top: 1px solid var(--color-border-hairline);
 }
 
 /* 颜色选择器 */
@@ -257,10 +247,10 @@
 .settings-color-option {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   border: 2px solid transparent;
-  transition: all 0.2s ease;
+  transition: transform var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
 
 .settings-color-option:hover {
@@ -304,21 +294,24 @@
   margin-top: 8px;
 }
 
-/* 数据卡片 - 沿用开始页面标准：2px边框，悬停变蓝色 */
+/* 数据卡片 - 与分类卡片同一语言：hairline 实边 + 静态投影，hover 抬升 */
 .settings-data-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 24px;
-  border-radius: 16px;
-  border: 2px solid var(--color-text-3);
-  background: transparent;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  background: var(--color-bg-1);
+  box-shadow: var(--shadow-1);
   margin-bottom: 16px;
-  transition: border-color 0.2s;
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
 }
 
 .settings-data-card:hover {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
 }
 
 .settings-data-card.danger {
@@ -338,24 +331,27 @@
 .settings-data-icon {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-/* MCP 卡片 - 沿用开始页面标准 */
+/* MCP 卡片 - 与分类卡片同一语言 */
 .settings-mcp-card {
   margin-bottom: 16px;
-  border-radius: 16px;
-  border: 2px solid var(--color-text-3);
-  background: transparent;
-  transition: border-color 0.2s;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  background: var(--color-bg-1);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
 }
 
 .settings-mcp-card:hover {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
 }
 
 .settings-mcp-card-content {
@@ -388,7 +384,7 @@
   font-size: var(--font-size-sm);
   padding: 8px 16px;
   background: var(--color-fill-2);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--color-text-2);
   min-width: 100px;
   text-align: center;
@@ -402,7 +398,7 @@
   gap: 12px;
   padding: 16px;
   background: var(--color-primary-light);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   margin-top: 24px;
 }
 
@@ -414,7 +410,7 @@
 /* 输入框样式 - 适配深色模式 */
 .settings-page .arco-input-wrapper,
 .settings-page .arco-input-password {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 /* 输入框焦点样式 - 外层wrapper不显示边框，只在内层显示 */
@@ -436,22 +432,14 @@
   box-shadow: none !important;
 }
 
-/* Select焦点样式 - 外层div显示光晕和描边 */
-.settings-page .arco-select-view:focus-within,
-.settings-page .arco-select-view.arco-select-view-focus {
-  border-color: var(--color-primary) !important;
-  box-shadow: 0 0 0 2px rgba(32, 108, 207, 0.25) !important;
-}
+/* Select/TextArea 焦点光晕不再局部覆盖：全局 theme.css 已统一为
+   主色描边 + 0.5px 光晕（含 a11y-focus-indicator 变体），此处重复且更粗，
+   删除后设置页与其余页面焦点观感一致，同时去掉硬编码 rgba(32,108,207,…)。 */
 
 /* TextArea焦点样式 - 外层wrapper不显示边框，只在内层显示 */
 .settings-page .arco-textarea-wrapper:focus-within {
   box-shadow: none !important;
   border-color: transparent !important;
-}
-
-.settings-page .arco-textarea-inner-wrapper:focus-within {
-  border-color: var(--color-primary) !important;
-  box-shadow: 0 0 0 1px rgba(32, 108, 207, 0.25) !important;
 }
 
 .settings-page .arco-textarea-wrapper .arco-textarea:focus,
@@ -462,7 +450,7 @@
 
 /* 选择器样式 */
 .settings-page .arco-select-view {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 /* 按钮样式 - 使用 CSS 变量 */
@@ -483,29 +471,34 @@
 .settings-page .arco-radio-group-button {
   background: var(--color-fill-2);
   padding: 4px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .settings-page .arco-radio-group-button .arco-radio-button {
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .settings-page .arco-radio-group-button .arco-radio-checked {
   background: var(--color-bg-1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  /* 选中项浮出效果改用统一阴影 token，深色模式下自动切换为深色投影 */
+  box-shadow: var(--shadow-1);
 }
 
-/* Arco Card 组件 - 沿用开始页面标准 */
+/* Arco Card 组件 - 统一卡片语言 */
 .settings-page .arco-card {
-  border: 2px solid var(--color-text-3);
-  background: transparent;
-  transition: border-color 0.2s;
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-1);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
 }
 
 .settings-page .arco-card:hover {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
 }
 
 /* 分隔线样式 */
@@ -542,9 +535,9 @@
   gap: 8px;
   padding: 10px 12px;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin-bottom: 4px;
-  transition: all 0.2s;
+  transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
   -webkit-user-select: none;
   user-select: none;
 }
@@ -559,7 +552,7 @@
 }
 
 .settings-secondary-sidebar-item.active:hover {
-  background: rgba(32, 108, 207, 0.12);
+  background: var(--color-primary-light);
 }
 
 /* 焦点样式 - 无障碍支持 */
@@ -591,6 +584,14 @@
   .settings-color-option,
   .settings-secondary-sidebar-item {
     transition: none;
+  }
+
+  /* 卡片 hover 抬升属于位移动画，减少动画模式下同样禁用 */
+  .settings-category-card:hover,
+  .settings-data-card:hover,
+  .settings-mcp-card:hover,
+  .settings-page .arco-card:hover {
+    transform: none;
   }
 }
 

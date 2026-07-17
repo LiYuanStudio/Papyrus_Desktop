@@ -51,8 +51,9 @@ export const PageLayout = ({
             alignItems: 'center',
             padding: '24px',
             marginBottom: '32px',
-            borderRadius: '12px',
-            border: '1px solid var(--color-text-3)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--color-border-hairline)',
+          boxShadow: 'var(--shadow-1)',
             background: 'var(--color-bg-1)',
           }}>
             <Spin size={24} />
@@ -68,8 +69,9 @@ export const PageLayout = ({
           position: 'relative',
           padding: '24px',
           marginBottom: '32px',
-          borderRadius: '12px',
-          border: '1px solid var(--color-text-3)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid var(--color-border-hairline)',
+          boxShadow: 'var(--shadow-1)',
           overflow: 'hidden',
         }}>
           {canShowScenery && (
@@ -90,7 +92,7 @@ export const PageLayout = ({
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  background: `rgba(255, 255, 255, ${overlayOpacity})`,
+                  background: `rgba(var(--scenery-overlay-rgb), ${overlayOpacity})`,
                 }}
               />
             </>
@@ -113,8 +115,9 @@ export const PageLayout = ({
           alignItems: 'center',
           padding: '24px',
           marginBottom: '32px',
-          borderRadius: '12px',
-          border: '1px solid var(--color-text-3)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid var(--color-border-hairline)',
+          boxShadow: 'var(--shadow-1)',
           background: 'var(--color-bg-1)',
         }}>
           <Spin size={24} />
@@ -161,8 +164,9 @@ export const PageLayout = ({
           alignItems: 'center',
           padding: '24px',
           marginBottom: '32px',
-          borderRadius: '12px',
-          border: '1px solid var(--color-text-3)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid var(--color-border-hairline)',
+          boxShadow: 'var(--shadow-1)',
           background: 'var(--color-bg-1)',
         }}>
           {content}
@@ -181,8 +185,9 @@ export const PageLayout = ({
         alignItems: 'center',
         padding: '24px',
         marginBottom: '32px',
-        borderRadius: '12px',
-        border: '1px solid var(--color-text-3)',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--color-border-hairline)',
+          boxShadow: 'var(--shadow-1)',
         overflow: 'hidden',
       }}>
         <img
@@ -201,7 +206,7 @@ export const PageLayout = ({
           style={{
             position: 'absolute',
             inset: 0,
-            background: `rgba(255, 255, 255, ${overlayOpacity})`,
+            background: `rgba(var(--scenery-overlay-rgb), ${overlayOpacity})`,
           }}
         />
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', width: '100%' }}>
@@ -216,7 +221,7 @@ export const PageLayout = ({
       flex: 1,
       overflowY: 'auto',
       padding: '48px 64px 64px',
-      background: 'var(--color-bg-1)'
+      background: 'var(--color-bg-canvas)'
     }}>
       <div style={{
         display: 'flex',
@@ -226,7 +231,7 @@ export const PageLayout = ({
       }}>
         <Typography.Title
           heading={1}
-          style={{ fontWeight: 600, lineHeight: 1, margin: 0, fontSize: 'var(--font-size-display-xl)' }}
+          style={{ fontWeight: 600, lineHeight: 1, margin: 0, fontSize: 'var(--font-size-display-xl)', letterSpacing: '-0.01em' }}
         >
           {title}
         </Typography.Title>

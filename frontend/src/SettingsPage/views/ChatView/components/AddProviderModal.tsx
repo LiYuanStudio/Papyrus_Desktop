@@ -105,10 +105,11 @@ const AddProviderModal = ({ visible, onClose, onProviderAdded, t }: AddProviderM
       autoFocus={false}
       focusLock
     >
-      <div style={{ background: 'var(--color-fill-2)', borderRadius: '16px', padding: '16px', border: '1px solid var(--color-border-2)' }}>
+      {/* 表单分组容器：fill-2 底 + hairline 边 + 大圆角,弹层内分组更克制 */}
+      <div style={{ background: 'var(--color-fill-2)', borderRadius: 'var(--radius-lg)', padding: '16px', border: '1px solid var(--color-border-hairline)' }}>
         <Form form={addForm} layout="vertical">
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.port')}</Title>} field="port" initialValue="openai">
-            <Select value={newProviderType} onChange={setNewProviderType} style={{ borderRadius: '8px' }}>
+            <Select value={newProviderType} onChange={setNewProviderType} style={{ borderRadius: 'var(--radius-md)' }}>
               {PORT_OPTIONS.map((opt) => (
                 <Option key={opt.value} value={opt.value}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -120,7 +121,7 @@ const AddProviderModal = ({ visible, onClose, onProviderAdded, t }: AddProviderM
             </Select>
           </FormItem>
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.providerName')}</Title>} field="name">
-            <Input placeholder={PROVIDER_PRESETS[newProviderType]?.name} style={{ borderRadius: '8px' }} />
+            <Input placeholder={PROVIDER_PRESETS[newProviderType]?.name} style={{ borderRadius: 'var(--radius-md)' }} />
           </FormItem>
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.apiKey')}</Title>}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -128,7 +129,7 @@ const AddProviderModal = ({ visible, onClose, onProviderAdded, t }: AddProviderM
                 <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Input.Password
                     placeholder={`Enter ${t('chatView.apiKey')}`}
-                    style={{ borderRadius: '8px', flex: 1 }}
+                    style={{ borderRadius: 'var(--radius-md)', flex: 1 }}
                     value={item.key}
                     onChange={(v) => {
                       const newKeys = [...apiKeys];
@@ -139,7 +140,7 @@ const AddProviderModal = ({ visible, onClose, onProviderAdded, t }: AddProviderM
                   <span style={{ color: 'var(--color-text-3)' }}>:</span>
                   <Input
                     placeholder={t('chatView.apiKeyName')}
-                    style={{ borderRadius: '8px', width: 120 }}
+                    style={{ borderRadius: 'var(--radius-md)', width: 120 }}
                     value={item.name}
                     onChange={(v) => {
                       const newKeys = [...apiKeys];
@@ -153,7 +154,7 @@ const AddProviderModal = ({ visible, onClose, onProviderAdded, t }: AddProviderM
                       icon={<IconPlus />}
                       size="small"
                       onClick={() => setApiKeys([...apiKeys, { id: crypto.randomUUID(), key: '', name: '' }])}
-                      style={{ background: 'var(--color-primary)', borderRadius: '6px', padding: '0 8px' }}
+                      style={{ background: 'var(--color-primary)', borderRadius: 'var(--radius-sm)', padding: '0 8px' }}
                     />
                   ) : (
                     <Button
@@ -169,7 +170,7 @@ const AddProviderModal = ({ visible, onClose, onProviderAdded, t }: AddProviderM
             </div>
           </FormItem>
           <FormItem label={<Title heading={6} style={{ margin: 0 }}>{t('chatView.baseUrl')}</Title>} field="baseUrl">
-            <Input placeholder={PROVIDER_PRESETS[newProviderType]?.baseUrl} style={{ borderRadius: '8px' }} />
+            <Input placeholder={PROVIDER_PRESETS[newProviderType]?.baseUrl} style={{ borderRadius: 'var(--radius-md)' }} />
           </FormItem>
         </Form>
       </div>

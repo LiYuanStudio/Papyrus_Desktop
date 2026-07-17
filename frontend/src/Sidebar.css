@@ -7,7 +7,7 @@
   height: 100%;
   box-sizing: border-box;
   background: var(--color-bg-1);
-  border-right: 1px solid var(--color-border-3);
+  border-right: 1px solid var(--color-border-hairline);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -25,13 +25,13 @@
 .sidebar-item {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--color-text-2);
   margin-bottom: 8px;
   position: relative;
   flex-shrink: 0;
-  transition: width 0.3s cubic-bezier(0.4,0,0.2,1), padding 0.3s cubic-bezier(0.4,0,0.2,1);
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1), padding 0.3s cubic-bezier(0.4,0,0.2,1), background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
   box-sizing: border-box;
   background: none;
   border: 2px solid transparent;
@@ -129,11 +129,12 @@
   outline: none;
 }
 
-/* 激活状态 */
+/* 激活状态: 品牌色实心 + 同色柔光晕,替代干巴巴的纯平色块 */
 .sidebar-item-active {
   background: var(--color-primary);
   color: var(--color-white);
   border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(32, 108, 207, 0.35);
 }
 
 .sidebar-item-active:hover {
@@ -163,9 +164,9 @@
   max-height: min(440px, calc(100vh - 32px));
   padding: 8px;
   border: 1px solid var(--color-border-2);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--color-bg-2);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--shadow-3);
   display: flex;
   flex-direction: column;
   overflow: hidden;

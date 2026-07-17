@@ -4,9 +4,11 @@
 
 .reasoning-chain {
   margin: 8px 0;
-  border-radius: 12px;
+  /* 卡片语言: lg 圆角 + hairline 描边 + shadow-1,替代 border-2 的粗灰边 */
+  border-radius: var(--radius-lg);
   background: var(--color-bg-1);
-  border: 1px solid var(--color-border-2);
+  border: 1px solid var(--color-border-hairline);
+  box-shadow: var(--shadow-1);
   overflow: hidden;
   min-width: 0;
   max-width: 100%;
@@ -126,9 +128,9 @@
 /* 代码块样式 */
 .reasoning-code-block {
   margin: 12px 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-bg-2);
-  border: 1px solid var(--color-border-2);
+  border: 1px solid var(--color-border-hairline);
   overflow: hidden;
 }
 
@@ -137,7 +139,7 @@
   color: var(--color-text-3);
   padding: 6px 12px;
   background: var(--color-fill-2);
-  border-bottom: 1px solid var(--color-border-2);
+  border-bottom: 1px solid var(--color-border-hairline);
   text-transform: uppercase;
 }
 
@@ -155,13 +157,13 @@
   background: transparent;
 }
 
-/* 深色模式代码高亮 */
+/* 深色模式代码块: 用 canvas token 替代写死的 #1a1a1a,保持比卡片更暗的内嵌感且随主题联动 */
 body[arco-theme='dark'] .reasoning-code-block {
-  background: #1a1a1a;
+  background: var(--color-bg-canvas);
 }
 
 body[arco-theme='dark'] .reasoning-code-pre {
-  background: #1a1a1a;
+  background: var(--color-bg-canvas);
 }
 
 /* 减少动画 - 无障碍支持 */

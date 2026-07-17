@@ -30,11 +30,16 @@ export const NoteCard = ({ note, onClick, selectable, selected, onToggleSelect }
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
 
+  // 卡片视觉: 发丝边框 + 分层阴影 + hover 轻抬升,选中态用 primary-light 实底。
+  // 修复: 原 `${PRIMARY_COLOR}10` 会拼出 "var(--color-primary)10" 无效 CSS,选中背景静默失效;
+  // 未用 color-mix(): 项目已有 --color-primary-light 语义 token,浅色 8%/深色 20% 透明度,直接用更一致。
   const cardStyle = {
-    borderRadius: '16px',
-    border: `1px solid ${selected ? PRIMARY_COLOR : hovered ? PRIMARY_COLOR : 'var(--color-text-3)'}`,
-    background: selected ? `${PRIMARY_COLOR}10` : hovered ? `${PRIMARY_COLOR}08` : 'var(--color-bg-1)',
-    transition: 'border-color 0.2s, background 0.2s',
+    borderRadius: 'var(--radius-lg)',
+    border: `1px solid ${selected ? PRIMARY_COLOR : hovered ? PRIMARY_COLOR : 'var(--color-border-hairline)'}`,
+    background: selected ? 'var(--color-primary-light)' : 'var(--color-bg-1)',
+    boxShadow: selected || hovered ? 'var(--shadow-2)' : 'var(--shadow-1)',
+    transform: hovered ? 'translateY(-2px)' : 'none',
+    transition: 'border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard)',
     cursor: 'pointer',
     height: '200px',
     boxSizing: 'border-box' as const,

@@ -245,6 +245,8 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        // 学习视图不使用 PageLayout,需自行铺页面工作区画布底色
+        background: 'var(--color-bg-canvas)',
         animation: isExiting
           ? 'flashcardStudyExit 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards'
           : 'flashcardStudyEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards',

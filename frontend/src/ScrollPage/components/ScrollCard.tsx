@@ -7,9 +7,8 @@ import { PRIMARY_COLOR, SUCCESS_COLOR } from '../constants';
 
 const ScrollCard = ({ scroll, onStudy }: ScrollCardProps) => {
   const { t } = useTranslation();
-  const { hovered, setHovered, cardStyle, width, height } = useCommonCardStyle({
-    borderWidth: 2,
-  });
+  // 吃默认新卡片语言(1px hairline + shadow-1/hover 抬升),不再自定义 2px 描边
+  const { hovered, setHovered, cardStyle, width, height } = useCommonCardStyle();
 
   return (
     <CommonCard
@@ -57,7 +56,8 @@ const ScrollCard = ({ scroll, onStudy }: ScrollCardProps) => {
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(32, 108, 207, 0.3)',
+            // 硬编码品牌蓝投影换中性 shadow-1: 无 primary 投影 token,中性阴影深浅主题都协调
+            boxShadow: 'var(--shadow-1)',
           }}
         >
           <IconPlayCircle style={{ fontSize: '18px', color: '#fff' }} />
@@ -83,7 +83,8 @@ const ScrollCard = ({ scroll, onStudy }: ScrollCardProps) => {
             <div style={{
               display: 'inline-flex',
               alignSelf: 'flex-start',
-              background: '#E8FFEA',
+              // 硬编码浅绿底换 success-light token,深色模式为半透明绿底不刺眼
+              background: 'var(--color-success-light)',
               color: SUCCESS_COLOR,
               borderRadius: '999px',
               padding: '4px 12px',

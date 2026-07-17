@@ -9,6 +9,8 @@
   flex: 1;
   overflow-y: auto;
   position: relative;
+  /* 画布底色：页面工作区用 canvas，与卡片 bg-1 拉开层次，深色模式由 token 自适应 */
+  background: var(--color-bg-canvas);
 }
 
 .start-study-shell {
@@ -84,8 +86,11 @@
   left: 64px;
   right: 64px;
   height: calc(61.8vh - 48px - var(--font-size-display-xl));
-  border: 1px solid var(--color-text-3);
-  border-radius: 16px;
+  /* hero 窗景卡按卡片语言升级：发丝边框替代误用的 text-3，
+     radius-xl + shadow-2 是因为它是页面视觉焦点（比普通卡片更强调） */
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2);
   overflow: hidden;
   transform: translateZ(0);
 }
@@ -96,7 +101,8 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: var(--color-bg-2);
+  /* 卡片底色统一 bg-1（canvas 之上），深浅色由 token 自适应 */
+  background: var(--color-bg-1);
 }
 
 .start-card-top {
@@ -156,8 +162,9 @@
 }
 
 .start-cta-button.start-cta-button[data-highlighted="true"] {
-  background-color: #206CCF;
-  border-color: #206CCF;
+  /* 品牌色走 token（替代硬编码 #206CCF），深色模式自动适配 */
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .start-cta-button-label {
@@ -184,7 +191,8 @@
   width: 100%;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: #206CCF;
+  /* 涟漪色与 CTA 品牌色一致，走 token */
+  background: var(--color-primary);
   pointer-events: none;
   z-index: 0;
   animation: ripple-effect 0.6s ease-out forwards;
@@ -295,17 +303,15 @@
   }
 }
 
-/* ---- 窗景深色模式适配 ---- */
-body[arco-theme="dark"] .start-card-frame--scenery {
-  background: var(--color-bg-2);
+/* ---- DoneCard 完成态顶部光晕 ---- */
+/* 用 token 化的浅绿渐变替代硬编码 rgba(232,255,234,0.45)，深色模式自动变通透 */
+.start-done-glow {
+  background: linear-gradient(to bottom, var(--color-success-light), transparent);
 }
 
+/* ---- 窗景深色模式适配 ---- */
+/* 卡片底色/边框已统一为自适应 token（bg-1 / hairline），无需再单独覆盖深色；
+   仅保留窗景图片的亮度适配，避免深色下过亮 */
 body[arco-theme="dark"] .start-scenery-image {
   filter: brightness(0.85) contrast(1.1);
-}
-
-body[arco-theme="dark"] .start-card-frame--pending,
-body[arco-theme="dark"] .start-card-frame--done {
-  background: var(--color-bg-2);
-  border-color: var(--color-border-2);
 }

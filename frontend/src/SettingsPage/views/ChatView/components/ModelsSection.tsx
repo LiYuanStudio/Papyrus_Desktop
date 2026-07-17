@@ -71,10 +71,11 @@ const ModelsSection = ({
                 key={model.id}
                 style={{
                   marginBottom: 10,
-                  borderRadius: 12,
+                  borderRadius: 'var(--radius-lg)',
+                  // 选中(默认/翻译)卡用主色描边强调,其余统一发丝边框
                   border: isDefault || isTranslation
                     ? '1px solid var(--color-primary)'
-                    : '1px solid var(--color-border-2)',
+                    : '1px solid var(--color-border-hairline)',
                 }}
                 bodyStyle={{ padding: 12 }}
               >

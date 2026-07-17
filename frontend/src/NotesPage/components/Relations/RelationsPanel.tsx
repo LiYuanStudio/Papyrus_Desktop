@@ -26,13 +26,16 @@ const TabPane = Tabs.TabPane;
 const Option = Select.Option;
 
 // 关联类型配置
-const RELATION_CONFIG: Record<RelationType, { label: string; color: string }> = {
-  reference: { label: i18n.t('relationGraph.reference'), color: 'arcoblue' },
-  related: { label: i18n.t('relationGraph.related'), color: 'green' },
-  child: { label: i18n.t('relationGraph.child'), color: 'orange' },
-  parent: { label: i18n.t('relationGraph.parent'), color: 'purple' },
-  sequence: { label: i18n.t('relationGraph.sequence'), color: 'cyan' },
-  parallel: { label: i18n.t('relationGraph.parallel'), color: 'magenta' },
+// color 供 Arco Tag 预设色使用;css/cssLight 供内联样式使用 —— 原 `var(--color-${color}-light)` 拼接
+// 引用了从未定义的变量(--color-arcoblue 等),图标底色/文字色静默失效;
+// 改用与 RelationGraph 一致的功能色板(图表多色无语义 token 对应,按约定保留 hex,深浅色均不刺眼)
+const RELATION_CONFIG: Record<RelationType, { label: string; color: string; css: string; cssLight: string }> = {
+  reference: { label: i18n.t('relationGraph.reference'), color: 'arcoblue', css: '#165DFF', cssLight: 'rgba(22, 93, 255, 0.12)' },
+  related: { label: i18n.t('relationGraph.related'), color: 'green', css: '#00B42A', cssLight: 'rgba(0, 180, 42, 0.12)' },
+  child: { label: i18n.t('relationGraph.child'), color: 'orange', css: '#FF7D00', cssLight: 'rgba(255, 125, 0, 0.12)' },
+  parent: { label: i18n.t('relationGraph.parent'), color: 'purple', css: '#722ED1', cssLight: 'rgba(114, 46, 209, 0.12)' },
+  sequence: { label: i18n.t('relationGraph.sequence'), color: 'cyan', css: '#14C9C9', cssLight: 'rgba(20, 201, 201, 0.12)' },
+  parallel: { label: i18n.t('relationGraph.parallel'), color: 'magenta', css: '#F5319D', cssLight: 'rgba(245, 49, 157, 0.12)' },
 };
 
 interface RelationsPanelProps {
@@ -261,11 +264,12 @@ export const RelationsPanel: React.FC<RelationsPanelProps> = ({
             width: '32px',
             height: '32px',
             borderRadius: '6px',
-            background: `var(--color-${config.color}-light)`,
+            // 图标底色/文字色改走 RELATION_CONFIG 的 css/cssLight(原 var() 拼接引用了未定义变量)
+            background: config.cssLight,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: `var(--color-${config.color})`,
+            color: config.css,
             flexShrink: 0,
           }}
         >

@@ -17,15 +17,16 @@ export function FlashCard({ card, studyState, onReveal }: FlashCardProps) {
         maxWidth: '720px',
         minHeight: '320px',
         maxHeight: '480px',
+        // 卡片统一语言: hairline 边框 + radius-xl + shadow-2(主视觉卡,抬升感强于普通卡)
         background: 'var(--color-bg-1)',
-        borderRadius: '20px',
-        border: '1px solid var(--color-border-2)',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
+        borderRadius: 'var(--radius-xl)',
+        border: '1px solid var(--color-border-hairline)',
+        boxShadow: 'var(--shadow-2)',
         padding: '48px',
         display: 'flex',
         flexDirection: 'column',
         cursor: studyState === 'question' ? 'pointer' : 'default',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        transition: 'transform var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard)',
         position: 'relative',
         overflow: 'auto',
       }}
@@ -90,7 +91,8 @@ export function FlashCard({ card, studyState, onReveal }: FlashCardProps) {
             fontSize: '20px',
             lineHeight: 1.6,
             margin: 0,
-            color: '#206CCF',
+            // 硬编码品牌蓝换成语义 token,深色模式自动适配
+            color: 'var(--color-primary)',
             whiteSpace: 'pre-wrap',
           }}
         >

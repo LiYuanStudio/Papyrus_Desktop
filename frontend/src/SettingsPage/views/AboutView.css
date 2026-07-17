@@ -42,7 +42,7 @@
 .about-status-badge {
   margin-top: 16px;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -76,10 +76,14 @@
   color: var(--color-danger);
 }
 
+/* 版本更新信息卡 - 统一卡片语言：bg-1 底 + hairline 实边 + 静态投影
+   原因：原先 fill-2 灰块 + 未定义的 --color-border 描边观感含糊；
+   未保留 fill-2：卡片需要在 canvas 底色上有明确“纸面”层级。 */
 .about-update-card {
-  background-color: var(--color-fill-2);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-1);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  box-shadow: var(--shadow-1);
 }
 
 .about-update-title {
@@ -104,10 +108,11 @@
   margin-left: 12px;
 }
 
+/* 更新日志块 - 卡片变为 bg-1 后,内层改用 fill-2 保持层次对比 */
 .about-release-notes {
-  background-color: var(--color-bg-1);
+  background-color: var(--color-fill-2);
   padding: 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   margin-bottom: 16px;
 }
 

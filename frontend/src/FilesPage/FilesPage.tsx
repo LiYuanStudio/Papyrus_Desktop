@@ -15,20 +15,22 @@ import FilePreviewModal from './FilePreviewModal';
 import './FilesPage.css';
 
 // 文件图标
+// 配色: 文件夹/视频/压缩包走语义 token(主色/危险/警告), 图片紫与音频青无对应 token,
+// 保留 Arco 标准色板值(饱和度适中, 深色 bg-1=#1e1e22 下不刺眼)。
 const FileTypeIcon = ({ type, size = 48 }: { type: string; size?: number }) => {
   const iconSize = size * 0.5;
 
   switch (type) {
     case 'folder':
-      return <IconFolder style={{ fontSize: iconSize, color: '#206CCF' }} />;
+      return <IconFolder style={{ fontSize: iconSize, color: 'var(--color-primary)' }} />;
     case 'image':
       return <IconImage style={{ fontSize: iconSize, color: '#722ED1' }} />;
     case 'video':
-      return <IconFileVideo style={{ fontSize: iconSize, color: '#F53F3F' }} />;
+      return <IconFileVideo style={{ fontSize: iconSize, color: 'var(--color-danger)' }} />;
     case 'audio':
       return <IconMusic style={{ fontSize: iconSize, color: '#14C9C9' }} />;
     case 'archive':
-      return <ZipIcon size={iconSize} color="#FF7D00" />;
+      return <ZipIcon size={iconSize} color="var(--color-warning)" />;
     default:
       return <IconFile style={{ fontSize: iconSize, color: 'var(--color-text-3)' }} />;
   }

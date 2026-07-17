@@ -145,7 +145,7 @@ const AccessibilityView = ({ onBack }: AccessibilityViewProps) => {
               gap: 12,
               padding: 16,
               background: 'var(--color-primary-light)',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
             }}>
               <IconBulb style={{ color: 'var(--color-primary)', fontSize: 20, marginTop: 2 }} />
               <div>
@@ -168,7 +168,7 @@ const AccessibilityView = ({ onBack }: AccessibilityViewProps) => {
             gap: 12,
             padding: 16,
             background: 'var(--color-fill-2)',
-            borderRadius: 8,
+            borderRadius: 'var(--radius-md)',
           }}>
             <IconAccessibility style={{ color: 'var(--color-text-3)', fontSize: 20, marginTop: 2 }} />
             <div>
@@ -193,7 +193,7 @@ const AccessibilityView = ({ onBack }: AccessibilityViewProps) => {
         title={t('accessibilityView.title')}
         description={t('accessibilityView.titleDesc')}
         icon={IconAccessibility}
-        iconColor="var(--color-gold-6, #c5b507)"
+        iconColor="rgb(var(--gold-6))"
         navItems={NAV_ITEMS.map(item => ({ ...item, label: t(item.label) }))}
         sections={[
           { id: 'aa-section', title: t('accessibilityView.aaLevel'), icon: IconEye },

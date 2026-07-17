@@ -86,12 +86,14 @@ const Sidebar = ({
   useEffect(() => {
     if (dark) {
       document.body.setAttribute('arco-theme', 'dark');
-      document.body.style.backgroundColor = '#2A2A2B';
+      // 与 theme.css 深色 --color-bg-canvas 一致,避免主题切换瞬间底色闪烁
+      document.body.style.backgroundColor = '#141416';
       document.body.style.color = 'var(--color-text-1)';
       document.body.style.colorScheme = 'dark';
     } else {
       document.body.removeAttribute('arco-theme');
-      document.body.style.backgroundColor = '#FFFFFF';
+      // 与 theme.css 浅色 --color-bg-canvas 一致
+      document.body.style.backgroundColor = '#F7F7F5';
       document.body.style.color = '';
       document.body.style.colorScheme = '';
     }

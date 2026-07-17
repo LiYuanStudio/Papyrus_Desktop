@@ -29,6 +29,33 @@
   --font-weight-400: 400;
   --font-weight-500: 500;
   --font-weight-600: 600;
+
+  /* 圆角阶梯 —— 全站统一的容器圆角,替代此前 4–24px 各自为政的写法 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* 阴影阶梯 —— 用"贴身 + 环境"双层柔和投影替代硬描边,营造悬浮于纸面的层级。
+     未用单层大阴影: 单层阴影边缘生硬,双层更接近真实光照,深色模式下也更好调。 */
+  --shadow-1: 0 1px 2px rgba(31, 35, 41, 0.05), 0 2px 8px rgba(31, 35, 41, 0.04);
+  --shadow-2: 0 2px 6px rgba(31, 35, 41, 0.07), 0 10px 28px rgba(31, 35, 41, 0.09);
+  --shadow-3: 0 6px 16px rgba(31, 35, 41, 0.09), 0 20px 56px rgba(31, 35, 41, 0.14);
+
+  /* 动效 —— 统一缓动与时长;缓出曲线起步快、收尾柔,比线性/ease 更显精致 */
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 0.15s;
+  --duration-normal: 0.25s;
+
+  /* 发丝边框 —— 替代误用 var(--color-text-3) 的卡片描边(文字色当边框显脏) */
+  --color-border-hairline: rgba(31, 35, 41, 0.08);
+
+  /* 画布底色 —— 微暖纸感灰,让使用 bg-1 的白色卡片自然浮出,无需改动任何布局 */
+  --color-bg-canvas: #f7f7f5;
+
+  /* 窗景遮罩 RGB 分量 —— PageLayout 运行时以 rgba(var(--scenery-overlay-rgb), 透明度) 拼色,
+     深色模式翻转为黑色分量,修复深色下遮罩错误发白的 bug */
+  --scenery-overlay-rgb: 255, 255, 255;
 }
 
 body {
@@ -44,6 +71,12 @@ body {
   --font-size-display-xl: calc(var(--font-size-base) + 25px);
   --font-size-display-xxl: calc(var(--font-size-base) + 33px);
   font-size: var(--font-size-base);
+  /* 字体渲染优化 —— 抗锯齿让细字重更干净;tabular-nums 让统计数字/计时器等宽对齐。
+     未引入自定义字体文件: 保持 Arco 系统字体栈约定,零加载成本。 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
 }
 
 body[data-font-size="small"] {
@@ -60,13 +93,14 @@ body[data-font-size="large"] {
 
 /* Arco Design 深色模式变量覆盖 */
 body[arco-theme='dark'] {
-  /* 背景色 */
-  --color-bg-1: #2a2a2b;
-  --color-bg-2: #333334;
-  --color-bg-3: #3a3a3b;
-  --color-bg-4: #424243;
-  --color-bg-5: #4a4a4b;
-  --color-bg-white: #2a2a2b;
+  /* 背景色 —— 整体加深并拉开阶梯,让卡片/弹层在深色下仍有"海拔"层次。
+     未沿用原 #2a2a2b 起的高灰度底色: 各层太接近,投影与圆角无法体现层级。 */
+  --color-bg-1: #1e1e22;
+  --color-bg-2: #242428;
+  --color-bg-3: #2b2b30;
+  --color-bg-4: #333338;
+  --color-bg-5: #3b3b41;
+  --color-bg-white: #1e1e22;
 
   /* 文字色 */
   --color-text-1: rgba(255, 255, 255, 0.9);
@@ -106,6 +140,14 @@ body[arco-theme='dark'] {
 
   /* 遮罩 */
   --color-mask-bg: rgba(0, 0, 0, 0.6);
+
+  /* 深色下的阴影/hairline/画布/窗景遮罩覆盖 —— 阴影更深更软,画布比 bg-1 再暗一档 */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.22);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.36), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-3: 0 6px 16px rgba(0, 0, 0, 0.44), 0 20px 56px rgba(0, 0, 0, 0.52);
+  --color-border-hairline: rgba(255, 255, 255, 0.09);
+  --color-bg-canvas: #141416;
+  --scenery-overlay-rgb: 0, 0, 0;
 }
 
 button,
@@ -144,7 +186,7 @@ select {
   :where(html:not(.aaa-no-animation) body h4),
   :where(html:not(.aaa-no-animation) body h5),
   :where(html:not(.aaa-no-animation) body h6) {
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    transition: background-color 0.2s var(--ease-standard), color 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard);
   }
 }
 

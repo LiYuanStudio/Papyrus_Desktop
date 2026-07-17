@@ -493,7 +493,7 @@ const TitleBar = ({
       <Avatar 
         size={size} 
         className="tw-cursor-pointer"
-        style={{ backgroundColor: '#206CCF', fontSize: size * 0.4 }} 
+        style={{ backgroundColor: 'var(--color-primary)', fontSize: size * 0.4 }} 
       >
         {(userId?.charAt(0) || '?').toUpperCase()}
       </Avatar>

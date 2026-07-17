@@ -104,11 +104,12 @@ export const SettingsSidebar = ({
                   gap: '8px',
                   padding: '10px 12px',
                   cursor: 'pointer',
-                  borderRadius: '8px',
+                  // 激活态精修：小圆角 + 标准缓动短过渡，避免 "all 0.2s" 的粗糙感
+                  borderRadius: 'var(--radius-sm)',
                   marginBottom: '4px',
                   background: isActive ? 'var(--color-primary-light)' : 'transparent',
                   color: isActive ? 'var(--color-primary)' : 'var(--color-text-1)',
-                  transition: 'all 0.2s',
+                  transition: 'background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard)',
                   userSelect: 'none',
                 }}
                 onMouseEnter={(e) => {
@@ -145,7 +146,7 @@ export const SettingsSidebar = ({
           width: '4px',
           cursor: isResizing ? 'col-resize' : 'ew-resize',
           background: isResizing ? 'var(--color-primary)' : 'transparent',
-          transition: 'background 0.2s',
+          transition: 'background var(--duration-fast) var(--ease-standard)',
           flexShrink: 0,
         }}
         onMouseEnter={(e) => {

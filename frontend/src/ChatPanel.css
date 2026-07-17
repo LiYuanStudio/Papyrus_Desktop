@@ -4,7 +4,8 @@
 
 .chat-panel {
   height: 100%;
-  background: var(--color-bg-1);
+  /* 工作区底色用 canvas(微暖纸感灰),让 bg-1 的气泡浮卡自然浮出;深色下 canvas 比 bg-1 再暗一档 */
+  background: var(--color-bg-canvas);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -95,7 +96,7 @@
 .chat-message-bubble {
   max-width: 85%;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-size: 14px;
   line-height: 1.6;
   color: var(--color-text-1);
@@ -162,7 +163,9 @@
 
 .chat-message-user .chat-message-bubble {
   background: var(--color-primary);
-  border-radius: 12px;
+  /* 不对称圆角: 发送侧(右下)收小成 4px,气泡有"指向性";shadow-1 让气泡浮于画布 */
+  border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+  box-shadow: var(--shadow-1);
   color: var(--color-white);
 }
 
@@ -179,8 +182,11 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  background: var(--color-fill-2);
-  border-bottom-left-radius: 4px;
+  /* 灰块改浮卡: bg-1 底 + hairline 描边 + shadow-1,与全局卡片语言一致;左下收小 4px 与 user 气泡呼应 */
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+  box-shadow: var(--shadow-1);
 }
 
 .chat-assistant-message-footer {
@@ -232,17 +238,18 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
 .chat-input-area {
   margin: 0 8px 8px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-fill-2);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: box-shadow 0.15s ease;
+  transition: box-shadow var(--duration-fast) var(--ease-standard);
 }
 
 .chat-input-area:has(.chat-textarea:focus) {
-  box-shadow: 0 0 0 1px var(--color-primary);
+  /* 聚焦光晕柔化: 1px 实线圈改为 3px 低透明光晕,减少生硬感 */
+  box-shadow: 0 0 0 3px rgba(32, 108, 207, 0.12);
 }
 
 .chat-textarea {
@@ -553,11 +560,12 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   min-width: 228px;
   max-width: 280px;
   padding: 8px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
-  backdrop-filter: blur(14px);
+  /* 弹层统一语言: pop 圆角 + hairline 描边 + shadow-3;底色走 Arco var(--color-bg-popup),深浅自适应。
+     去掉 backdrop-filter 与深色专用覆盖: 底色已不透明,blur 无视觉效果、徒增渲染开销。 */
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-popup);
+  border: 1px solid var(--color-border-hairline);
+  box-shadow: var(--shadow-3);
 }
 
 .chat-model-popup-empty {
@@ -574,20 +582,21 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
   gap: 12px;
   padding: 12px 14px;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text-1);
   cursor: pointer;
   text-align: left;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 
 .chat-model-option:hover {
-  background: rgba(24, 119, 242, 0.08);
+  /* hover/选中统一走 primary-light token,深浅模式自适应,替代硬编码 #1877f2 系颜色 */
+  background: var(--color-primary-light);
 }
 
 .chat-model-option-active {
-  color: #1877f2;
+  color: var(--color-primary);
 }
 
 .chat-model-option-label {
@@ -602,16 +611,6 @@ body[arco-theme="dark"] .chat-message-user .chat-message-bubble {
 .chat-model-option-check {
   flex-shrink: 0;
   font-size: 15px;
-}
-
-body[arco-theme="dark"] .chat-model-popup {
-  background: rgba(30, 33, 39, 0.96);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.38);
-}
-
-body[arco-theme="dark"] .chat-model-option:hover {
-  background: rgba(64, 148, 255, 0.14);
 }
 
 /* ============================================

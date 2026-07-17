@@ -194,7 +194,7 @@ const DataView = ({ onBack }: DataViewProps) => {
         title={t('dataView.title')}
         description={t('dataView.titleDesc')}
         icon={IconSafe}
-        iconColor="var(--color-cyan-6, #14C9C9)"
+        iconColor="rgb(var(--cyan-6))"
         navItems={NAV_ITEMS.map(item => ({ ...item, label: t(item.label) }))}
         sections={[
           { id: 'backup-section', title: t('dataView.backup'), icon: IconSafe },

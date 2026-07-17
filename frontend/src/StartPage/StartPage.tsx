@@ -362,7 +362,7 @@ const StartPage = ({ onDoneChange, onNavigate, onStartStudy, onNewCard }: StartP
     <div id="start-page-scroll" className="start-page-root">
       {done && (
         <div
-          className="tw-absolute tw-inset-x-0 tw-top-0 tw-h-[160px] tw-pointer-events-none tw-z-0 tw-bg-gradient-to-b tw-from-[rgba(232,255,234,0.45)] tw-to-transparent"
+          className="tw-absolute tw-inset-x-0 tw-top-0 tw-h-[160px] tw-pointer-events-none tw-z-0 start-done-glow"
           aria-hidden="true"
         />
       )}

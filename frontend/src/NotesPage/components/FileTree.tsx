@@ -92,8 +92,10 @@ const FolderNode = ({
           gap: '4px',
           padding: '6px 12px',
           cursor: 'pointer',
-          borderRadius: '6px',
+          borderRadius: 'var(--radius-sm)',
           userSelect: 'none',
+          // hover 背景由 JS 切换,补短过渡避免生硬跳变(保持 JS 方案不变)
+          transition: 'background var(--duration-fast) var(--ease-standard)',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = 'var(--color-fill-2)';
@@ -124,9 +126,10 @@ const FolderNode = ({
           }}
           style={{
             padding: '2px 4px',
-            borderRadius: '4px',
+            borderRadius: 'var(--radius-sm)',
             opacity: 0,
-            transition: 'opacity 0.2s',
+            // hover 同时改 opacity 与背景,两者都给短过渡
+            transition: 'opacity var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard)',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.opacity = '1';
@@ -153,8 +156,10 @@ const FolderNode = ({
                 gap: '6px',
                 padding: '5px 12px',
                 cursor: 'pointer',
-                borderRadius: '6px',
-                background: selectedNoteId === child.id ? `${PRIMARY_COLOR}15` : 'transparent',
+                borderRadius: 'var(--radius-sm)',
+                // 修复: 原 `${PRIMARY_COLOR}15` 拼出无效 CSS;改用 --color-primary-light token,深色模式同样正确
+                background: selectedNoteId === child.id ? 'var(--color-primary-light)' : 'transparent',
+                transition: 'background var(--duration-fast) var(--ease-standard)',
               }}
               onMouseEnter={(e) => {
                 if (selectedNoteId !== child.id) {

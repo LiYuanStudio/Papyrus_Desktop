@@ -6,9 +6,8 @@ import type { CollectionCardProps } from '../types';
 
 const CollectionCard = ({ collection, onClick, onManage }: CollectionCardProps) => {
   const { t } = useTranslation();
-  const { hovered, setHovered, cardStyle, width, height } = useCommonCardStyle({
-    borderWidth: 2,
-  });
+  // 删掉自定义 2px 描边配置,吃 useCommonCardStyle 默认新卡片语言
+  const { hovered, setHovered, cardStyle, width, height } = useCommonCardStyle();
 
   return (
     <CommonCard

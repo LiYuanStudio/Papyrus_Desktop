@@ -47,7 +47,7 @@ const FileIcon = ({ type, size = 40 }: FileIconProps) => {
           width: size,
           height: size,
           borderRadius: '10px',
-          background: '#F53F3F',
+          background: 'var(--color-danger)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
