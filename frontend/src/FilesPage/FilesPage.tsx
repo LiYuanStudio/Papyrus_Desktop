@@ -494,7 +494,6 @@ const FilesPage = ({ initialFileId, onInitialFileIdUsed }: FilesPageProps) => {
       ) : currentFiles.length === 0 ? (
         <div key={currentFolder ?? 'root'} className={`files-content-enter files-content-enter-${folderNavDirection}`}>
           <Empty description={activeFilter !== 'all' ? t('filesPage.noFilterResults') : currentFolder ? t('filesPage.emptyFolder') : t('filesPage.noFiles')} className="files-empty-padded" />
-          <Empty description={activeFilter !== 'all' ? t('filesPage.noFilterResults') : currentFolder ? t('filesPage.emptyFolder') : t('filesPage.noFiles')} className="files-empty-padded" />
         </div>
       ) : viewMode === 'grid' ? (
         <div key={currentFolder ?? 'root'} className={`files-content-enter files-content-enter-${folderNavDirection}`}>

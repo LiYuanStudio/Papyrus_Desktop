@@ -270,7 +270,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
                 overflow: 'auto',
                 padding: '16px',
                 background: 'var(--color-fill-2)',
-                borderRadius: '8px',
+                borderRadius: 'var(--radius-md)',
                 fontSize: '13px',
                 lineHeight: 1.6,
                 whiteSpace: 'pre-wrap',
@@ -308,7 +308,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
                 overflow: 'auto',
                 padding: '24px',
                 background: 'var(--color-bg-2)',
-                borderRadius: '8px',
+                borderRadius: 'var(--radius-md)',
                 fontSize: '14px',
                 lineHeight: 1.7,
               }}

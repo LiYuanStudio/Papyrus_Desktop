@@ -242,10 +242,9 @@ const SearchBox = ({ onResultClick, onNavigateToNote, onNavigateToCard, onNaviga
           id="search-results-listbox"
           role="listbox"
           aria-label={t('searchBox.resultsAriaLabel')}
-          className="tw-absolute tw-left-0 tw-right-0 tw-z-50 tw-overflow-hidden tw-bg-arco-bg-popup tw-rounded-arco-lg tw-border tw-border-arco-border-2 no-drag search-dropdown-enter"
+          className="tw-absolute tw-left-0 tw-right-0 tw-z-50 tw-overflow-hidden tw-bg-arco-bg-popup tw-rounded-card tw-border tw-border-arco-border-hairline tw-shadow-2 no-drag search-dropdown-enter"
           style={{
             top: 'calc(100% + 8px)',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
             minWidth: '360px',
           }}
         >

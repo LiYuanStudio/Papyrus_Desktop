@@ -206,7 +206,7 @@ export const SmartTextArea = forwardRef<SmartTextAreaRef, SmartTextAreaProps>(
               background: 'var(--color-bg-1)',
               borderRadius: '50%',
               padding: 4,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              boxShadow: 'var(--shadow-1)',
             }}
           >
             <Spin size={16} />

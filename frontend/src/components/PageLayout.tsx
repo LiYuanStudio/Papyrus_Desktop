@@ -53,7 +53,7 @@ export const PageLayout = ({
             marginBottom: '32px',
             borderRadius: 'var(--radius-lg)',
             border: '1px solid var(--color-border-hairline)',
-          boxShadow: 'var(--shadow-1)',
+            boxShadow: 'var(--shadow-1)',
             background: 'var(--color-bg-1)',
           }}>
             <Spin size={24} />
@@ -187,7 +187,7 @@ export const PageLayout = ({
         marginBottom: '32px',
         borderRadius: 'var(--radius-lg)',
         border: '1px solid var(--color-border-hairline)',
-          boxShadow: 'var(--shadow-1)',
+        boxShadow: 'var(--shadow-1)',
         overflow: 'hidden',
       }}>
         <img

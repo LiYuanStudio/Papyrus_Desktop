@@ -86,14 +86,14 @@ const Sidebar = ({
   useEffect(() => {
     if (dark) {
       document.body.setAttribute('arco-theme', 'dark');
-      // 与 theme.css 深色 --color-bg-canvas 一致,避免主题切换瞬间底色闪烁
-      document.body.style.backgroundColor = '#141416';
+      // 直接引用主题画布 token，避免 JS 与 CSS 分别维护色值并在后续主题调整时漂移。
+      // 未保留硬编码颜色：arco-theme 属性设置后 token 已同步切换，可安全复用同一声明。
+      document.body.style.backgroundColor = 'var(--color-bg-canvas)';
       document.body.style.color = 'var(--color-text-1)';
       document.body.style.colorScheme = 'dark';
     } else {
       document.body.removeAttribute('arco-theme');
-      // 与 theme.css 浅色 --color-bg-canvas 一致
-      document.body.style.backgroundColor = '#F7F7F5';
+      document.body.style.backgroundColor = 'var(--color-bg-canvas)';
       document.body.style.color = '';
       document.body.style.colorScheme = '';
     }

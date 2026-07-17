@@ -355,16 +355,16 @@ export const RelationGraph: React.FC<RelationGraphProps> = ({
   };
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--color-bg-2)', borderRadius: '8px', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--color-bg-2)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
       {/* 工具栏 */}
-      <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10, display: 'flex', gap: '8px', background: 'var(--color-bg-1)', padding: '4px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+      <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10, display: 'flex', gap: '8px', background: 'var(--color-bg-1)', padding: '4px', border: '1px solid var(--color-border-hairline)', borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-1)' }}>
         <Button type="text" size="small" icon={<IconZoomIn />} onClick={handleZoomIn} />
         <Button type="text" size="small" icon={<IconZoomOut />} onClick={handleZoomOut} />
         <Button type="text" size="small" icon={<IconRefresh />} onClick={handleReset} />
       </div>
 
       {/* 深度控制 */}
-      <div style={{ position: 'absolute', bottom: '12px', left: '12px', right: '12px', zIndex: 10, background: 'var(--color-bg-1)', padding: '8px 12px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ position: 'absolute', bottom: '12px', left: '12px', right: '12px', zIndex: 10, background: 'var(--color-bg-1)', padding: '8px 12px', border: '1px solid var(--color-border-hairline)', borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-1)', display: 'flex', alignItems: 'center', gap: '12px' }}>
         <span style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{i18n.t('relationGraph.depth')}</span>
         <Slider value={currentDepth} min={1} max={2} step={1} style={{ flex: 1 }} onChange={(val) => setCurrentDepth(val as number)} />
         <span style={{ fontSize: '13px', minWidth: '20px' }}>{currentDepth}</span>
@@ -390,7 +390,7 @@ export const RelationGraph: React.FC<RelationGraphProps> = ({
       )}
 
       {/* 图例 */}
-      <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 10, background: 'var(--color-bg-1)', padding: '12px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+      <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 10, background: 'var(--color-bg-1)', padding: '12px', border: '1px solid var(--color-border-hairline)', borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-1)' }}>
         <div style={{ fontSize: '12px', fontWeight: 500, marginBottom: '8px' }}>{i18n.t('relationGraph.relationTypes')}</div>
         {(Object.keys(RELATION_COLORS) as RelationType[]).map(type => (
           <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
