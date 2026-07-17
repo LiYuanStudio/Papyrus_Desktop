@@ -11,8 +11,10 @@ import {
   IconTool,
   IconFileImage,
   IconInfoCircle,
+  IconCommon,
 } from '@arco-design/web-react/icon';
 import IconAccessibility from '../icons/IconAccessibility';
+import ExtensionsPage from '../ExtensionsPage/ExtensionsPage';
 import './SettingsPage.css';
 import {
   AppearanceView,
@@ -76,6 +78,13 @@ const getSettingCategories = (t: (key: string) => string) => [
     desc: t('settings.dataDesc'),
     icon: IconStorage,
     color: 'var(--color-cyan-6, #14C9C9)',
+  },
+  {
+    key: 'extensions',
+    title: t('settings.extensions'),
+    desc: t('settings.extensionsDesc'),
+    icon: IconCommon,
+    color: 'var(--color-purple-6, #722ED1)',
   },
   {
     key: 'about',
@@ -187,6 +196,7 @@ const SettingsPage = () => {
       shortcuts: <ShortcutsView onBack={handleBack} />,
       accessibility: <AccessibilityView onBack={handleBack} />,
       data: <DataView onBack={handleBack} />,
+      extensions: <ExtensionsPage onBack={handleBack} />,
       about: <AboutView onBack={handleBack} />,
     };
     return views[key];

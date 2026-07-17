@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@arco-design/web-react';
-import { IconNav, IconPlayArrow, IconCommon, IconFolder, IconMindMapping, IconSettings, IconLock, IconUnlock, IconMoon, IconSun, IconRobot } from '@arco-design/web-react/icon';
+import { IconLeft, IconNav, IconPlayArrow, IconFolder, IconMindMapping, IconSettings, IconLock, IconUnlock, IconMoon, IconSun, IconRobot } from '@arco-design/web-react/icon';
 import IconCharts from './icons/IconCharts';
 import IconScroll from './icons/IconScroll';
-import type { ChatPanelSide } from './api';
+import { SidebarChatHistory } from './components/SidebarChatHistory';
+import type { ChatPanelSide, ChatSession } from './api';
 import './Sidebar.css';
 
+/**
+ * 描述全局导航、聊天面板与历史会话之间的受控交互。
+ * 原因：App 同时协调主内容与聊天面板，Sidebar 保持为纯导航组件可避免状态分叉。
+ * 未在此处加载会话：直接请求会让侧边栏和 ChatPanel 各自维护活动会话，切换时容易不同步。
+ */
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -16,6 +22,11 @@ interface SidebarProps {
   onChatSideToggle: () => void;
   activePage: string;
   onPageChange: (key: string) => void;
+  chatSessions: ChatSession[];
+  chatSessionsLoading: boolean;
+  activeChatSessionId: string | null;
+  onNewChat: () => void;
+  onChatSessionSelect: (sessionId: string) => void;
 }
 
 const ChatSideIcon = ({ side }: { side: ChatPanelSide }) => (
@@ -42,7 +53,21 @@ const ChatSideIcon = ({ side }: { side: ChatPanelSide }) => (
   </svg>
 );
 
-const Sidebar = ({ collapsed, onToggle, chatOpen, onChatToggle, chatSide, onChatSideToggle, activePage, onPageChange }: SidebarProps) => {
+const Sidebar = ({
+  collapsed,
+  onToggle,
+  chatOpen,
+  onChatToggle,
+  chatSide,
+  onChatSideToggle,
+  activePage,
+  onPageChange,
+  chatSessions,
+  chatSessionsLoading,
+  activeChatSessionId,
+  onNewChat,
+  onChatSessionSelect,
+}: SidebarProps) => {
   const { t } = useTranslation();
 
   const items = [
@@ -51,7 +76,6 @@ const Sidebar = ({ collapsed, onToggle, chatOpen, onChatToggle, chatSide, onChat
     { key: 'notes', icon: IconMindMapping, label: t('sidebar.notes') },
     { key: 'charts', icon: IconCharts, label: t('sidebar.charts') },
     { key: 'files', icon: IconFolder, label: t('sidebar.files') },
-    { key: 'extensions', icon: IconCommon, label: t('sidebar.extensions') },
   ];
 
   const [locked, setLocked] = useState(false);
@@ -98,8 +122,8 @@ const Sidebar = ({ collapsed, onToggle, chatOpen, onChatToggle, chatSide, onChat
         aria-expanded={!collapsed}
         type="button"
       >
-        <span className="sidebar-icon"><IconNav /></span>
-        <span className="sidebar-label">{t('sidebar.sidebar')}</span>
+        <span className="sidebar-icon">{collapsed ? <IconNav /> : <IconLeft />}</span>
+        <span className="sidebar-label">{collapsed ? t('sidebar.sidebar') : t('sidebar.shrink')}</span>
       </button>
       {items.map((item) => {
         const IconComponent = item.icon;
@@ -118,7 +142,14 @@ const Sidebar = ({ collapsed, onToggle, chatOpen, onChatToggle, chatSide, onChat
           </Tooltip>
         );
       })}
-      <div className="tw-flex-1" />
+      <SidebarChatHistory
+        collapsed={collapsed}
+        sessions={chatSessions}
+        loading={chatSessionsLoading}
+        activeSessionId={activeChatSessionId}
+        onNewChat={onNewChat}
+        onSelectSession={onChatSessionSelect}
+      />
       <Tooltip
         content={chatSide === 'left' ? t('sidebar.switchChatPanelRight') : t('sidebar.switchChatPanelLeft')}
         position="right"

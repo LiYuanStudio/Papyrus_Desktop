@@ -20,7 +20,15 @@ import {
 } from './components';
 import '../ChatPanel.css';
 
-const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProps) => {
+const ChatPanel = ({
+  open,
+  width = 320,
+  side = 'right',
+  onClose,
+  requestedSessionId,
+  onSessionActivated,
+  onSessionsChange,
+}: ChatPanelProps) => {
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -36,6 +44,7 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
   const dragStartHeight = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const sessionInitializedRef = useRef(false);
 
   const {
     models,
@@ -121,7 +130,8 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
   }, [mode]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || requestedSessionId || sessionInitializedRef.current) return;
+    sessionInitializedRef.current = true;
     let cancelled = false;
     (async () => {
       try {
@@ -135,6 +145,7 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
           if (cancelled) return;
           setMessages(restored);
           setCurrentSessionId(stored);
+          onSessionActivated?.(stored);
           return;
         }
         if (listRes.activeSessionId && sessionsList.some((s: { id: string }) => s.id === listRes.activeSessionId)) {
@@ -143,12 +154,15 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
           if (cancelled) return;
           setMessages(restored);
           setCurrentSessionId(activeId);
+          onSessionActivated?.(activeId);
           return;
         }
         const createRes = await import('../api').then(m => m.api.createChatSession());
         if (cancelled || !createRes.success) return;
         setMessages([]);
         setCurrentSessionId(createRes.session.id);
+        onSessionActivated?.(createRes.session.id);
+        void onSessionsChange?.();
       } catch (err) {
         if (!cancelled) console.error('Failed to initialize chat session:', err);
       }
@@ -156,7 +170,7 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [onSessionActivated, onSessionsChange, open, requestedSessionId, setCurrentSessionId]);
 
   useEffect(() => {
     const handleConfigChange = () => {
@@ -173,8 +187,10 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
       setEditingMessageId(null);
       setEditingDraft('');
       setHistoryDrawerVisible(false);
+      onSessionActivated?.(createdSessionId);
+      void onSessionsChange?.();
     }
-  }, [createNewSession]);
+  }, [createNewSession, onSessionActivated, onSessionsChange]);
 
   const handleSwitchSession = useCallback(async (sessionId: string) => {
     const restoredMessages = await switchSession(sessionId);
@@ -182,8 +198,9 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
       setMessages(restoredMessages);
       setEditingMessageId(null);
       setEditingDraft('');
+      onSessionActivated?.(sessionId);
     }
-  }, [switchSession]);
+  }, [onSessionActivated, switchSession]);
 
   const handleClearAllSessions = useCallback(async () => {
     const nextSessionId = await clearAllSessions();
@@ -191,8 +208,31 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
       setMessages([]);
       setEditingMessageId(null);
       setEditingDraft('');
+      onSessionActivated?.(nextSessionId);
+      void onSessionsChange?.();
     }
-  }, [clearAllSessions]);
+  }, [clearAllSessions, onSessionActivated, onSessionsChange]);
+
+  /**
+   * 响应主侧边栏发出的受控会话切换请求。
+   * 原因：消息水合与编辑状态属于 ChatPanel，在这里执行可复用既有切换流程。
+   * 未监听全局自定义事件：显式 props 能保留类型检查，也便于 React 生命周期清理。
+   */
+  useEffect(() => {
+    if (!open || !requestedSessionId) return;
+    sessionInitializedRef.current = true;
+    void handleSwitchSession(requestedSessionId);
+  }, [handleSwitchSession, open, requestedSessionId]);
+
+  /**
+   * 同步刷新抽屉列表与 App 中的主侧边栏摘要。
+   * 原因：重命名、删除等操作发生在历史抽屉内部，两处列表需要在同一动作后更新。
+   * 未共享可变数组引用：两层都从后端重新读取，避免局部乐观更新遗漏服务端字段。
+   */
+  const handleRefreshSessions = useCallback(async () => {
+    await loadSessions();
+    await onSessionsChange?.();
+  }, [loadSessions, onSessionsChange]);
 
   const scrollToBottom = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -242,7 +282,10 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
     if (hasInput && selectedModel) {
       fileHandler.clearAllFiles();
     }
-  }, [fileHandler, selectedModel, sendMessage, text, textOverrideRef]);
+    if (hasInput) {
+      void onSessionsChange?.();
+    }
+  }, [fileHandler, onSessionsChange, selectedModel, sendMessage, text, textOverrideRef]);
 
   const dragActiveRef = useRef(false);
   const onDragStart = useCallback((e: React.MouseEvent) => {
@@ -287,7 +330,7 @@ const ChatPanel = ({ open, width = 320, side = 'right', onClose }: ChatPanelProp
         currentSessionId={currentSessionId}
         sessions={sessions}
         loading={sessionsLoading}
-        onRefresh={loadSessions}
+        onRefresh={handleRefreshSessions}
         onSwitchSession={handleSwitchSession}
         onCreateSession={handleCreateNewSession}
         onClearAll={handleClearAllSessions}

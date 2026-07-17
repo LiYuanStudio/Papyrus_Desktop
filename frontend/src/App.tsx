@@ -19,17 +19,18 @@ import StartPage from './StartPage/StartPage';
 import ScrollPage from './ScrollPage/ScrollPage';
 import NotesPage from './NotesPage/NotesPage';
 import ChartsPage from './ChartsPage/ChartsPage';
-import ExtensionsPage from './ExtensionsPage/ExtensionsPage';
 import FilesPage from './FilesPage/FilesPage';
 import SettingsPage from './SettingsPage/SettingsPage';
 import SectionNavigation from './components/SectionNavigation';
-import { api, getAuthToken, type ChatPanelSide, type SearchResult } from './api';
+import { api, getAuthToken, type ChatPanelSide, type ChatSession, type SearchResult } from './api';
 import { addRecentItem } from './utils/recentFiles';
 
-const PAGE_ORDER = ['start', 'scroll', 'notes', 'charts', 'files', 'extensions', 'settings'];
+const PAGE_ORDER = ['start', 'scroll', 'notes', 'charts', 'files', 'settings'];
 
 const CHAT_WIDTH_STORAGE_KEY = 'papyrus_chat_width';
 const CHAT_DEFAULT_WIDTH = 320;
+const SIDEBAR_COLLAPSED_WIDTH = 48;
+const SIDEBAR_EXPANDED_WIDTH = 240;
 
 const loadChatWidth = (): number => {
   try {
@@ -62,6 +63,10 @@ const App = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatWidth, setChatWidth] = useState(loadChatWidth);
   const [chatSide, setChatSide] = useState<ChatPanelSide>('right');
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [chatSessionsLoading, setChatSessionsLoading] = useState(true);
+  const [activeChatSessionId, setActiveChatSessionId] = useState<string | null>(null);
+  const [requestedChatSessionId, setRequestedChatSessionId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef<number>(0);
   const dragStartWidth = useRef<number>(0);
@@ -95,6 +100,78 @@ const App = () => {
       cancelled = true;
     };
   }, []);
+
+  /**
+   * 从后端刷新供全局侧边栏展示的轻量会话摘要。
+   * 原因：App 同时知道 Sidebar 和 ChatPanel 的状态，可作为两者之间唯一的协调层。
+   * 未把完整消息提升到 App：消息仅由 ChatPanel 消费，提升会扩大根组件的重渲染范围。
+   */
+  const refreshChatSessions = useCallback(async () => {
+    setChatSessionsLoading(true);
+    try {
+      const result = await api.listChatSessions();
+      if (result.success) {
+        setChatSessions(result.sessions);
+        setActiveChatSessionId(result.activeSessionId);
+      }
+    } catch (error) {
+      console.error('Failed to load sidebar chat sessions:', error);
+    } finally {
+      setChatSessionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshChatSessions();
+  }, [refreshChatSessions]);
+
+  /**
+   * 请求 ChatPanel 打开并恢复指定历史会话。
+   * 原因：侧边栏只传递会话 ID，ChatPanel 继续拥有消息水合与编辑状态清理逻辑。
+   * 未直接在侧边栏切换 API：那会绕过 ChatPanel 的消息恢复流程，导致标题高亮与正文不一致。
+   */
+  const handleChatSessionSelect = useCallback((sessionId: string) => {
+    setActiveChatSessionId(sessionId);
+    setRequestedChatSessionId(sessionId);
+    setChatOpen(true);
+  }, []);
+
+  /**
+   * 从常驻历史模块创建空会话并交给 ChatPanel 激活。
+   * 原因：即使聊天面板尚未挂载，App 也能先完成创建，再以明确 ID 初始化面板。
+   * 未模拟点击 ChatHeader：直接调用现有会话 API 不依赖组件挂载时序，行为更稳定。
+   */
+  const handleNewChat = useCallback(async () => {
+    setChatSessionsLoading(true);
+    try {
+      const result = await api.createChatSession();
+      if (result.success) {
+        setChatSessions((currentSessions) => [
+          result.session,
+          ...currentSessions.filter((session) => session.id !== result.session.id),
+        ]);
+        setActiveChatSessionId(result.session.id);
+        setRequestedChatSessionId(result.session.id);
+        setChatOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to create sidebar chat session:', error);
+      Message.error(t('chatSession.createFailed'));
+    } finally {
+      setChatSessionsLoading(false);
+    }
+  }, [t]);
+
+  /**
+   * 接收 ChatPanel 已完成消息水合的确认，并刷新可能变化的标题与计数。
+   * 原因：只有面板确认后才清除请求 ID，可防止挂载或网络延迟期间丢失切换意图。
+   * 未根据乐观状态长期保留会话摘要：标题和消息数由后端生成，完成后重新读取才可靠。
+   */
+  const handleChatSessionActivated = useCallback((sessionId: string) => {
+    setActiveChatSessionId(sessionId);
+    setRequestedChatSessionId((requestedId) => requestedId === sessionId ? null : requestedId);
+    void refreshChatSessions();
+  }, [refreshChatSessions]);
 
   const handleChatSideToggle = useCallback(() => {
     const previousSide = chatSide;
@@ -257,7 +334,6 @@ const App = () => {
     notes: t('app.pageTitles.notes'),
     charts: t('app.pageTitles.charts'),
     files: t('app.pageTitles.files'),
-    extensions: t('app.pageTitles.extensions'),
     settings: t('app.pageTitles.settings'),
   };
 
@@ -281,7 +357,6 @@ const App = () => {
       notes: <NotesPage initialNoteId={initialNoteId} onInitialNoteIdUsed={() => setInitialNoteId(undefined)} />,
       files: <FilesPage initialFileId={initialFileId} onInitialFileIdUsed={() => setInitialFileId(undefined)} />,
       charts: <ChartsPage />,
-      extensions: <ExtensionsPage />,
       settings: <SettingsPage />,
     };
 
@@ -357,7 +432,7 @@ const App = () => {
     );
   };
 
-  const sidebarWidth = sidebarCollapsed ? 48 : 160;
+  const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH;
   const chatDockWidth = chatOpen ? chatWidth + 4 : 0;
   const chatHandleOffset = chatSide === 'left'
     ? sidebarWidth + (chatOpen ? chatWidth : 0)
@@ -389,6 +464,9 @@ const App = () => {
           width={chatWidth}
           side={chatSide}
           onClose={() => setChatOpen(false)}
+          requestedSessionId={requestedChatSessionId}
+          onSessionActivated={handleChatSessionActivated}
+          onSessionsChange={refreshChatSessions}
         />
       )}
       {chatSide === 'left' && (
@@ -446,6 +524,13 @@ const App = () => {
           onChatSideToggle={handleChatSideToggle}
           activePage={activePage}
           onPageChange={handlePageChange}
+          chatSessions={chatSessions}
+          chatSessionsLoading={chatSessionsLoading}
+          activeChatSessionId={activeChatSessionId}
+          onNewChat={() => {
+            void handleNewChat();
+          }}
+          onChatSessionSelect={handleChatSessionSelect}
         />
 
         {chatSide === 'left' && renderChatPanel()}

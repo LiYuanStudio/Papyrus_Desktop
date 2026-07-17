@@ -5,6 +5,7 @@
 .sidebar {
   width: 48px;
   height: 100%;
+  box-sizing: border-box;
   background: var(--color-bg-1);
   border-right: 1px solid var(--color-border-3);
   display: flex;
@@ -17,7 +18,7 @@
 }
 
 .sidebar-expanded {
-  width: 160px;
+  width: 240px;
 }
 
 /* 侧边栏按钮基础样式 - 收起状态 */
@@ -44,7 +45,7 @@
 
 /* 展开状态下的按钮 */
 .sidebar-expanded .sidebar-item {
-  width: 144px;
+  width: 224px;
   padding: 0 6px 0 30px;
   justify-content: flex-start;
 }
@@ -152,6 +153,149 @@
 .sidebar-toggle.sidebar-item-active:hover {
   background: var(--color-primary);
   border-color: var(--color-primary);
+}
+
+/* 历史对话占据导航与底部工具之间的剩余空间。 */
+.sidebar-chat-history-spacer {
+  flex: 1;
+}
+
+.sidebar-chat-history {
+  width: 224px;
+  min-height: 0;
+  margin: 2px 8px 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-2);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-chat-history-header {
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0 6px 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-3);
+}
+
+.sidebar-chat-history-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.sidebar-chat-history-new {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-chat-history-new:hover,
+.sidebar-chat-history-new:focus-visible {
+  border-color: var(--color-border-hover);
+  background: var(--color-fill-2);
+  color: var(--color-text-1);
+}
+
+.sidebar-chat-history-new:focus-visible,
+.sidebar-chat-history-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.sidebar-chat-history-list {
+  min-height: 0;
+  padding: 4px 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.sidebar-chat-history-state {
+  min-height: 52px;
+  padding: 12px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-3);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.sidebar-chat-history-item {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.sidebar-chat-history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-chat-history-list::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--color-border-3);
+}
+
+.sidebar-chat-history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-chat-history-item:hover {
+  background: var(--color-fill-2);
+  color: var(--color-text-1);
+}
+
+.sidebar-chat-history-item-active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.sidebar-chat-history-item-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-chat-history-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 /* 减少动画 - 无障碍支持 */

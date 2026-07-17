@@ -1,6 +1,6 @@
 import { Typography, Button, Tabs, Tag, Switch, Card, Empty, Spin, Message, Upload, Drawer, Form, Input } from '@arco-design/web-react';
 import { useState, useEffect, useCallback } from 'react';
-import { IconSettings, IconDelete, IconCheckCircleFill, IconDownload, IconStarFill, IconRefresh, IconUpload } from '@arco-design/web-react/icon';
+import { IconArrowLeft, IconSettings, IconDelete, IconCheckCircleFill, IconDownload, IconStarFill, IconRefresh, IconUpload } from '@arco-design/web-react/icon';
 import { useCommonCardStyle, CommonCard, PageLayout } from '../components';
 import { PRIMARY_COLOR, SUCCESS_COLOR } from '../theme-constants';
 import { api } from '../api';
@@ -28,6 +28,15 @@ interface ExtensionStats {
   total: number;
   enabled: number;
   builtin: number;
+}
+
+/**
+ * 描述扩展管理嵌入设置页时可用的返回动作。
+ * 原因：扩展管理不再是顶级页面，需要明确路径返回设置分类首页。
+ * 未依赖浏览器历史：应用使用内部页面状态而非 URL 路由，浏览器后退无法可靠恢复分类层级。
+ */
+interface ExtensionsPageProps {
+  onBack?: () => void;
 }
 
 const ExtensionCard = ({ ext, onToggle, onUninstall, onSettings }: { ext: Extension; onToggle?: (enabled: boolean) => void; onUninstall?: () => void; onSettings?: () => void }) => {
@@ -115,7 +124,7 @@ const SettingItem = ({ title, description, defaultChecked }: { title: string; de
 
 type TabPhase = 'idle' | 'exit' | 'enter';
 
-const ExtensionsPage = () => {
+const ExtensionsPage = ({ onBack }: ExtensionsPageProps) => {
   const [activeTab, setActiveTab] = useState('installed');
   const [extensions, setExtensions] = useState<Extension[]>([]);
   const [, setStats] = useState<ExtensionStats>({ total: 0, enabled: 0, builtin: 0 });
@@ -424,6 +433,11 @@ const ExtensionsPage = () => {
       pageKey='extensions'
       stats={pageStats}
       extraStatsContent={extraStatsContent}
+      actions={onBack ? (
+        <Button type="text" icon={<IconArrowLeft />} onClick={onBack}>
+          返回设置
+        </Button>
+      ) : undefined}
     >
       <Tabs
         activeTab={activeTab}
