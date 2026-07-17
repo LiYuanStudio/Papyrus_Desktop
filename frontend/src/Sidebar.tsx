@@ -26,6 +26,8 @@ interface SidebarProps {
   activeChatSessionId: string | null;
   onNewChat: () => void;
   onChatSessionSelect: (sessionId: string) => void;
+  onChatSessionRename: (sessionId: string, title: string) => Promise<boolean>;
+  onChatSessionDelete: (sessionId: string) => Promise<boolean>;
 }
 
 const ChatSideIcon = ({ side }: { side: ChatPanelSide }) => (
@@ -65,6 +67,8 @@ const Sidebar = ({
   activeChatSessionId,
   onNewChat,
   onChatSessionSelect,
+  onChatSessionRename,
+  onChatSessionDelete,
 }: SidebarProps) => {
   const { t } = useTranslation();
 
@@ -157,6 +161,8 @@ const Sidebar = ({
         loading={chatSessionsLoading}
         activeSessionId={activeChatSessionId}
         onSelectSession={onChatSessionSelect}
+        onRenameSession={onChatSessionRename}
+        onDeleteSession={onChatSessionDelete}
       />
       <Tooltip
         content={chatSide === 'left' ? t('sidebar.switchChatPanelRight') : t('sidebar.switchChatPanelLeft')}

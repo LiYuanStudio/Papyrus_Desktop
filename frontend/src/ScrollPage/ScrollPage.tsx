@@ -1,5 +1,5 @@
 import { Button, Message } from '@arco-design/web-react';
-import { IconPlus, IconEye, IconEdit } from '@arco-design/web-react/icon';
+import { IconPlus, IconEdit } from '@arco-design/web-react/icon';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import FlashcardStudy from './FlashcardStudy';
@@ -25,7 +25,6 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
   const { t } = useTranslation();
   const [isStudying, setIsStudying] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
-  const [isDemo, setIsDemo] = useState(false);
   const [dueCount, setDueCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [masteredCount, setMasteredCount] = useState(0);
@@ -125,7 +124,6 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
       const customEvent = e as CustomEvent<{ tag?: string }>;
       const tag = customEvent.detail?.tag;
       setFilterTag(tag);
-      setIsDemo(false);
       setIsStudying(true);
     };
     window.addEventListener('papyrus_new_card', handleGlobalNewCard);
@@ -140,7 +138,6 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
     setIsExiting(false);
     setTargetCardId(undefined);
     setFilterTag(tag);
-    setIsDemo(false);
     setIsStudying(true);
   };
 
@@ -166,16 +163,10 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
       setIsExiting(false);
       setTargetCardId(initialCardId);
       setFilterTag(undefined);
-      setIsDemo(false);
       setIsStudying(true);
       onInitialCardIdUsed?.();
     }
   }, [initialCardId, onInitialCardIdUsed]);
-
-  const startDemo = () => {
-    setIsDemo(true);
-    setIsStudying(true);
-  };
 
   const shelfContainerStyle = {
     display: 'flex',
@@ -258,7 +249,7 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
           ? 'flashcardStudyExit 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards'
           : 'flashcardStudyEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards',
       }}>
-        <FlashcardStudy onExit={handleExitStudy} demo={isDemo} filterTag={filterTag} targetCardId={targetCardId} />
+        <FlashcardStudy onExit={handleExitStudy} filterTag={filterTag} targetCardId={targetCardId} />
         <style>{`
           @keyframes flashcardStudyEnter {
             from {
@@ -315,19 +306,6 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
         }}
       >
         {t('scrollPage.manageCards')}
-      </Button>
-      <Button
-        shape='round'
-        size='large'
-        icon={<IconEye />}
-        onClick={startDemo}
-        style={{
-          height: '40px',
-          padding: '0 20px',
-          fontSize: '14px',
-        }}
-      >
-        {t('scrollPage.previewStudy')}
       </Button>
       <Button
         shape='round'

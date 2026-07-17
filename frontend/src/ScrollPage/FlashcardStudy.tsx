@@ -7,16 +7,14 @@ import { StudyToolbar } from './FlashcardStudy/StudyToolbar';
 import { ResultToast } from './FlashcardStudy/ResultToast';
 import { EmptyOrComplete } from './FlashcardStudy/EmptyOrComplete';
 import { KeyboardShortcuts } from './FlashcardStudy/KeyboardShortcuts';
-import { WARNING_COLOR } from '../theme-constants';
 
 interface FlashcardStudyProps {
   onExit: () => void;
-  demo?: boolean;
   filterTag?: string;
   targetCardId?: string;
 }
 
-export default function FlashcardStudy({ onExit, demo = false, filterTag, targetCardId }: FlashcardStudyProps) {
+export default function FlashcardStudy({ onExit, filterTag, targetCardId }: FlashcardStudyProps) {
   const {
     studyState,
     currentCard,
@@ -24,14 +22,11 @@ export default function FlashcardStudy({ onExit, demo = false, filterTag, target
     totalCount,
     stats,
     lastResult,
-    isDemo,
-    demoIndex,
     submitRating,
     undoRating,
     revealAnswer,
-    toggleDemo,
     resetStudy,
-  } = useFlashcardStudy({ demo, filterTag, targetCardId, onExit });
+  } = useFlashcardStudy({ filterTag, targetCardId });
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -100,9 +95,7 @@ export default function FlashcardStudy({ onExit, demo = false, filterTag, target
   if (studyState === 'empty') {
     return (
       <EmptyOrComplete
-        isDemo={isDemo}
         stats={stats}
-        onToggleDemo={toggleDemo}
         onReset={resetStudy}
         onExit={onExit}
       />
@@ -122,9 +115,6 @@ export default function FlashcardStudy({ onExit, demo = false, filterTag, target
     >
       <StudyToolbar
         onExit={onExit}
-        isDemo={isDemo}
-        onToggleDemo={toggleDemo}
-        demoIndex={demoIndex}
         totalCount={totalCount}
         dueCount={dueCount}
         stats={stats}
@@ -141,21 +131,6 @@ export default function FlashcardStudy({ onExit, demo = false, filterTag, target
           gap: '24px',
         }}
       >
-        {isDemo && (
-          <div
-            style={{
-              padding: '8px 16px',
-              background: '#FFF7E8',
-              border: `1px dashed ${WARNING_COLOR}`,
-              borderRadius: '8px',
-            }}
-          >
-            <Typography.Text style={{ fontSize: '13px', color: WARNING_COLOR }}>
-              🎯 演示模式：使用样板数据，评分不会保存
-            </Typography.Text>
-          </div>
-        )}
-
         {lastResult && studyState === 'question' && (
           <ResultToast grade={lastResult.grade} onUndo={undoRating} canUndo={true} />
         )}
@@ -175,27 +150,6 @@ export default function FlashcardStudy({ onExit, demo = false, filterTag, target
         @keyframes slideIn {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }
-        }
-        .demo-switch.arco-switch {
-          background: rgba(0, 0, 0, 0.15) !important;
-          transition: background 0.2s ease !important;
-        }
-        .demo-switch.arco-switch.arco-switch-checked {
-          background: #206CCF !important;
-        }
-        .demo-switch .arco-switch-dot {
-          background: #ffffff !important;
-          outline: 1px solid rgba(0, 0, 0, 0.2) !important;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
-          box-sizing: border-box !important;
-          transition: all 0.2s ease !important;
-        }
-        body[arco-theme='dark'] .demo-switch .arco-switch-dot {
-          background: #ffffff !important;
-          outline: 1px solid rgba(0, 0, 0, 0.2) !important;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
-          box-sizing: border-box !important;
-          transition: all 0.2s ease !important;
         }
       `}</style>
     </div>

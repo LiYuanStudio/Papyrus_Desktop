@@ -27,6 +27,7 @@
     "bump:beta": "node scripts/bump-version.js beta",
     "bump:release": "node scripts/bump-version.js release",
     "test:bump": "node --test scripts/__tests__/bump-version.test.js",
+    "test:frontend:sidebar": "node ./backend/node_modules/tsx/dist/cli.mjs --tsconfig frontend/tsconfig.json --test frontend/src/components/SidebarChatHistory.test.tsx",
     "build:installer": "npm run sync-version && npm run build:backend && npm run build:frontend && electron-builder --win nsis --x64 --publish=never --config .electron-builder.config.js",
     "generate-icons": "node tools/generate-icons.js",
     "generate-cert": "powershell -ExecutionPolicy Bypass -File build/create-cert.ps1",

@@ -172,6 +172,55 @@ const App = () => {
     void refreshChatSessions();
   }, [refreshChatSessions]);
 
+  /**
+   * 重命名侧边栏中的会话并同步全局摘要。
+   * 原因：App 持有唯一的会话列表，成功后在这里更新可让展开态、收起菜单和聊天面板保持一致。
+   * 未让侧边栏直接长期维护副本：局部副本会在聊天自动改名后与后端状态分叉。
+   */
+  const handleChatSessionRename = useCallback(async (sessionId: string, title: string): Promise<boolean> => {
+    try {
+      const result = await api.renameChatSession(sessionId, title);
+      if (!result.success) {
+        return false;
+      }
+      setChatSessions((sessions) => sessions.map((session) => (
+        session.id === sessionId ? result.session : session
+      )));
+      Message.success(t('chatHistory.renameSuccess'));
+      return true;
+    } catch (error) {
+      console.error('Failed to rename sidebar chat session:', error);
+      Message.error(t('chatHistory.renameFailed'));
+      return false;
+    }
+  }, [t]);
+
+  /**
+   * 删除侧边栏中的会话，并在删除当前会话时请求 ChatPanel 切换到后端选出的下一项。
+   * 原因：删除结果会改变活动会话，必须由同时掌握列表与面板请求状态的 App 统一协调。
+   * 未只从数组中过滤：仅做乐观删除会留下已失效的活动会话和消息正文。
+   */
+  const handleChatSessionDelete = useCallback(async (sessionId: string): Promise<boolean> => {
+    try {
+      const result = await api.deleteChatSession(sessionId);
+      if (!result.success) {
+        return false;
+      }
+      setChatSessions((sessions) => sessions.filter((session) => session.id !== sessionId));
+      if (sessionId === activeChatSessionId) {
+        setActiveChatSessionId(result.activeSessionId);
+        setRequestedChatSessionId(result.activeSessionId);
+      }
+      Message.success(t('chatHistory.deleteSuccess'));
+      await refreshChatSessions();
+      return true;
+    } catch (error) {
+      console.error('Failed to delete sidebar chat session:', error);
+      Message.error(t('chatHistory.deleteFailed'));
+      return false;
+    }
+  }, [activeChatSessionId, refreshChatSessions, t]);
+
   const handleChatSideToggle = useCallback(() => {
     const previousSide = chatSide;
     const nextSide: ChatPanelSide = chatSide === 'left' ? 'right' : 'left';
@@ -529,6 +578,8 @@ const App = () => {
             void handleNewChat();
           }}
           onChatSessionSelect={handleChatSessionSelect}
+          onChatSessionRename={handleChatSessionRename}
+          onChatSessionDelete={handleChatSessionDelete}
         />
 
         {chatSide === 'left' && renderChatPanel()}

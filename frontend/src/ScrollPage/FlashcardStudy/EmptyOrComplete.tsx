@@ -1,19 +1,15 @@
-import { Typography, Button, Empty, Switch } from '@arco-design/web-react';
+import { Typography, Button, Empty } from '@arco-design/web-react';
 import { PRIMARY_COLOR, SUCCESS_COLOR, DANGER_COLOR } from './constants';
 import type { StudyStats } from './constants';
 
 interface EmptyOrCompleteProps {
-  isDemo: boolean;
   stats: StudyStats;
-  onToggleDemo: () => void;
   onReset: () => void;
   onExit: () => void;
 }
 
 export function EmptyOrComplete({
-  isDemo,
   stats,
-  onToggleDemo,
   onReset,
   onExit,
 }: EmptyOrCompleteProps) {
@@ -37,10 +33,10 @@ export function EmptyOrComplete({
               heading={3}
               style={{ marginBottom: '8px', fontWeight: 200, fontSize: '16px' }}
             >
-              {isDemo ? '演示结束！' : '今日复习完成！'}
+              今日复习完成！
             </Typography.Title>
             <Typography.Text type="secondary">
-              {isDemo ? '所有样板卡片已复习完毕' : '没有待复习的卡片了，明天再来吧'}
+              没有待复习的卡片了，明天再来吧
             </Typography.Text>
           </div>
         }
@@ -101,8 +97,6 @@ export function EmptyOrComplete({
           gap: '12px',
         }}
       >
-        <Typography.Text type="secondary">演示模式</Typography.Text>
-        <Switch checked={isDemo} onChange={onToggleDemo} />
         <Button
           type="primary"
           onClick={() => {

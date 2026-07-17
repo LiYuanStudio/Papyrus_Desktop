@@ -3,7 +3,6 @@ import { Message } from '@arco-design/web-react';
 import { api, type Card, type NextDueRes } from '../../api';
 import i18n from '../../i18n';
 import {
-  DEMO_CARDS,
   type StudyState,
   type StudyStats,
   type LastResult,
@@ -11,10 +10,8 @@ import {
 } from './constants';
 
 interface UseFlashcardStudyProps {
-  demo: boolean;
   filterTag?: string;
   targetCardId?: string;
-  onExit: () => void;
 }
 
 interface UseFlashcardStudyReturn {
@@ -24,21 +21,16 @@ interface UseFlashcardStudyReturn {
   totalCount: number;
   stats: StudyStats;
   lastResult: LastResult | null;
-  isDemo: boolean;
-  demoIndex: number;
   loadRealCard: () => Promise<void>;
   submitRating: (grade: RatingGrade) => Promise<void>;
   undoRating: () => void;
   revealAnswer: () => void;
-  toggleDemo: () => void;
   resetStudy: () => void;
 }
 
 export function useFlashcardStudy({
-  demo,
   filterTag,
   targetCardId,
-  onExit: _onExit,
 }: UseFlashcardStudyProps): UseFlashcardStudyReturn {
   const [studyState, setStudyState] = useState<StudyState>('loading');
   const [currentCard, setCurrentCard] = useState<Card | null>(null);
@@ -46,24 +38,8 @@ export function useFlashcardStudy({
   const [totalCount, setTotalCount] = useState(0);
   const [stats, setStats] = useState<StudyStats>({ studied: 0, mastered: 0, forgotten: 0 });
   const [lastResult, setLastResult] = useState<LastResult | null>(null);
-  const [isDemo, setIsDemo] = useState(demo);
-  const [demoIndex, setDemoIndex] = useState(0);
   const loadedRef = useRef(false);
   const lastTargetCardIdRef = useRef<string | undefined>(undefined);
-
-  const loadDemoCard = useCallback((index: number) => {
-    const remaining = DEMO_CARDS.length - index;
-    if (remaining > 0) {
-      setCurrentCard(DEMO_CARDS[index]);
-      setDueCount(remaining);
-      setTotalCount(DEMO_CARDS.length);
-      setStudyState('question');
-    } else {
-      setCurrentCard(null);
-      setDueCount(0);
-      setStudyState('empty');
-    }
-  }, []);
 
   const loadRealCard = useCallback(async () => {
     try {
@@ -105,25 +81,21 @@ export function useFlashcardStudy({
     lastTargetCardIdRef.current = targetCardId;
 
     setStudyState('loading');
-    if (isDemo) {
-      loadDemoCard(0);
-    } else {
-      loadRealCard();
-    }
-  }, [isDemo, loadDemoCard, loadRealCard, targetCardId]);
+    void loadRealCard();
+  }, [loadRealCard, targetCardId]);
 
   useEffect(() => {
-    if (!targetCardId || isDemo || lastTargetCardIdRef.current === targetCardId) {
+    if (!targetCardId || lastTargetCardIdRef.current === targetCardId) {
       return;
     }
     lastTargetCardIdRef.current = targetCardId;
     setLastResult(null);
     setStudyState('loading');
     void loadRealCard();
-  }, [isDemo, loadRealCard, targetCardId]);
+  }, [loadRealCard, targetCardId]);
 
   useEffect(() => {
-    if (isDemo || studyState === 'empty' || studyState === 'loading') return;
+    if (studyState === 'empty' || studyState === 'loading') return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (stats.studied > 0) {
@@ -135,7 +107,7 @@ export function useFlashcardStudy({
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDemo, stats.studied, studyState]);
+  }, [stats.studied, studyState]);
 
   const revealAnswer = useCallback(() => {
     if (studyState === 'question') {
@@ -149,25 +121,6 @@ export function useFlashcardStudy({
     setStudyState('submitting');
 
     const ratedCard = currentCard;
-
-    if (isDemo) {
-      setStats((prev) => ({
-        studied: prev.studied + 1,
-        mastered: grade === 3 ? prev.mastered + 1 : prev.mastered,
-        forgotten: grade === 1 ? prev.forgotten + 1 : prev.forgotten,
-      }));
-
-      setLastResult({ grade, card: ratedCard });
-
-      setTimeout(() => {
-        setDemoIndex((prev) => {
-          const nextIdx = prev + 1;
-          loadDemoCard(nextIdx);
-          return nextIdx;
-        });
-      }, 400);
-      return;
-    }
 
     try {
       const res = await api.rateCard(currentCard.id, grade, filterTag);
@@ -200,7 +153,7 @@ export function useFlashcardStudy({
       Message.error(msg);
       setStudyState('answer');
     }
-  }, [currentCard, studyState, isDemo, loadDemoCard, loadRealCard, filterTag]);
+  }, [currentCard, studyState, loadRealCard, filterTag]);
 
   const undoRating = useCallback(() => {
     if (!lastResult) return;
@@ -214,12 +167,8 @@ export function useFlashcardStudy({
       forgotten: lastResult.grade === 1 ? Math.max(0, prev.forgotten - 1) : prev.forgotten,
     }));
 
-    if (isDemo) {
-      setDemoIndex((prev) => Math.max(0, prev - 1));
-    }
-
     setLastResult(null);
-  }, [lastResult, isDemo]);
+  }, [lastResult]);
 
   useEffect(() => {
     if (studyState === 'empty' && stats.studied > 0) {
@@ -227,35 +176,12 @@ export function useFlashcardStudy({
     }
   }, [studyState, stats.studied]);
 
-  const toggleDemo = useCallback(() => {
-    setIsDemo((prev) => {
-      const newValue = !prev;
-      setTimeout(() => {
-        setDemoIndex(0);
-        setStats({ studied: 0, mastered: 0, forgotten: 0 });
-        setLastResult(null);
-        setStudyState('loading');
-        if (newValue) {
-          loadDemoCard(0);
-        } else {
-          loadRealCard();
-        }
-      }, 200);
-      return newValue;
-    });
-  }, [loadDemoCard, loadRealCard]);
-
   const resetStudy = useCallback(() => {
-    setDemoIndex(0);
     setStats({ studied: 0, mastered: 0, forgotten: 0 });
     setLastResult(null);
     setStudyState('loading');
-    if (isDemo) {
-      loadDemoCard(0);
-    } else {
-      loadRealCard();
-    }
-  }, [isDemo, loadDemoCard, loadRealCard]);
+    void loadRealCard();
+  }, [loadRealCard]);
 
   return {
     studyState,
@@ -264,13 +190,10 @@ export function useFlashcardStudy({
     totalCount,
     stats,
     lastResult,
-    isDemo,
-    demoIndex,
     loadRealCard,
     submitRating,
     undoRating,
     revealAnswer,
-    toggleDemo,
     resetStudy,
   };
 }

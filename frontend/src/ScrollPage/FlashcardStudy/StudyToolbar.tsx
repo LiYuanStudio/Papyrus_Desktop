@@ -1,13 +1,10 @@
-import { Button, Typography, Switch } from '@arco-design/web-react';
+import { Button, Typography } from '@arco-design/web-react';
 import { IconArrowLeft } from '@arco-design/web-react/icon';
-import { PRIMARY_COLOR, WARNING_COLOR, SUCCESS_COLOR, DANGER_COLOR, DEMO_CARDS } from './constants';
+import { PRIMARY_COLOR, SUCCESS_COLOR, DANGER_COLOR } from './constants';
 import type { StudyStats } from './constants';
 
 interface StudyToolbarProps {
   onExit: () => void;
-  isDemo: boolean;
-  onToggleDemo: () => void;
-  demoIndex: number;
   totalCount: number;
   dueCount: number;
   stats: StudyStats;
@@ -16,9 +13,6 @@ interface StudyToolbarProps {
 
 export function StudyToolbar({
   onExit,
-  isDemo,
-  onToggleDemo,
-  demoIndex,
   totalCount,
   dueCount,
   stats,
@@ -47,28 +41,6 @@ export function StudyToolbar({
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '4px 12px',
-            background: '#FFF7E8',
-            borderRadius: '16px',
-            border: `1px solid ${WARNING_COLOR}`,
-          }}
-        >
-          <Typography.Text style={{ fontSize: '12px', color: WARNING_COLOR }}>
-            演示模式
-          </Typography.Text>
-          <Switch
-            checked={isDemo}
-            onChange={onToggleDemo}
-            size="small"
-            className="demo-switch"
-          />
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
             padding: '6px 16px',
             background: 'var(--color-fill-2)',
             borderRadius: '20px',
@@ -84,10 +56,10 @@ export function StudyToolbar({
               color: PRIMARY_COLOR,
             }}
           >
-            {isDemo ? demoIndex + 1 : studied + 1}
+            {studied + 1}
           </Typography.Text>
           <Typography.Text type="secondary" style={{ fontSize: '13px' }}>
-            / {isDemo ? DEMO_CARDS.length : totalCount} 张
+            / {totalCount} 张
           </Typography.Text>
         </div>
 
