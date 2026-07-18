@@ -529,7 +529,7 @@ const App = () => {
   );
 
   return (
-    <div className="tw-relative tw-flex tw-flex-col tw-mx-auto tw-w-full tw-h-screen tw-overflow-hidden tw-bg-arco-bg-canvas">
+    <div className="tw-relative tw-flex tw-flex-col tw-mx-auto tw-w-full tw-h-screen tw-overflow-hidden tw-bg-transparent">
       {/* Skip Link - 无障碍导航（AA 级） */}
       <a
         href="#main-content"
@@ -561,7 +561,8 @@ const App = () => {
       />
 
       {/* 主体布局 */}
-      <div className="tw-flex tw-flex-1 tw-overflow-hidden">
+      {/* 主体单独铺不透明画布色，只让上方标题栏的透明像素显示系统 Acrylic。 */}
+      <div className="tw-flex tw-flex-1 tw-overflow-hidden tw-bg-arco-bg-canvas">
         {/* 侧边栏导航 */}
         <Sidebar
           collapsed={sidebarCollapsed}

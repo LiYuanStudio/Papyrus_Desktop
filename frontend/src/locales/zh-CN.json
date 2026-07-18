@@ -899,7 +899,7 @@
     "rateFailed": "评分失败"
   },
   "chartsPage": {
-    "title": "数据",
+    "title": "统计",
     "emptyData": "暂无数据，请先添加卡片",
     "dueForReview": "待复习",
     "progress": "进度",

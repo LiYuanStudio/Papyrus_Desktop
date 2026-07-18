@@ -899,7 +899,7 @@
     "rateFailed": "評価に失敗しました"
   },
   "chartsPage": {
-    "title": "データ",
+    "title": "統計",
     "emptyData": "データがありません。先にカードを追加してください。",
     "dueForReview": "復習予定",
     "progress": "進捗",

@@ -26,18 +26,19 @@ const AddCard = ({ label, onClick }: AddCardProps) => {
         width: '220px',
         height: '140px',
         borderRadius: 'var(--radius-lg)',
-        // 虚线占位卡: hairline 替代误用的文字色,hover 时品牌蓝 + 浮起,与其他卡片语言一致
+        // 虚线占位卡使用 hairline 默认边框，hover 时切换品牌蓝并增加阴影。
+        // 保持卡片位置不变：占位卡边缘是主要命中区域，上移会使指针短暂离开并造成边框闪烁。
+        // 未沿用普通内容卡的抬升效果，因为新增卡没有需要强调的内容层级。
         border: `1px dashed ${hovered ? PRIMARY_COLOR : 'var(--color-border-hairline)'}`,
         background: hovered ? 'var(--color-bg-1)' : 'transparent',
         boxShadow: hovered ? 'var(--shadow-1)' : 'none',
-        transform: hovered ? 'translateY(-2px)' : 'none',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '16px',
         cursor: 'pointer',
-        transition: 'border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard)',
+        transition: 'border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard)',
         boxSizing: 'border-box',
       }}
     >

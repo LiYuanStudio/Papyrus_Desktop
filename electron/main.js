@@ -341,6 +341,13 @@ function createWindow() {
     // macOS: use hiddenInset to preserve traffic lights (red/yellow/green buttons)
     // Windows/Linux: use hidden to hide entire title bar
     frame: false,
+    // Windows 使用 DWM 原生 Acrylic 作为窗口底层材质，渲染进程仅让自绘顶栏区域透出该材质。
+    // 原因：系统材质会遵循 Windows 的透明效果、节能和高对比度策略，并在不支持时自行降级。
+    // 未使用 transparent 窗口：透明窗口会改变阴影与缩放边界行为，且 Acrylic 已能提供所需底层。
+    backgroundMaterial: process.platform === 'win32' ? 'acrylic' : undefined,
+    // 使用 Electron/DWM 的原生无边框窗口圆角，Windows 11 会自动采用系统标准半径，
+    // 并在最大化时恢复直角；未使用透明窗口或 CSS 裁剪，避免破坏系统阴影和缩放边界。
+    roundedCorners: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     titleBarOverlay: false,
   });

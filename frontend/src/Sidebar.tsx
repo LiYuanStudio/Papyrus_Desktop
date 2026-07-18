@@ -86,14 +86,14 @@ const Sidebar = ({
   useEffect(() => {
     if (dark) {
       document.body.setAttribute('arco-theme', 'dark');
-      // 直接引用主题画布 token，避免 JS 与 CSS 分别维护色值并在后续主题调整时漂移。
-      // 未保留硬编码颜色：arco-theme 属性设置后 token 已同步切换，可安全复用同一声明。
-      document.body.style.backgroundColor = 'var(--color-bg-canvas)';
+      // body 保持透明，让 Windows DWM 材质能从标题栏的透明像素透出；正文由 App 主体容器单独铺底。
+      // 未继续在 body 使用画布色：body 覆盖整个窗口，会在合成阶段完全遮住原生 Acrylic。
+      document.body.style.backgroundColor = 'transparent';
       document.body.style.color = 'var(--color-text-1)';
       document.body.style.colorScheme = 'dark';
     } else {
       document.body.removeAttribute('arco-theme');
-      document.body.style.backgroundColor = 'var(--color-bg-canvas)';
+      document.body.style.backgroundColor = 'transparent';
       document.body.style.color = '';
       document.body.style.colorScheme = '';
     }

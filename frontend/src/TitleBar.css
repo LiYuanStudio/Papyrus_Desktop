@@ -21,6 +21,23 @@
   app-region: drag;
 }
 
+/* Windows 原生 Acrylic 由 DWM 完成模糊，此层只提供主题色薄膜、饱和度与边缘高光。
+   未再叠加 CSS blur：重复模糊会降低文字清晰度，并增加 GPU 合成开销。 */
+.titlebar.titlebar-windows {
+  background: rgba(255, 255, 255, 0.68);
+  background: color-mix(in srgb, var(--color-bg-1) 68%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--color-text-1) 10%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  -webkit-backdrop-filter: saturate(140%);
+  backdrop-filter: saturate(140%);
+}
+
+body[arco-theme='dark'] .titlebar.titlebar-windows {
+  background: rgba(30, 30, 34, 0.7);
+  background: color-mix(in srgb, var(--color-bg-1) 70%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 /* macOS: add left padding to avoid traffic lights */
 .titlebar.titlebar-macos {
   padding-left: 70px;

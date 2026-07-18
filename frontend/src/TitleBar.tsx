@@ -77,6 +77,9 @@ const TitleBar = ({
   const [tempUserId, setTempUserId] = useState('');
   const [tempAvatarUrl, setTempAvatarUrl] = useState<string | null>(null);
   const [isMacos, setIsMacos] = useState(false);
+  const [isWindows, setIsWindows] = useState(
+    () => window.electronEnv?.PLATFORM === 'win32',
+  );
   const [recentItems, setRecentItems] = useState<RecentItem[]>(() => getRecentItems());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { getShortcutDisplay } = useShortcuts();
@@ -109,8 +112,10 @@ const TitleBar = ({
       try {
         const platform = await window.electronAPI?.getPlatform?.();
         setIsMacos(platform === 'darwin');
+        setIsWindows(platform === 'win32');
       } catch (e) {
         setIsMacos(false);
+        setIsWindows(false);
       }
     };
     checkPlatform();
@@ -502,7 +507,7 @@ const TitleBar = ({
 
   return (
     <>
-      <div className={`titlebar${isMacos ? ' titlebar-macos' : ''}`}>
+      <div className={`titlebar${isMacos ? ' titlebar-macos' : ''}${isWindows ? ' titlebar-windows' : ''}`}>
         <button
           className="titlebar-sidebar-toggle no-drag"
           type="button"
