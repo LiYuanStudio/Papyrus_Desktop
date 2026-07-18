@@ -169,11 +169,11 @@ export function ChatToolbar({
             <IconDown className="chat-model-btn-arrow" aria-hidden="true" />
           </button>
         </Trigger>
-        <Tooltip content="上传文件" mini>
+        <Tooltip content={t('filesPage.uploadFile')} mini>
           <button
             className="chat-toolbar-btn chat-toolbar-btn-dark"
             onClick={onFileSelect}
-            aria-label="上传文件"
+            aria-label={t('filesPage.uploadFile')}
             disabled={isGenerating}
           >
             <IconAt aria-hidden="true" />

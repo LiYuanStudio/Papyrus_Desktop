@@ -316,7 +316,9 @@ export function useChatActions({
         }
       } catch (uploadErr) {
         console.error('File upload failed:', uploadErr);
-        const uploadErrorMessage = uploadErr instanceof Error ? uploadErr.message : '文件上传失败';
+        const uploadErrorMessage = uploadErr instanceof Error
+          ? uploadErr.message
+          : i18n.t('filesPage.uploadFailed');
         ArcoMessage.error(uploadErrorMessage);
       }
     }

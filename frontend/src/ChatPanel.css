@@ -14,11 +14,11 @@
 }
 
 .chat-panel-right {
-  border-left: 1px solid var(--color-border-3);
+  border-left: var(--width-border-structure) solid var(--color-border-structure);
 }
 
 .chat-panel-left {
-  border-right: 1px solid var(--color-border-3);
+  border-right: var(--width-border-structure) solid var(--color-border-structure);
 }
 
 .chat-panel-header {

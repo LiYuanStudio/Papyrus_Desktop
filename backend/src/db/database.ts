@@ -1939,7 +1939,10 @@ export function setActiveChatSession(id: string): boolean {
   database.exec('BEGIN TRANSACTION;');
   try {
     database.prepare('UPDATE chat_sessions SET is_active = 0 WHERE is_active = 1').run();
-    database.prepare('UPDATE chat_sessions SET is_active = 1, updated_at = ? WHERE id = ?').run(Date.now() / 1000, id);
+    // 只切换活动标记，不修改会话内容更新时间。
+    // 原因：历史列表按 updated_at 排序，点击会话不应被误判成内容更新并把该项置顶。
+    // 未改用 created_at 排序：新消息和重命名仍应让真实更新过的会话出现在前面。
+    database.prepare('UPDATE chat_sessions SET is_active = 1 WHERE id = ?').run(id);
     database.exec('COMMIT;');
     return true;
   } catch (e) {
@@ -1967,7 +1970,10 @@ export function deleteChatSession(id: string, logger?: PapyrusLogger): { deleted
     if (wasActive) {
       const next = database.prepare('SELECT id FROM chat_sessions ORDER BY updated_at DESC LIMIT 1').get() as { id: string } | undefined;
       if (next) {
-        database.prepare('UPDATE chat_sessions SET is_active = 1, updated_at = ? WHERE id = ?').run(Date.now() / 1000, next.id);
+        // 删除活动会话后只接替活动状态，保持剩余列表的既有更新时间顺序。
+        // 原因：自动接替不是用户内容变更，不应让接替项获得新的 updated_at。
+        // 未调用 setActiveChatSession：当前事务已清除被删行，单条更新更直接且避免嵌套事务。
+        database.prepare('UPDATE chat_sessions SET is_active = 1 WHERE id = ?').run(next.id);
         newActiveId = next.id;
       }
     } else {

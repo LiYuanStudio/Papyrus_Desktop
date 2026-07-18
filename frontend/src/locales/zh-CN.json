@@ -835,7 +835,7 @@
   "filesPage": {
     "rootFolderName": "文件库",
     "newFolder": "新建文件夹",
-    "uploadFile": "上传文件",
+    "uploadFile": "添加文件",
     "loadFailed": "加载文件列表失败",
     "file": "文件",
     "folder": "文件夹",
@@ -862,12 +862,14 @@
     "deleteConfirmContent": "确定要删除 \"{{name}}\" 吗？",
     "deleteSuccess": "文件已删除",
     "deleteFailed": "删除失败",
-    "uploadSuccess": "已上传 {{count}} 个文件",
-    "uploadFailed": "上传文件失败",
-    "fileTooLarge": "文件过大",
-    "unsupportedType": "不支持的文件类型",
+    "uploadSuccess": "已添加 {{count}} 个文件",
+    "uploadFailed": "添加文件失败",
+    "fileTooLarge": "文件“{{name}}”过大（{{size}}），请压缩后再添加（最大 {{maxSize}}）",
+    "unsupportedType": "文件“{{name}}”类型不支持（{{type}}），请选择常见的文档、图片、音视频或压缩包",
+    "unknownType": "未知",
+    "uploadLocationWarning": "添加完成，但 {{count}} 个文件位置异常",
     "itemCount": "{{count}} 项",
-    "selectUploadFile": "选择上传文件"
+    "selectUploadFile": "选择要添加的文件"
   },
   "noteList": {
     "batchDeleteFailed": "批量删除失败",

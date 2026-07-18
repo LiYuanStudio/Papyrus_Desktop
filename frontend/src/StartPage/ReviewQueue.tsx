@@ -141,7 +141,6 @@ const ReviewQueue = ({ height, onStartStudy }: ReviewQueueProps) => {
       height={height}
       loading={loading}
       emptyText={t('startPage.noDueCards')}
-      showEmptyIcon={true}
     >
       {items.map(r => (
         <ReviewCard

@@ -79,6 +79,19 @@ describe('Chat History DB Repo', () => {
       expect(dbModule.getActiveChatSession()?.id).toBe('s3');
     });
 
+    it('should keep session order and updated_at stable when switching the active session', () => {
+      dbModule.createChatSession({ id: 's1', updated_at: 100 });
+      dbModule.createChatSession({ id: 's2', updated_at: 200 });
+      dbModule.createChatSession({ id: 's3', updated_at: 50 });
+
+      expect(dbModule.setActiveChatSession('s3')).toBe(true);
+
+      const list = dbModule.listChatSessions();
+      expect(list.map((session) => session.id)).toEqual(['s2', 's1', 's3']);
+      expect(dbModule.getChatSession('s3')?.updated_at).toBe(50);
+      expect(dbModule.getActiveChatSession()?.id).toBe('s3');
+    });
+
     it('setActiveChatSession returns false for unknown id', () => {
       expect(dbModule.setActiveChatSession('ghost')).toBe(false);
     });
@@ -92,6 +105,7 @@ describe('Chat History DB Repo', () => {
       expect(result.newActiveId).toBe('s2');
       expect(dbModule.getChatSession('s1')).toBeNull();
       expect(dbModule.getActiveChatSession()?.id).toBe('s2');
+      expect(dbModule.getChatSession('s2')?.updated_at).toBe(200);
     });
 
     it('should allow deleting the very last session without throwing', () => {

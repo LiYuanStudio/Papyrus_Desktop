@@ -835,7 +835,7 @@
   "filesPage": {
     "rootFolderName": "Files",
     "newFolder": "New Folder",
-    "uploadFile": "Upload File",
+    "uploadFile": "Add File",
     "loadFailed": "Failed to load file list",
     "file": "File",
     "folder": "Folder",
@@ -862,12 +862,14 @@
     "deleteConfirmContent": "Are you sure you want to delete \"{{name}}\"?",
     "deleteSuccess": "File deleted",
     "deleteFailed": "Delete failed",
-    "uploadSuccess": "Uploaded {{count}} files",
-    "uploadFailed": "Upload failed",
-    "fileTooLarge": "File too large",
-    "unsupportedType": "Unsupported file type",
+    "uploadSuccess": "Added {{count}} files",
+    "uploadFailed": "Failed to add files",
+    "fileTooLarge": "File “{{name}}” is too large ({{size}}). Compress it before adding (maximum {{maxSize}}).",
+    "unsupportedType": "File “{{name}}” has an unsupported type ({{type}}). Select a common document, image, audio, video, or archive format.",
+    "unknownType": "Unknown",
+    "uploadLocationWarning": "Files were added, but {{count}} have an unexpected location",
     "itemCount": "{{count}} items",
-    "selectUploadFile": "Select file to upload"
+    "selectUploadFile": "Select files to add"
   },
   "noteList": {
     "batchDeleteFailed": "Batch delete failed",

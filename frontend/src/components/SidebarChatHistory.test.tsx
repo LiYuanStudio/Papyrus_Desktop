@@ -78,6 +78,7 @@ describe('SidebarChatHistory', () => {
 
     assert.match(html, /第一条对话/);
     assert.match(html, /sidebar-chat-history-item-active/);
+    assert.doesNotMatch(html, /sidebar-chat-history-active-dot/);
     assert.match(html, /aria-label="重命名对话"/);
     assert.match(html, /aria-label="删除对话"/);
     assert.match(html, /sidebar-chat-history-action-danger/);

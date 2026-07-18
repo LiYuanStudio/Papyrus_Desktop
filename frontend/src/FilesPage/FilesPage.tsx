@@ -249,10 +249,17 @@ const FilesPage = ({ initialFileId, onInitialFileIdUsed }: FilesPageProps) => {
       for (let i = 0; i < selectedFiles.length; i++) {
         const f = selectedFiles[i];
         if (f.size > MAX_FILE_SIZE) {
-          throw new Error(`文件 "${f.name}" 过大（${formatSize(f.size)}），请压缩后上传（最大 ${formatSize(MAX_FILE_SIZE)}）`);
+          throw new Error(t('filesPage.fileTooLarge', {
+            name: f.name,
+            size: formatSize(f.size),
+            maxSize: formatSize(MAX_FILE_SIZE),
+          }));
         }
         if (!isAllowedFileType(f)) {
-          throw new Error(`文件 "${f.name}" 类型不支持（${f.type || '未知'}），请上传常见的文档、图片、音视频或压缩包`);
+          throw new Error(t('filesPage.unsupportedType', {
+            name: f.name,
+            type: f.type || t('filesPage.unknownType'),
+          }));
         }
         const base64 = await fileToBase64(f);
         uploadTasks.push({ name: f.name, content: base64, mimeType: f.type });
@@ -274,12 +281,12 @@ const FilesPage = ({ initialFileId, onInitialFileIdUsed }: FilesPageProps) => {
       }
 
       if (errors.length > 0) {
-        Message.warning(`上传完成，但 ${errors.length} 个文件位置异常`);
+        Message.warning(t('filesPage.uploadLocationWarning', { count: errors.length }));
       } else {
-        Message.success(`已上传 ${uploadTasks.length} 个文件`);
+        Message.success(t('filesPage.uploadSuccess', { count: uploadTasks.length }));
       }
     } catch (err) {
-      Message.error(err instanceof Error ? err.message : '上传文件失败');
+      Message.error(err instanceof Error ? err.message : t('filesPage.uploadFailed'));
     }
 
     e.target.value = '';

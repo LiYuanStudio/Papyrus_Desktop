@@ -50,6 +50,11 @@
   /* 发丝边框 —— 替代误用 var(--color-text-3) 的卡片描边(文字色当边框显脏) */
   --color-border-hairline: rgba(31, 35, 41, 0.08);
 
+  /* 主结构分割线 —— 用于顶栏、侧栏、聊天栏和状态栏之间的应用骨架边界。
+     采用 2px 低对比线而不是提高 1px 黑度：更容易辨认区域层级，同时不会形成生硬黑框。 */
+  --color-border-structure: rgba(31, 35, 41, 0.12);
+  --width-border-structure: 2px;
+
   /* 画布底色 —— 微暖纸感灰,让使用 bg-1 的白色卡片自然浮出,无需改动任何布局 */
   --color-bg-canvas: #f7f7f5;
 
@@ -146,6 +151,7 @@ body[arco-theme='dark'] {
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.36), 0 10px 28px rgba(0, 0, 0, 0.4);
   --shadow-3: 0 6px 16px rgba(0, 0, 0, 0.44), 0 20px 56px rgba(0, 0, 0, 0.52);
   --color-border-hairline: rgba(255, 255, 255, 0.09);
+  --color-border-structure: rgba(255, 255, 255, 0.14);
   --color-bg-canvas: #141416;
   --scenery-overlay-rgb: 0, 0, 0;
 }
@@ -155,6 +161,55 @@ input,
 textarea,
 select {
   font-size: inherit;
+}
+
+/* 通用危险操作二次确认胶囊：用低饱和危险色表面、细描边和柔和投影建立“已进入确认态”的层级，
+   悬停时仅轻微加深，避免小尺寸控件出现过强的警报感。
+   未绑定固定宽高：不同业务入口可复用同一视觉语义，同时自行决定布局尺寸。 */
+.danger-confirm-pill {
+  border: 1px solid color-mix(in srgb, var(--color-danger) 20%, var(--color-border-2));
+  background: color-mix(in srgb, var(--color-danger) 4%, var(--color-bg-1));
+  color: color-mix(in srgb, var(--color-danger) 60%, var(--color-text-2));
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--color-text-1) 7%, transparent),
+    0 3px 9px color-mix(in srgb, var(--color-danger) 6%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-bg-1) 75%, transparent);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.danger-confirm-pill:hover {
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border-2));
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg-1));
+  color: color-mix(in srgb, var(--color-danger) 75%, var(--color-text-1));
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--color-text-1) 8%, transparent),
+    0 5px 12px color-mix(in srgb, var(--color-danger) 9%, transparent);
+  transform: translateY(-1px);
+}
+
+.danger-confirm-pill:active:not(:disabled) {
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-danger) 10%, transparent);
+  transform: translateY(0);
+}
+
+.danger-confirm-pill:focus-visible,
+html.a11y-focus-indicator button.danger-confirm-pill:focus-visible {
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--color-border-2));
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--color-text-1) 8%, transparent),
+    0 5px 12px color-mix(in srgb, var(--color-text-1) 5%, transparent);
+}
+
+.danger-confirm-pill:disabled {
+  box-shadow: none;
+  transform: none;
 }
 
 /* 全局过渡动画 - 可选
@@ -187,6 +242,16 @@ select {
   :where(html:not(.aaa-no-animation) body h5),
   :where(html:not(.aaa-no-animation) body h6) {
     transition: background-color 0.2s var(--ease-standard), color 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .danger-confirm-pill {
+    transition: none;
+  }
+
+  .danger-confirm-pill:hover {
+    transform: none;
   }
 }
 

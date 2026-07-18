@@ -254,7 +254,6 @@ export function SidebarChatHistory({
                   title={session.title}
                 >
                   <span className="sidebar-chat-history-item-title">{session.title}</span>
-                  {isActive && <span className="sidebar-chat-history-active-dot" aria-hidden="true" />}
                 </button>
               )}
 
@@ -283,7 +282,7 @@ export function SidebarChatHistory({
                     <button
                       className={`sidebar-chat-history-action sidebar-chat-history-action-danger${
                         isDeleteConfirming
-                          ? ' sidebar-chat-history-action-danger-confirming'
+                          ? ' sidebar-chat-history-action-danger-confirming danger-confirm-pill'
                           : ''
                       }`}
                       type="button"
