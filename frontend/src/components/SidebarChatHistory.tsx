@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { Input, Popconfirm, Spin, Tooltip, Trigger } from '@arco-design/web-react';
+import { Input, Spin, Tooltip, Trigger } from '@arco-design/web-react';
 import { IconDelete, IconEdit, IconHistory } from '@arco-design/web-react/icon';
 import { useTranslation } from 'react-i18next';
 import type { ChatSession } from '../api';
@@ -37,17 +37,59 @@ export function SidebarChatHistory({
   const [menuVisible, setMenuVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   /**
-   * 侧边栏展开后关闭收起态弹出菜单。
-   * 原因：布局切换后菜单触发按钮不再可见，继续保留浮层会造成悬空界面。
+   * 侧边栏布局切换后关闭收起态弹出菜单，并撤销尚未执行的删除确认。
+   * 原因：布局切换后原触发按钮可能消失，保留浮层或已武装的删除态都会造成悬空界面。
    * 未依赖 Trigger 自动销毁：受控状态可同时保证键盘和程序化切换时行为一致。
    */
   useEffect(() => {
     if (!collapsed) {
       setMenuVisible(false);
     }
+    setDeleteConfirmationId(null);
   }, [collapsed]);
+
+  /**
+   * 在确认胶囊之外发生指针或焦点移动时撤销危险操作，并让 Escape 在焦点意外丢失时仍然有效。
+   * 原因：Tooltip 和条件渲染可能调整触发节点，单靠按钮 blur 会把首次点击本身误判为离开。
+   * 未监听普通 click：pointerdown 更早识别外部目标，不会与随后发生的第二次确认 click 竞争。
+   */
+  useEffect(() => {
+    if (deleteConfirmationId === null || deletingId !== null) {
+      return undefined;
+    }
+
+    const isInsideConfirmation = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) {
+        return false;
+      }
+      const confirmation = target.closest('[data-delete-confirmation-session-id]');
+      return confirmation?.getAttribute('data-delete-confirmation-session-id')
+        === deleteConfirmationId;
+    };
+    const cancelFromOutside = (event: PointerEvent | FocusEvent) => {
+      if (!isInsideConfirmation(event.target)) {
+        setDeleteConfirmationId(null);
+      }
+    };
+    const cancelFromEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setDeleteConfirmationId(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', cancelFromOutside, true);
+    document.addEventListener('focusin', cancelFromOutside, true);
+    document.addEventListener('keydown', cancelFromEscape);
+    return () => {
+      document.removeEventListener('pointerdown', cancelFromOutside, true);
+      document.removeEventListener('focusin', cancelFromOutside, true);
+      document.removeEventListener('keydown', cancelFromEscape);
+    };
+  }, [deleteConfirmationId, deletingId]);
 
   /**
    * 进入会话标题编辑状态并阻止点击穿透到会话切换按钮。
@@ -56,6 +98,7 @@ export function SidebarChatHistory({
    */
   const startEditing = (session: ChatSession, event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    setDeleteConfirmationId(null);
     setEditingId(session.id);
     setEditingTitle(session.title);
   };
@@ -97,9 +140,70 @@ export function SidebarChatHistory({
    * 未无条件关闭：展开态没有浮层，保持常驻列表即可继续切换。
    */
   const selectSession = (sessionId: string) => {
+    setDeleteConfirmationId(null);
     onSelectSession(sessionId);
     if (collapsed) {
       setMenuVisible(false);
+    }
+  };
+
+  /**
+   * 将删除图标切换为原位确认胶囊，第二次点击才调用真正的删除回调。
+   * 原因：把二次确认放在原操作区可避免弹窗打断，同时必须用 deletingId 阻止快速连点重复提交。
+   * 未进行乐观删除：父组件需要根据后端结果协调活动会话，失败时应保留当前会话并允许重试。
+   */
+  const handleDeleteAction = async (
+    session: ChatSession,
+    event: MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    if (deletingId !== null) {
+      return;
+    }
+    if (deleteConfirmationId !== session.id) {
+      setDeleteConfirmationId(session.id);
+      return;
+    }
+
+    setDeletingId(session.id);
+    try {
+      const deleted = await onDeleteSession(session.id);
+      if (deleted) {
+        setDeleteConfirmationId(null);
+      }
+    } catch {
+      // 父回调按约定负责展示错误；此处保留确认态，方便用户直接重试。
+      // 未再次显示消息：避免与 App 层的统一错误提示重复。
+    } finally {
+      setDeletingId((currentId) => (currentId === session.id ? null : currentId));
+    }
+  };
+
+  /**
+   * 允许键盘用户用 Escape 撤销已经展开的删除胶囊。
+   * 原因：确认态没有自动超时，必须提供无需移动焦点的明确退出路径。
+   * 未让 Escape 关闭整个历史菜单：该按键只撤销当前危险操作，避免丢失浏览上下文。
+   */
+  const handleDeleteKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    sessionId: string,
+  ) => {
+    if (event.key === 'Escape' && deleteConfirmationId === sessionId && deletingId === null) {
+      event.preventDefault();
+      event.stopPropagation();
+      setDeleteConfirmationId(null);
+    }
+  };
+
+  /**
+   * 同步收起态历史菜单的可见性，并在菜单关闭时撤销删除确认。
+   * 原因：再次打开菜单不应保留上一次未完成的危险操作。
+   * 未通过定时器复原：用户选择以失焦或 Escape 取消，不引入不可预期的确认时限。
+   */
+  const handleMenuVisibleChange = (visible: boolean) => {
+    setMenuVisible(visible);
+    if (!visible) {
+      setDeleteConfirmationId(null);
     }
   };
 
@@ -121,6 +225,8 @@ export function SidebarChatHistory({
         sessions.map((session) => {
           const isActive = session.id === activeSessionId;
           const isEditing = session.id === editingId;
+          const isDeleteConfirming = session.id === deleteConfirmationId;
+          const isDeleting = session.id === deletingId;
           return (
             <div
               key={session.id}
@@ -153,34 +259,55 @@ export function SidebarChatHistory({
               )}
 
               {!isEditing && (
-                <div className="sidebar-chat-history-actions">
-                  <Tooltip content={t('sidebar.renameConversation')} mini>
-                    <button
-                      className="sidebar-chat-history-action"
-                      type="button"
-                      onClick={(event) => startEditing(session, event)}
-                      aria-label={t('sidebar.renameConversation')}
-                    >
-                      <IconEdit aria-hidden="true" />
-                    </button>
-                  </Tooltip>
-                  <Popconfirm
-                    title={t('sidebar.deleteConversation')}
-                    content={t('sidebar.confirmDeleteConversation', { title: session.title })}
-                    onOk={() => onDeleteSession(session.id)}
-                    position="right"
-                  >
-                    <Tooltip content={t('sidebar.deleteConversation')} mini>
+                <div
+                  className={`sidebar-chat-history-actions${
+                    isDeleteConfirming ? ' sidebar-chat-history-actions-confirming' : ''
+                  }`}
+                  data-delete-confirmation-session-id={
+                    isDeleteConfirming ? session.id : undefined
+                  }
+                >
+                  {!isDeleteConfirming && (
+                    <Tooltip key="rename" content={t('sidebar.renameConversation')} mini>
                       <button
-                        className="sidebar-chat-history-action sidebar-chat-history-action-danger"
+                        className="sidebar-chat-history-action"
                         type="button"
-                        onClick={(event) => event.stopPropagation()}
-                        aria-label={t('sidebar.deleteConversation')}
+                        onClick={(event) => startEditing(session, event)}
+                        aria-label={t('sidebar.renameConversation')}
                       >
-                        <IconDelete aria-hidden="true" />
+                        <IconEdit aria-hidden="true" />
                       </button>
                     </Tooltip>
-                  </Popconfirm>
+                  )}
+                  <Tooltip key="delete" content={t('sidebar.deleteConversation')} mini>
+                    <button
+                      className={`sidebar-chat-history-action sidebar-chat-history-action-danger${
+                        isDeleteConfirming
+                          ? ' sidebar-chat-history-action-danger-confirming'
+                          : ''
+                      }`}
+                      type="button"
+                      onClick={(event) => {
+                        void handleDeleteAction(session, event);
+                      }}
+                      onKeyDown={(event) => handleDeleteKeyDown(event, session.id)}
+                      aria-label={
+                        isDeleteConfirming
+                          ? t('sidebar.confirmDeleteConversation', { title: session.title })
+                          : t('sidebar.deleteConversation')
+                      }
+                      aria-busy={isDeleting || undefined}
+                      disabled={isDeleting}
+                    >
+                      {isDeleteConfirming ? (
+                        <span className="sidebar-chat-history-delete-label">
+                          {t('common.delete')}
+                        </span>
+                      ) : (
+                        <IconDelete aria-hidden="true" />
+                      )}
+                    </button>
+                  </Tooltip>
                 </div>
               )}
             </div>
@@ -197,7 +324,7 @@ export function SidebarChatHistory({
           trigger="click"
           position="right"
           popupVisible={menuVisible}
-          onVisibleChange={setMenuVisible}
+          onVisibleChange={handleMenuVisibleChange}
           showArrow={false}
           popup={() => (
             <section

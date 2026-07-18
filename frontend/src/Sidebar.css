@@ -285,9 +285,12 @@
 }
 
 .sidebar-chat-history-actions {
+  width: 50px;
+  min-width: 50px;
   display: flex;
   flex-shrink: 0;
   align-items: center;
+  justify-content: flex-end;
   gap: 2px;
   opacity: 0;
   pointer-events: none;
@@ -296,7 +299,8 @@
 
 .sidebar-chat-history-item:hover .sidebar-chat-history-actions,
 .sidebar-chat-history-item:focus-within .sidebar-chat-history-actions,
-.sidebar-chat-history-menu .sidebar-chat-history-actions {
+.sidebar-chat-history-menu .sidebar-chat-history-actions,
+.sidebar-chat-history-actions-confirming {
   opacity: 1;
   pointer-events: auto;
 }
@@ -313,6 +317,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition:
+    width 0.16s ease,
+    border-radius 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease,
+    opacity 0.16s ease;
 }
 
 .sidebar-chat-history-action:hover {
@@ -323,6 +333,34 @@
 .sidebar-chat-history-action-danger:hover {
   background: var(--color-danger-light-1);
   color: var(--color-danger);
+}
+
+.sidebar-chat-history-action-danger-confirming {
+  width: 50px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--color-danger-light-1);
+  color: var(--color-danger);
+}
+
+.sidebar-chat-history-action-danger-confirming:hover,
+.sidebar-chat-history-action-danger-confirming:focus-visible {
+  background: var(--color-danger-light-2);
+  color: var(--color-danger);
+}
+
+.sidebar-chat-history-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.sidebar-chat-history-delete-label {
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .sidebar-chat-history-list::-webkit-scrollbar {
@@ -373,7 +411,8 @@
   .sidebar-label,
   .sidebar-chat-side-icon,
   .sidebar-chat-side-icon-divider,
-  .sidebar-chat-history-actions {
+  .sidebar-chat-history-actions,
+  .sidebar-chat-history-action {
     transition: none;
   }
 }

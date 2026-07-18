@@ -8,6 +8,9 @@ import type { ChatSession } from '../api';
 import { SidebarChatHistory } from './SidebarChatHistory';
 
 const translations = {
+  common: {
+    delete: '删除',
+  },
   sidebar: {
     chatHistory: '历史对话',
     loadingChatHistory: '正在加载对话…',
@@ -77,5 +80,8 @@ describe('SidebarChatHistory', () => {
     assert.match(html, /sidebar-chat-history-item-active/);
     assert.match(html, /aria-label="重命名对话"/);
     assert.match(html, /aria-label="删除对话"/);
+    assert.match(html, /sidebar-chat-history-action-danger/);
+    assert.doesNotMatch(html, /sidebar-chat-history-action-danger-confirming/);
+    assert.doesNotMatch(html, />删除<\/span>/);
   });
 });
