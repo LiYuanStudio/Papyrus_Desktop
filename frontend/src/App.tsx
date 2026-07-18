@@ -23,11 +23,14 @@ import SettingsPage from './SettingsPage/SettingsPage';
 import SectionNavigation from './components/SectionNavigation';
 import { api, getAuthToken, type ChatPanelSide, type ChatSession, type SearchResult } from './api';
 import { addRecentItem } from './utils/recentFiles';
+import { clampChatWidth } from './utils/appLayout';
+import { appPlatform } from './utils/platform';
+import type { NativeMenuAction } from './types/electron';
 
 const PAGE_ORDER = ['start', 'scroll', 'notes', 'files', 'settings'];
 
 const CHAT_WIDTH_STORAGE_KEY = 'papyrus_chat_width';
-const CHAT_DEFAULT_WIDTH = 500;
+const CHAT_DEFAULT_WIDTH = appPlatform === 'macos' ? 420 : 500;
 const SIDEBAR_COLLAPSED_WIDTH = 48;
 const SIDEBAR_EXPANDED_WIDTH = 240;
 
@@ -82,6 +85,7 @@ const App = () => {
   const pendingActionRef = useRef<'newNote' | 'newCard' | 'startStudy' | null>(null);
   const studyTagRef = useRef<string | undefined>(undefined);
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const compactLayoutRef = useRef(false);
 
   useEffect(() => {
     void getAuthToken();
@@ -334,6 +338,79 @@ const App = () => {
     }
   }, [activePage, handlePageChange]);
 
+  useEffect(() => {
+    // 原生菜单只发送稳定动作名，这里复用现有页面路由和新建逻辑。
+    // 原因：App 同时持有侧栏、聊天面板与页面状态，是菜单动作的唯一协调层。
+    // 未在 preload 直接派发 DOM 事件：contextBridge 只暴露 IPC 白名单，保持进程边界清晰。
+    const electronAPI = window.electronAPI;
+    const unsubscribe = electronAPI?.onMenuAction((action: NativeMenuAction) => {
+      switch (action) {
+        case 'new-note':
+          handleNewAction('newNote');
+          break;
+        case 'new-card':
+          handleNewAction('newCard');
+          break;
+        case 'preferences':
+          handlePageChange('settings');
+          break;
+        case 'find':
+          window.dispatchEvent(new CustomEvent('papyrus_focus_search'));
+          break;
+        case 'toggle-sidebar':
+          setSidebarCollapsed((collapsed) => !collapsed);
+          break;
+        case 'toggle-chat':
+          setChatOpen((open) => !open);
+          break;
+        case 'import-text':
+          window.dispatchEvent(new CustomEvent('papyrus_import_text'));
+          break;
+        case 'help':
+          void electronAPI?.openExternal('https://github.com/PapyrusOR/Papyrus_Desktop');
+          break;
+      }
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [handleNewAction, handlePageChange]);
+
+  useEffect(() => {
+    // 在窗口首次进入紧凑宽度时自动收起侧栏，同时允许用户之后手动重新展开。
+    // 原因：小尺寸 MacBook 窗口应优先保证正文与聊天面板的最小可读宽度。
+    // 未只依赖 CSS 隐藏标签：React 仍会按展开宽度计算聊天拖拽边界，可能把正文挤出视口。
+    const handleWindowResize = () => {
+      const compactLayout = window.innerWidth < 1040;
+      const shouldAutoCollapse = compactLayout && !compactLayoutRef.current;
+      if (shouldAutoCollapse) {
+        setSidebarCollapsed(true);
+      }
+      compactLayoutRef.current = compactLayout;
+      const effectiveSidebarWidth = shouldAutoCollapse || sidebarCollapsed
+        ? SIDEBAR_COLLAPSED_WIDTH
+        : SIDEBAR_EXPANDED_WIDTH;
+      setChatWidth((currentWidth) => {
+        const nextWidth = clampChatWidth(
+          currentWidth,
+          window.innerWidth,
+          effectiveSidebarWidth,
+        );
+        if (nextWidth !== currentWidth) {
+          saveChatWidth(nextWidth);
+        }
+        return nextWidth;
+      });
+    };
+
+    handleWindowResize();
+    window.addEventListener('resize', handleWindowResize);
+    return () => {
+      window.removeEventListener('resize', handleWindowResize);
+    };
+  }, [sidebarCollapsed]);
+
   // 处理开始学习操作
   const handleStartStudy = useCallback((tag?: string) => {
     studyTagRef.current = tag;
@@ -364,7 +441,11 @@ const App = () => {
       const delta = chatSide === 'left'
         ? ev.clientX - dragStartX.current
         : dragStartX.current - ev.clientX;
-      const newWidth = Math.min(600, Math.max(280, dragStartWidth.current + delta));
+      const newWidth = clampChatWidth(
+        dragStartWidth.current + delta,
+        window.innerWidth,
+        sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH,
+      );
       setChatWidth(newWidth);
       saveChatWidth(newWidth);
     };
@@ -373,7 +454,7 @@ const App = () => {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     document.documentElement.addEventListener('mouseleave', onLeave);
-  }, [chatSide, chatWidth]);
+  }, [chatSide, chatWidth, sidebarCollapsed]);
 
   // 页面标题映射
   const pageTitles: Record<string, string> = {
@@ -529,7 +610,7 @@ const App = () => {
   );
 
   return (
-    <div className="tw-relative tw-flex tw-flex-col tw-mx-auto tw-w-full tw-h-screen tw-overflow-hidden tw-bg-transparent">
+    <div className="app-shell tw-relative tw-flex tw-flex-col tw-mx-auto tw-w-full tw-h-screen tw-overflow-hidden tw-bg-transparent">
       {/* Skip Link - 无障碍导航（AA 级） */}
       <a
         href="#main-content"
@@ -553,7 +634,7 @@ const App = () => {
       {/* 标题栏 */}
       <TitleBar
         sidebarCollapsed={sidebarCollapsed}
-        onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onSidebarToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
         onPageChange={handlePageChange}
         onSearchResult={handleSearchResult}
         onNewNote={() => handleNewAction('newNote')}
@@ -562,7 +643,7 @@ const App = () => {
 
       {/* 主体布局 */}
       {/* 主体单独铺不透明画布色，只让上方标题栏的透明像素显示系统 Acrylic。 */}
-      <div className="tw-flex tw-flex-1 tw-overflow-hidden tw-bg-arco-bg-canvas">
+      <div className="app-workspace tw-flex tw-flex-1 tw-overflow-hidden tw-bg-arco-bg-canvas">
         {/* 侧边栏导航 */}
         <Sidebar
           collapsed={sidebarCollapsed}

@@ -94,21 +94,23 @@ module.exports = {
   
   // macOS configuration
   mac: {
-    target: [
-      { target: 'dmg', arch: ['arm64'] },
-    ],
+    // 不在配置中固定 CPU 架构；CI 在原生 arm64/x64 runner 上分别传入 --arm64/--x64，
+    // 确保 sharp 等原生后端依赖与最终 Electron 架构一致。
+    target: ['dmg'],
     icon: 'assets/icon.icns',
     category: 'public.app-category.productivity',
+    darkModeSupport: true,
     hardenedRuntime: true,
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
-    minimumSystemVersion: '10.15',
+    // Electron 41 基于 Chromium 的运行时最低支持 macOS 12，声明更低版本只会产生无法启动的安装包。
+    minimumSystemVersion: '12.0',
   },
   
   dmg: {
     sign: false,
-    artifactName: '${productName}-Apple-Silicon-${arch}.${ext}',
+    artifactName: '${productName}-macOS-${arch}.${ext}',
     contents: [
       { x: 130, y: 220 },
       { x: 410, y: 220, type: 'link', path: '/Applications' },

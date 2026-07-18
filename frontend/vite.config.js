@@ -11,6 +11,7 @@ const rootPkg = JSON.parse(
   readFileSync(resolve(__dirname, '..', 'package.json'), 'utf8')
 )
 const appVersion = rootPkg.version ?? 'unknown'
+const backendUrl = process.env.PAPYRUS_BACKEND_URL ?? 'http://127.0.0.1:8000'
 
 function readDevAuthToken() {
   if (process.env.PAPYRUS_AUTH_TOKEN) {
@@ -48,7 +49,7 @@ export default defineConfig({
    strictPort: true,
    proxy: {
      '/api': {
-       target: 'http://127.0.0.1:8000',
+       target: backendUrl,
        changeOrigin: true,
        configure: (proxy) => {
          proxy.on('proxyReq', (proxyReq) => {

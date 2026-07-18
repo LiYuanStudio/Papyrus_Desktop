@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { fetch as undiciFetch, ProxyAgent } from 'undici';
 
 const GITHUB_DIRECT_FALLBACK_TIMEOUT_MS = 5000;
@@ -41,25 +41,47 @@ function getWindowsProxy(): string | undefined {
   return undefined;
 }
 
-function getMacProxy(): string | undefined {
-  const interfaces = ['Wi-Fi', 'Ethernet', 'USB 10/100/1000 LAN'];
-  for (const iface of interfaces) {
-    try {
-      const output = execSync(`networksetup -getwebproxy "${iface}"`, { encoding: 'utf-8' });
-      const enabledMatch = output.match(/Enabled:\s*Yes/);
-      if (!enabledMatch) {
-        continue;
-      }
-      const serverMatch = output.match(/Server:\s*(\S+)/);
-      const portMatch = output.match(/Port:\s*(\d+)/);
-      if (serverMatch && portMatch) {
-        return `http://${serverMatch[1]}:${portMatch[1]}`;
-      }
-    } catch {
-      // 尝试下一个接口
+/**
+ * 解析 `scutil --proxy` 的当前系统代理字典。
+ * 原因：scutil 反映实际生效的网络配置，不依赖 Wi-Fi/Ethernet 服务名称，能兼容本地化系统和 Thunderbolt 等接口。
+ * 未逐个调用 networksetup：服务名可由用户修改且会随语言变化，硬编码列表会漏掉常见 macOS 网络环境。
+ */
+export function parseMacProxyConfiguration(output: string): string | undefined {
+  const candidates = [
+    { enabledKey: 'HTTPSEnable', hostKey: 'HTTPSProxy', portKey: 'HTTPSPort' },
+    { enabledKey: 'HTTPEnable', hostKey: 'HTTPProxy', portKey: 'HTTPPort' },
+  ];
+
+  for (const candidate of candidates) {
+    const enabledMatch = output.match(new RegExp(`^\\s*${candidate.enabledKey}\\s*:\\s*(\\d+)\\s*$`, 'm'));
+    if (enabledMatch?.[1] !== '1') {
+      continue;
     }
+    const hostMatch = output.match(new RegExp(`^\\s*${candidate.hostKey}\\s*:\\s*(\\S+)\\s*$`, 'm'));
+    const portMatch = output.match(new RegExp(`^\\s*${candidate.portKey}\\s*:\\s*(\\d+)\\s*$`, 'm'));
+    const host = hostMatch?.[1];
+    const port = Number(portMatch?.[1]);
+    if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
+      continue;
+    }
+    const normalizedHost = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+    return `http://${normalizedHost}:${port}`;
   }
   return undefined;
+}
+
+/**
+ * 读取 macOS 当前生效的系统代理。
+ * 原因：使用绝对路径和参数数组可绕过 shell，并适配 GUI 应用精简后的 PATH。
+ * 未直接执行字符串命令：代理配置是系统输入，execFileSync 能避免额外 shell 解析面。
+ */
+function getMacProxy(): string | undefined {
+  try {
+    const output = execFileSync('/usr/sbin/scutil', ['--proxy'], { encoding: 'utf-8' });
+    return parseMacProxyConfiguration(output);
+  } catch {
+    return undefined;
+  }
 }
 
 export function getProxyUrl(): string | undefined {
@@ -67,6 +89,10 @@ export function getProxyUrl(): string | undefined {
     || process.env.https_proxy || process.env.http_proxy;
   if (envProxy) {
     return envProxy;
+  }
+
+  if (process.env.PAPYRUS_DISABLE_SYSTEM_PROXY === '1') {
+    return undefined;
   }
 
   if (process.platform === 'win32') {

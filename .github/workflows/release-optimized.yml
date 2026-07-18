@@ -244,12 +244,19 @@ jobs:
         include:
           - platform: windows
             target: win
+            arch: x64
             os: windows-latest
-          - platform: macos
+          - platform: macos-arm64
             target: mac
-            os: macos-latest
+            arch: arm64
+            os: macos-15
+          - platform: macos-x64
+            target: mac
+            arch: x64
+            os: macos-15-intel
           - platform: linux
             target: linux
+            arch: x64
             os: ubuntu-latest
 
     steps:
@@ -274,9 +281,9 @@ jobs:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: electron-builder-${{ runner.os }}-${{ hashFiles('.electron-builder.config.js') }}
+          key: electron-builder-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('.electron-builder.config.js') }}
           restore-keys: |
-            electron-builder-${{ runner.os }}-
+            electron-builder-${{ runner.os }}-${{ matrix.arch }}-
 
       - name: Install Dependencies
         shell: bash
@@ -333,7 +340,7 @@ jobs:
           export CSC_IDENTITY_AUTO_DISCOVERY=false
           export ELECTRON_SKIP_BINARY_DOWNLOAD=1
           export ELECTRON_BUILDER_USE_CACHE=true
-          npx electron-builder --${{ matrix.target }} --publish=never --config .electron-builder.config.js
+          npx electron-builder --${{ matrix.target }} --${{ matrix.arch }} --publish=never --config .electron-builder.config.js
 
       - name: Verify Electron Build
         shell: bash
@@ -345,7 +352,7 @@ jobs:
             windows)
               ARTIFACT=$(ls dist-electron/*-Setup.exe 2>/dev/null | head -1)
               ;;
-            macos)
+            macos-*)
               ARTIFACT=$(ls dist-electron/*.dmg 2>/dev/null | head -1)
               ;;
             linux)

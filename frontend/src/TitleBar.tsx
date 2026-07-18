@@ -1,5 +1,5 @@
 import { Button, Space, Menu, Dropdown, Avatar, Modal, Message, Divider, Input } from '@arco-design/web-react';
-import { IconMinus, IconExpand, IconClose, IconUpload, IconRefresh } from '@arco-design/web-react/icon';
+import { IconMinus, IconExpand, IconClose, IconUpload, IconRefresh, IconUser } from '@arco-design/web-react/icon';
 import './TitleBar.css';
 import { api, type SearchResult } from './api';
 import type { UserProfile } from './types/common';
@@ -9,6 +9,7 @@ import SearchBox from './SearchBox';
 import { useShortcuts } from './hooks/useShortcuts';
 import { saveUserProfile, loadUserProfile } from './SettingsPage/views/ChatView/utils';
 import { getRecentItems, clearRecentItems, type RecentItem } from './utils/recentFiles';
+import { appPlatform } from './utils/platform';
 
 // 快捷键提示组件 - 使用 Tailwind
 const Shortcut = ({ keys }: { keys: string }) => (
@@ -76,10 +77,8 @@ const TitleBar = ({
   const [userProfile, setUserProfile] = useState<UserProfile>(loadUserProfile());
   const [tempUserId, setTempUserId] = useState('');
   const [tempAvatarUrl, setTempAvatarUrl] = useState<string | null>(null);
-  const [isMacos, setIsMacos] = useState(false);
-  const [isWindows, setIsWindows] = useState(
-    () => window.electronEnv?.PLATFORM === 'win32',
-  );
+  const isMacos = appPlatform === 'macos';
+  const isWindows = appPlatform === 'windows';
   const [recentItems, setRecentItems] = useState<RecentItem[]>(() => getRecentItems());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { getShortcutDisplay } = useShortcuts();
@@ -108,17 +107,16 @@ const TitleBar = ({
   }, [refreshRecentItems]);
 
   useEffect(() => {
-    const checkPlatform = async () => {
-      try {
-        const platform = await window.electronAPI?.getPlatform?.();
-        setIsMacos(platform === 'darwin');
-        setIsWindows(platform === 'win32');
-      } catch (e) {
-        setIsMacos(false);
-        setIsWindows(false);
-      }
+    // 原生 File 菜单复用 renderer 内已有导入弹窗。
+    // 原因：导入状态属于 TitleBar，事件桥接可保持只有一个 Modal 与一套校验逻辑。
+    // 未在主进程读取文件内容：renderer 已有安全的文本导入流程，重复实现会产生协议分叉。
+    const handleNativeImport = () => {
+      setImportModalVisible(true);
     };
-    checkPlatform();
+    window.addEventListener('papyrus_import_text', handleNativeImport);
+    return () => {
+      window.removeEventListener('papyrus_import_text', handleNativeImport);
+    };
   }, []);
 
   // 打开用户设置弹窗
@@ -163,8 +161,10 @@ const TitleBar = ({
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setTempAvatarUrl(base64);
+      const result = event.target?.result;
+      if (typeof result === 'string') {
+        setTempAvatarUrl(result);
+      }
     };
     reader.readAsDataURL(file);
 
@@ -490,7 +490,7 @@ const TitleBar = ({
           className="tw-cursor-pointer"
           style={{ fontSize: size * 0.4 }}
         >
-          <img src={avatarUrl} alt={userId} />
+          <img src={avatarUrl} alt="" />
         </Avatar>
       );
     }
@@ -500,7 +500,9 @@ const TitleBar = ({
         className="tw-cursor-pointer"
         style={{ backgroundColor: 'var(--color-primary)', fontSize: size * 0.4 }} 
       >
-        {(userId?.charAt(0) || '?').toUpperCase()}
+        {userId?.charAt(0)
+          ? userId.charAt(0).toUpperCase()
+          : <IconUser aria-hidden="true" />}
       </Avatar>
     );
   };
@@ -508,28 +510,30 @@ const TitleBar = ({
   return (
     <>
       <div className={`titlebar${isMacos ? ' titlebar-macos' : ''}${isWindows ? ' titlebar-windows' : ''}`}>
-        <button
-          className="titlebar-sidebar-toggle no-drag"
-          type="button"
-          onClick={onSidebarToggle}
-          aria-label={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-          aria-expanded={!sidebarCollapsed}
-          title={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-        >
-          <SidebarStateIcon expanded={!sidebarCollapsed} />
-        </button>
+        <div className="titlebar-leading">
+          <button
+            className="titlebar-sidebar-toggle no-drag"
+            type="button"
+            onClick={onSidebarToggle}
+            aria-label={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          >
+            <SidebarStateIcon expanded={!sidebarCollapsed} />
+          </button>
 
-        {/* File/Edit menus - hidden on macOS (use system menu bar instead) */}
-        {!isMacos && (
-          <Space className="titlebar-menus no-drag" size={0}>
-            <Dropdown trigger="click" droplist={fileMenu}>
-              <Button type="text" size="small" className="titlebar-menu-item">{t('titleBar.file')}</Button>
-            </Dropdown>
-            <Dropdown trigger="click" droplist={editMenu}>
-              <Button type="text" size="small" className="titlebar-menu-item">{t('titleBar.edit')}</Button>
-            </Dropdown>
-          </Space>
-        )}
+          {/* File/Edit menus - hidden on macOS (use system menu bar instead) */}
+          {!isMacos && (
+            <Space className="titlebar-menus no-drag" size={0}>
+              <Dropdown trigger="click" droplist={fileMenu}>
+                <Button type="text" size="small" className="titlebar-menu-item">{t('titleBar.file')}</Button>
+              </Dropdown>
+              <Dropdown trigger="click" droplist={editMenu}>
+                <Button type="text" size="small" className="titlebar-menu-item">{t('titleBar.edit')}</Button>
+              </Dropdown>
+            </Space>
+          )}
+        </div>
 
         {/* center search */}
         <div className="titlebar-center">
@@ -546,9 +550,14 @@ const TitleBar = ({
         {/* window controls - hidden on macOS to preserve native traffic lights */}
         {!isMacos && (
           <div className="titlebar-controls no-drag">
-            <div className="titlebar-avatar no-drag" onClick={handleOpenProfileModal}>
+            <button
+              className="titlebar-avatar no-drag"
+              type="button"
+              aria-label={t('titleBar.userSettings')}
+              onClick={handleOpenProfileModal}
+            >
               {renderAvatar(28, userProfile.avatarUrl, userProfile.userId)}
-            </div>
+            </button>
             <button className="titlebar-btn no-drag" aria-label="最小化" onClick={() => window.electronAPI?.minimizeWindow?.()}>
               <IconMinus />
             </button>
@@ -570,9 +579,14 @@ const TitleBar = ({
         {/* macOS: show only avatar on the right */}
         {isMacos && (
           <div className="titlebar-controls no-drag">
-            <div className="titlebar-avatar no-drag" onClick={handleOpenProfileModal}>
+            <button
+              className="titlebar-avatar no-drag"
+              type="button"
+              aria-label={t('titleBar.userSettings')}
+              onClick={handleOpenProfileModal}
+            >
               {renderAvatar(28, userProfile.avatarUrl, userProfile.userId)}
-            </div>
+            </button>
           </div>
         )}
       </div>
@@ -612,15 +626,17 @@ const TitleBar = ({
         <div className="tw-flex tw-flex-col tw-gap-6">
           {/* 头像上传区域 */}
           <div className="tw-flex tw-flex-col tw-items-center tw-gap-4">
-            <div 
-              className="tw-relative tw-cursor-pointer tw-group"
+            <button
+              className="titlebar-avatar-upload tw-relative tw-cursor-pointer tw-group"
+              type="button"
+              aria-label={t('titleBar.selectAvatarImage')}
               onClick={handleAvatarUpload}
             >
               {renderAvatar(80, tempAvatarUrl, tempUserId)}
               <div className="tw-absolute tw-inset-0 tw-bg-black/40 tw-rounded-full tw-flex tw-items-center tw-justify-center tw-opacity-0 group-hover:tw-opacity-100 tw-transition-opacity">
                 <IconUpload className="tw-text-white tw-text-xl" />
               </div>
-            </div>
+            </button>
             <input
               ref={fileInputRef}
               type="file"

@@ -3,12 +3,22 @@
  * 
  * Handles:
  * - Window creation and management
- * - Python backend process spawning
+ * - Node.js backend process spawning
  * - System tray integration
  * - Platform-specific adaptations
  */
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  Tray,
+  Menu,
+  ipcMain,
+  shell,
+  dialog,
+  nativeImage,
+  nativeTheme,
+} = require('electron');
 
 // Preserve user data directory compatibility across productName changes
 app.setName('papyrus');
@@ -19,6 +29,18 @@ const os = require('os');
 const crypto = require('crypto');
 const { createDiagnosticWindow } = require('./diagnostic-window');
 const { validateExternalUrl, validateOpenFolderPath } = require('./security-validators');
+const {
+  MACOS_VIBRANCY,
+  getBackendLaunchInfo,
+  getTrayIconName,
+  getWindowAppearance,
+  getWindowIconName,
+} = require('./platform-config');
+const {
+  createDesktopApplicationMenuTemplate,
+  createMacApplicationMenuTemplate,
+  dispatchRendererMenuAction,
+} = require('./application-menu');
 
 // Generate a per-session auth token for backend API protection
 const PAPYRUS_AUTH_TOKEN = crypto.randomBytes(32).toString('base64url');
@@ -99,37 +121,22 @@ const getPaths = () => {
     resourcesPath,
     assetsPath: path.join(resourcesPath, 'assets'),
     frontendDistPath: path.join(__dirname, '..', 'frontend', 'dist'),
-    iconPath: path.join(resourcesPath, 'assets', getIconName()),
+    iconPath: path.join(resourcesPath, 'assets', getWindowIconName(process.platform)),
+    trayIconPath: path.join(resourcesPath, 'assets', getTrayIconName(process.platform)),
   };
 };
 
-// Get platform-specific icon name
-function getIconName() {
-  switch (process.platform) {
-    case 'win32': return 'icon.ico';
-    case 'darwin': return 'icon.icns';
-    default: return 'icon.png';
-  }
-}
-
-// Get Node backend executable info
+// 解析后端启动参数并兼容开发态与打包态。
+// 原因：将纯路径判断委托给可测试模块，主进程只负责注入 Electron 运行时路径。
+// 未直接拼接 shell 字符串：macOS `.app` 路径常含空格，数组参数才能保持边界可靠。
 function getBackendExecutableInfo() {
-  if (isDevMode) {
-    return {
-      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['tsx', 'watch', 'src/api/server.ts'],
-      cwd: path.join(__dirname, '..', 'backend'),
-    };
-  }
-
-  // In production, backend is placed in resources/backend via extraResources
-  return {
-    // In production, process.execPath is the Electron executable itself.
-    // We set ELECTRON_RUN_AS_NODE=1 so it runs in Node.js mode.
-    command: process.execPath,
-    args: [path.join(process.resourcesPath, 'backend', 'dist', 'api', 'server.js')],
-    cwd: path.join(process.resourcesPath, 'backend'),
-  };
+  return getBackendLaunchInfo({
+    appRoot: path.join(__dirname, '..'),
+    isDevMode,
+    platform: process.platform,
+    processExecPath: process.execPath,
+    resourcesPath: process.resourcesPath,
+  });
 }
 
 // Logging utility
@@ -278,7 +285,9 @@ async function startBackend() {
 function stopBackend() {
   if (!backendProcess) return;
 
-  const pid = backendProcess.pid;
+  const processToStop = backendProcess;
+  const pid = processToStop.pid;
+  backendProcess = null;
   log(`Stopping backend process (PID: ${pid})...`);
 
   if (process.platform === 'win32') {
@@ -289,7 +298,7 @@ function stopBackend() {
     } catch (e) {
       log(`taskkill failed, falling back to SIGTERM: ${e.message}`, 'error');
       try {
-        backendProcess.kill('SIGTERM');
+        processToStop.kill('SIGTERM');
       } catch {
         // process already dead
       }
@@ -303,24 +312,102 @@ function stopBackend() {
       spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'pipe' });
     }
   } else {
-    backendProcess.kill('SIGTERM');
-    // Give it 3 seconds, then SIGKILL
-    setTimeout(() => {
+    processToStop.kill('SIGTERM');
+    // 捕获待停止的进程对象，避免全局引用清空后 3 秒兜底失效。
+    // 原因：macOS/Linux 的子进程若忽略 SIGTERM，应用退出前仍必须有确定的 SIGKILL 兜底。
+    // 未对全局 backendProcess 延迟调用：它可能已变为 null 或指向一次重启后的新进程。
+    const forceKillTimer = setTimeout(() => {
       try {
-        backendProcess?.kill('SIGKILL');
+        if (processToStop.exitCode === null && processToStop.signalCode === null) {
+          processToStop.kill('SIGKILL');
+        }
       } catch {
         // already dead
       }
     }, 3000);
+    forceKillTimer.unref();
   }
 
-  backendProcess = null;
   log('Backend process stopped');
+}
+
+/**
+ * 返回当前原生主题状态，供 BrowserWindow 与 renderer 使用。
+ * 原因：macOS vibrancy 必须服从“减少透明度”，深浅背景也应在窗口首帧前匹配系统主题。
+ * 未让 renderer 自行猜测：只有主进程的 nativeTheme 能稳定读取 Electron 当前实际偏好。
+ */
+function getSystemAppearance() {
+  return {
+    darkMode: nativeTheme.shouldUseDarkColors,
+    reduceTransparency: nativeTheme.prefersReducedTransparency,
+  };
+}
+
+/**
+ * 在系统外观变化时同步 macOS 窗口材质并通知 renderer。
+ * 原因：用户可能在应用运行期间切换深色模式或减少透明度，原生窗口与 CSS 表面必须同时更新。
+ * 未重建 BrowserWindow：setVibrancy/setBackgroundColor 可原地更新，避免丢失页面状态和焦点。
+ */
+function syncMacWindowAppearance() {
+  if (process.platform !== 'darwin' || !mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  const appearance = getSystemAppearance();
+  mainWindow.setVibrancy(appearance.reduceTransparency ? null : MACOS_VIBRANCY);
+  mainWindow.setBackgroundColor(appearance.darkMode ? '#1e1e22' : '#f7f7f5');
+  mainWindow.webContents.send('app:appearance-changed', appearance);
+}
+
+/**
+ * 把 macOS 原生菜单动作发送给当前窗口，并在窗口关闭后按系统习惯重新创建。
+ * 原因：业务路由仍由 React 负责，主进程只处理窗口激活和可信 IPC 通道。
+ * 未直接调用 renderer 内部函数：跨进程保持字符串动作协议可测试，也不会暴露 ipcRenderer。
+ */
+function sendRendererMenuAction(action) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+  }
+  const targetWindow = mainWindow;
+  if (!targetWindow || targetWindow.isDestroyed()) {
+    return;
+  }
+
+  dispatchRendererMenuAction(targetWindow, action);
+}
+
+/**
+ * 安装平台匹配的应用菜单，并为 macOS Dock 提供高频新建动作。
+ * 原因：macOS 用户依赖系统菜单栏和 Dock 菜单，Windows/Linux 则继续使用自绘 File 菜单。
+ * 未为所有平台展示完整原生菜单：非 macOS 已有可见标题栏入口，重复菜单会增加认知负担。
+ */
+function installApplicationMenu() {
+  const template = process.platform === 'darwin'
+    ? createMacApplicationMenuTemplate({
+        appName: 'Papyrus',
+        isDevMode,
+        sendAction: sendRendererMenuAction,
+      })
+    : createDesktopApplicationMenuTemplate();
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setMenu(Menu.buildFromTemplate([
+      {
+        label: 'New Note',
+        click: () => sendRendererMenuAction('new-note'),
+      },
+      {
+        label: 'New Card',
+        click: () => sendRendererMenuAction('new-card'),
+      },
+    ]));
+  }
 }
 
 // Create main window
 function createWindow() {
   const paths = getPaths();
+  const systemAppearance = getSystemAppearance();
   
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -337,19 +424,7 @@ function createWindow() {
       webSecurity: true,
       devTools: isDevMode,
     },
-    // Frameless window - hide native title bar
-    // macOS: use hiddenInset to preserve traffic lights (red/yellow/green buttons)
-    // Windows/Linux: use hidden to hide entire title bar
-    frame: false,
-    // Windows 使用 DWM 原生 Acrylic 作为窗口底层材质，渲染进程仅让自绘顶栏区域透出该材质。
-    // 原因：系统材质会遵循 Windows 的透明效果、节能和高对比度策略，并在不支持时自行降级。
-    // 未使用 transparent 窗口：透明窗口会改变阴影与缩放边界行为，且 Acrylic 已能提供所需底层。
-    backgroundMaterial: process.platform === 'win32' ? 'acrylic' : undefined,
-    // 使用 Electron/DWM 的原生无边框窗口圆角，Windows 11 会自动采用系统标准半径，
-    // 并在最大化时恢复直角；未使用透明窗口或 CSS 裁剪，避免破坏系统阴影和缩放边界。
-    roundedCorners: true,
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
-    titleBarOverlay: false,
+    ...getWindowAppearance(process.platform, systemAppearance),
   });
 
   // Set Content Security Policy to mitigate XSS risks
@@ -376,75 +451,7 @@ function createWindow() {
     mainWindow.loadFile(indexPath);
   }
 
-  // Set application menu based on platform
-  // macOS: full application menu with File, Edit, View, Window, Help (system menu bar)
-  // Windows/Linux: minimal Edit menu for keyboard shortcuts only
-  // Note: File/Edit are in custom titlebar for Windows/Linux, but we need Edit menu for shortcuts
-  const isMac = process.platform === 'darwin';
-  
-  if (isMac) {
-    // macOS: use native menu bar with Papyrus app menu
-    const template = [
-      {
-        label: 'Papyrus',
-        submenu: [
-          { role: 'about' },
-          { type: 'separator' },
-          { role: 'services' },
-          { type: 'separator' },
-          { role: 'hide' },
-          { role: 'hideOthers' },
-          { role: 'unhide' },
-          { type: 'separator' },
-          { role: 'quit' }
-        ]
-      },
-      {
-        label: 'File',
-        submenu: [
-          { role: 'close' } // Cmd+W
-        ]
-      },
-      {
-        label: 'Edit',
-        submenu: [
-          { role: 'undo' },
-          { role: 'redo' },
-          { type: 'separator' },
-          { role: 'cut' },
-          { role: 'copy' },
-          { role: 'paste' },
-          { role: 'selectAll' }
-        ]
-      },
-      {
-        label: 'Window',
-        submenu: [
-          { role: 'minimize' },
-          { role: 'zoom' },
-          { type: 'separator' },
-          { role: 'front' }
-        ]
-      }
-    ];
-    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-  } else {
-    // Windows/Linux: minimal Edit menu for keyboard shortcuts
-    Menu.setApplicationMenu(Menu.buildFromTemplate([
-      {
-        label: 'Edit',
-        submenu: [
-          { role: 'undo' },
-          { role: 'redo' },
-          { type: 'separator' },
-          { role: 'cut' },
-          { role: 'copy' },
-          { role: 'paste' },
-          { role: 'selectAll' },
-        ],
-      },
-    ]));
-  }
+  installApplicationMenu();
   
   // Window event handlers
   mainWindow.once('ready-to-show', () => {
@@ -492,7 +499,12 @@ function createTray() {
   const paths = getPaths();
   
   try {
-    tray = new Tray(paths.iconPath);
+    let trayImage = nativeImage.createFromPath(paths.trayIconPath);
+    if (process.platform === 'darwin') {
+      trayImage = trayImage.resize({ width: 18, height: 18 });
+      trayImage.setTemplateImage(true);
+    }
+    tray = new Tray(trayImage);
     
     const contextMenu = Menu.buildFromTemplate([
       {
@@ -558,6 +570,9 @@ function setupIPC() {
   // Check if development mode
   ipcMain.handle('app:isDev', () => isDevMode);
 
+  // Return native appearance preferences so renderer surfaces can match macOS accessibility settings.
+  ipcMain.handle('app:getSystemAppearance', () => getSystemAppearance());
+
   // Proxy API requests through main process so the renderer never needs the raw token.
   ipcMain.handle('api:fetch', async (_event, payload) => {
     const apiPath = typeof payload?.path === 'string' ? payload.path : '';
@@ -570,6 +585,11 @@ function setupIPC() {
       headers: {
         ...extraHeaders,
         'X-Papyrus-Token': effectiveAuthToken,
+        // 平台与架构只由主进程注入，后端据此选择匹配的更新产物。
+        // 原因：renderer 不应自行声明运行架构，否则更新检查可能返回无法执行的安装包。
+        // 未使用 query 参数：可信运行时元数据属于请求上下文，不应污染公开 API URL。
+        'X-Papyrus-Platform': process.platform,
+        'X-Papyrus-Arch': process.arch,
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -743,6 +763,7 @@ app.whenReady().then(async () => {
     // Create window and tray
     createWindow();
     createTray();
+    nativeTheme.on('updated', syncMacWindowAppearance);
     
   } catch (error) {
     log(`Failed to initialize: ${error.message}`, 'error');

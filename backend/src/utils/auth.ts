@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { paths } from './paths.js';
+import { paths, protectPrivateFile } from './paths.js';
 
 const TOKEN_FILE = path.join(paths.dataDir, '.api_token');
 
@@ -24,9 +24,7 @@ function writeTokenFile(token: string): void {
   try {
     fs.mkdirSync(paths.dataDir, { recursive: true });
     fs.writeFileSync(TOKEN_FILE, token, { mode: 0o600 });
-    if (process.platform === 'win32') {
-      try { fs.chmodSync(TOKEN_FILE, 0o600); } catch { /* Windows may not fully support chmod */ }
-    }
+    protectPrivateFile(TOKEN_FILE);
   } catch (e) {
     console.error(`写入认证令牌文件失败: ${e instanceof Error ? e.message : String(e)}`);
   }

@@ -3,6 +3,7 @@
  * 统一管理应用快捷键设置
  */
 import { useState, useCallback } from 'react';
+import { appPlatform, formatShortcutForPlatform } from '../utils/platform';
 
 // 快捷键配置类型
 export interface ShortcutConfig {
@@ -119,7 +120,8 @@ export const useShortcuts = () => {
   // 获取快捷键的显示文本
   const getShortcutDisplay = useCallback(
     (key: keyof ShortcutConfig) => {
-      return shortcuts[key] || DEFAULT_SHORTCUTS[key];
+      const shortcut = shortcuts[key] || DEFAULT_SHORTCUTS[key];
+      return formatShortcutForPlatform(shortcut, appPlatform);
     },
     [shortcuts]
   );

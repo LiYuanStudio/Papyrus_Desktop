@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { paths } from '../utils/paths.js';
+import { paths, protectPrivateFile } from '../utils/paths.js';
 import { encryptApiKey, decryptApiKey } from '../core/crypto.js';
 import type { CardRecord, Note, Provider, FileRecord } from '../core/types.js';
 import type { PapyrusLogger } from '../utils/logger.js';
@@ -19,6 +19,7 @@ function getDb(): DatabaseSync {
       db.exec('PRAGMA journal_mode = WAL;');
       db.exec('PRAGMA foreign_keys = ON;');
       db.exec('PRAGMA busy_timeout = 5000;');
+      protectPrivateFile(dbPath);
       initSchema(db);
     } catch (err) {
       const message = `Failed to open database at "${dbPath}": ${err instanceof Error ? err.message : String(err)}`;

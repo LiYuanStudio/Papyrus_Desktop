@@ -1,4 +1,10 @@
-import { fetchWithProxy, getProxyUrl, createProxyAgent, isProxyConnectionError } from '../../src/utils/proxy.js';
+import {
+  fetchWithProxy,
+  getProxyUrl,
+  createProxyAgent,
+  isProxyConnectionError,
+  parseMacProxyConfiguration,
+} from '../../src/utils/proxy.js';
 
 describe('proxy utilities', () => {
   const originalFetch = global.fetch;
@@ -43,6 +49,26 @@ describe('proxy utilities', () => {
       process.env.HTTP_PROXY = 'http://192.168.1.1:8080';
       process.env.HTTPS_PROXY = 'http://127.0.0.1:7890';
       expect(getProxyUrl()).toBe('http://127.0.0.1:7890');
+    });
+
+    it('should parse the active macOS HTTPS proxy without relying on service names', () => {
+      const scutilOutput = `
+        <dictionary> {
+          HTTPEnable : 1
+          HTTPPort : 8080
+          HTTPProxy : fallback.local
+          HTTPSEnable : 1
+          HTTPSPort : 7897
+          HTTPSProxy : secure.local
+        }
+      `;
+
+      expect(parseMacProxyConfiguration(scutilOutput)).toBe('http://secure.local:7897');
+    });
+
+    it('should reject disabled or invalid macOS proxy dictionaries', () => {
+      expect(parseMacProxyConfiguration('HTTPSEnable : 0\nHTTPSProxy : localhost\nHTTPSPort : 7890')).toBeUndefined();
+      expect(parseMacProxyConfiguration('HTTPSEnable : 1\nHTTPSProxy : localhost\nHTTPSPort : 70000')).toBeUndefined();
     });
   });
 

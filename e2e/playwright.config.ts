@@ -1,17 +1,26 @@
 import { defineConfig, devices } from '@playwright/test';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { rmSync } from 'node:fs';
 
-const TEST_DATA_DIR = join(tmpdir(), 'papyrus-e2e-test-data');
+const TEST_DATA_DIR = join(tmpdir(), `papyrus-e2e-test-data-${process.pid}`);
 const AUTH_TOKEN = process.env.PAPYRUS_AUTH_TOKEN || 'e2e-test-token-e2e-test-token-32chars';
-
-// Clean up any leftover test data from previous runs
-try { rmSync(TEST_DATA_DIR, { recursive: true }); } catch {}
+const configuredPortBase = Number(process.env.PAPYRUS_E2E_PORT_BASE);
+const PORT_BASE = Number.isInteger(configuredPortBase) &&
+  configuredPortBase >= 20000 &&
+  configuredPortBase <= 65532
+  ? configuredPortBase
+  : 20000 + ((process.pid % 10000) * 2);
+const BACKEND_URL = `http://127.0.0.1:${PORT_BASE}`;
+const FRONTEND_URL = `http://127.0.0.1:${PORT_BASE + 1}`;
 
 // Forward env vars so the backend uses a temp database instead of production data
 process.env.PAPYRUS_AUTH_TOKEN = AUTH_TOKEN;
 process.env.PAPYRUS_DATA_DIR = TEST_DATA_DIR;
+process.env.PAPYRUS_E2E_PORT_BASE = String(PORT_BASE);
+process.env.PAPYRUS_PORT = String(PORT_BASE);
+process.env.PAPYRUS_MCP_PORT = String(PORT_BASE + 2);
+process.env.PAPYRUS_BACKEND_URL = BACKEND_URL;
+process.env.PAPYRUS_E2E_FRONTEND_URL = FRONTEND_URL;
 
 export default defineConfig({
   testDir: '.',
@@ -22,19 +31,27 @@ export default defineConfig({
   reporter: 'list',
 
   use: {
-    baseURL: 'http://127.0.0.1:8000',
+    baseURL: BACKEND_URL,
     trace: 'on-first-retry',
     extraHTTPHeaders: {
       'x-papyrus-token': AUTH_TOKEN,
     },
   },
 
-  webServer: {
-    command: 'npx --prefix ../backend tsx ../backend/src/api/server.ts',
-    url: 'http://127.0.0.1:8000/api/health',
-    reuseExistingServer: false,
-    timeout: 30000,
-  },
+  webServer: [
+    {
+      command: 'npx --prefix ../backend tsx --tsconfig ../backend/tsconfig.json ../backend/src/api/server.ts',
+      url: `${BACKEND_URL}/api/health`,
+      reuseExistingServer: false,
+      timeout: 30000,
+    },
+    {
+      command: `npm --prefix ../frontend run dev -- --host 127.0.0.1 --port ${PORT_BASE + 1}`,
+      url: FRONTEND_URL,
+      reuseExistingServer: false,
+      timeout: 30000,
+    },
+  ],
 
   projects: [
     {

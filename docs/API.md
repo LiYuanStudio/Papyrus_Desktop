@@ -3,6 +3,7 @@
 Base URL: `/api`
 
 后端默认监听 `127.0.0.1:8000`，可通过 `PAPYRUS_PORT` 环境变量覆盖。
+独立 MCP 端点默认监听 `127.0.0.1:9200`，可通过 `PAPYRUS_MCP_PORT` 覆盖。
 
 持久化：SQLite（`node:sqlite`，WAL），默认 `$HOME/PapyrusData/papyrus.db`。
 

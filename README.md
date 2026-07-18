@@ -194,7 +194,7 @@ Papyrus/
 - **Desktop** — Electron 41 + electron-builder
 - **Algorithm** — SM-2 spaced repetition
 - **Storage** — SQLite via `node:sqlite` (WAL), content-hashed versions
-- **CI/CD** — GitHub Actions matrix (Windows x64, macOS arm64, Linux x64)
+- **CI/CD** — GitHub Actions matrix (Windows x64, macOS arm64 + x64, Linux x64)
 
 ---
 
@@ -212,6 +212,8 @@ npm start           # run compiled dist/api/server.js
 ```
 
 The backend listens on `127.0.0.1:8000` by default; override with `PAPYRUS_PORT`.
+The standalone MCP endpoint uses `127.0.0.1:9200`; override with `PAPYRUS_MCP_PORT`
+when running isolated development or test instances.
 
 ### Frontend
 

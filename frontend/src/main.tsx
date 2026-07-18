@@ -18,6 +18,7 @@ import jaJP from '@arco-design/web-react/es/locale/ja-JP';
 import '@arco-design/web-react/es/_util/react-19-adapter';
 import '@arco-design/web-react/dist/css/arco.css';
 import './theme.css';  // 全局主题样式
+import './platform.css';  // 平台原生化样式
 import './a11y.css';  // 无障碍样式（WCAG 2.1 AA/AAA）
 import './tailwind.css';  // Tailwind CSS
 
@@ -35,6 +36,11 @@ import {
   type UiLanguageChangedDetail,
   isUiLanguage,
 } from './utils/uiSettings';
+import {
+  appPlatform,
+  applyPlatformToDom,
+  applySystemAppearance,
+} from './utils/platform';
 
 // 初始化 i18n
 import i18n, { init as i18nInit } from './i18n';
@@ -45,6 +51,11 @@ if (!el) throw new Error('Missing #root');
 // ============================================
 // 系统偏好检测
 // ============================================
+
+// 平台是 preload 提供的同步常量，首个 React render 前写入 DOM 可避免标题栏布局闪烁。
+// 原因：macOS traffic lights 安全区必须从首帧生效，否则启动时会短暂覆盖系统按钮。
+// 未等待异步 IPC：平台运行期间不会变化，electronEnv 已是可信且足够的只读来源。
+applyPlatformToDom(appPlatform);
 
 // 检测深色模式偏好
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -105,6 +116,28 @@ const Root = () => {
   const [i18nReady, setI18nReady] = useState(false);
 
   const locale = LOCALE_MAP[localeKey] ?? zhCN;
+
+  useEffect(() => {
+    let appearanceRequestActive = true;
+    const electronAPI = window.electronAPI;
+    const unsubscribeAppearance = electronAPI?.onSystemAppearanceChanged((appearance) => {
+      applySystemAppearance(appearance);
+    });
+    void electronAPI?.getSystemAppearance()
+      .then((appearance) => {
+        if (appearanceRequestActive) {
+          applySystemAppearance(appearance);
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn('Failed to read native appearance:', error);
+      });
+
+    return () => {
+      appearanceRequestActive = false;
+      unsubscribeAppearance?.();
+    };
+  }, []);
 
   useEffect(() => {
     const initI18n = async () => {

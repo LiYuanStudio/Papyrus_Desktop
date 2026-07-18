@@ -316,20 +316,10 @@ function buildElectron(target) {
 
   log(`Running: ${command}`, 'dim');
   exec(command);
-  
-  // 手动复制 frontend/dist 目录到正确的位置
-  const distPath = path.join('dist-electron', 'win-unpacked', 'resources', 'app', 'frontend', 'dist');
-  const srcPath = path.join('frontend', 'dist');
-  
-  if (fs.existsSync(srcPath)) {
-    log(`Copying frontend/dist to ${distPath}...`, 'dim');
-    if (fs.existsSync(distPath)) {
-      fs.rmSync(distPath, { recursive: true, force: true });
-    }
-    fs.cpSync(srcPath, distPath, { recursive: true });
-    log('Frontend dist copied successfully', 'green');
-  }
-  
+
+  // frontend/dist 已由 electron-builder 的 files 规则放入 app.asar。
+  // 原因：统一打包路径可让 Windows、macOS 与 Linux 使用相同资源布局和完整性校验。
+  // 未再写入 win-unpacked：macOS 构建时创建 Windows 目录既无效，也会掩盖 app.asar 配置错误。
   success(`Electron app built successfully!`);
   log(`Output location: ${path.join('dist-electron')}`, 'dim');
 }
@@ -417,7 +407,7 @@ Commands:
   dev                    Start development mode
   build                  Build for current platform
   build:win              Build for Windows (x64)
-  build:mac              Build for macOS (arm64, x64)
+  build:mac              Build for the current macOS architecture
   build:linux            Build for Linux (x64)
   build:all              Build for all platforms
   help                   Show this help message

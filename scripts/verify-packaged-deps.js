@@ -11,6 +11,7 @@ const DIST_ELECTRON = path.resolve(__dirname, '..', 'dist-electron');
 
 // Files we expect to find in the packaged app
 const REQUIRED_FILES = [
+  'frontend/dist/index.html',
   'backend/node_modules/fastify/package.json',
   'backend/dist/api/server.js',
   'backend/package.json',

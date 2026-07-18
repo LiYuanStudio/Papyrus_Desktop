@@ -3,7 +3,9 @@
    ============================================ */
 
 .titlebar {
-  display: flex;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 400px) minmax(0, 1fr);
   align-items: center;
   height: 40px;
   background: var(--color-bg-1);
@@ -38,14 +40,27 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-/* macOS: add left padding to avoid traffic lights */
+/* macOS 使用 52px 原生工具栏高度，左侧动作从 traffic lights 安全区之后开始。 */
 .titlebar.titlebar-macos {
-  padding-left: 70px;
+  height: 52px;
+  padding-left: 0;
+  background: color-mix(in srgb, var(--color-bg-1) 72%, transparent);
+  border-bottom-color: var(--color-border-structure);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
+  -webkit-backdrop-filter: saturate(165%);
+  backdrop-filter: saturate(165%);
 }
 
-.titlebar.titlebar-macos .titlebar-sidebar-toggle,
-.titlebar.titlebar-macos .titlebar-menus {
-  margin-left: 0;
+.titlebar-leading {
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.titlebar.titlebar-macos .titlebar-leading {
+  padding-left: 78px;
 }
 
 /* Elements that should not be draggable */
@@ -61,7 +76,7 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
   justify-content: center;
   flex: 0 0 48px;
   width: 48px;
-  height: 40px;
+  height: 100%;
   padding: 0;
   border: none;
   background: transparent;
@@ -96,12 +111,13 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
 }
 
 /* menu items */
- .titlebar-menus {
-   display: flex;
-   align-items: center;
-   gap: 0;
-   flex: 1;
- }
+.titlebar-menus {
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
 
 .titlebar-menu-item {
   padding: 0 10px !important;
@@ -121,17 +137,16 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
   color: var(--color-primary) !important;
 }
 
-/* search - takes center */
-  .titlebar-center {
-   flex: 0 0 auto;
-   width: 400px;
-   display: flex;
-   align-items: center;
-   justify-content: center;
-   min-width: 200px;
-   padding: 0;
-   align-self: stretch;
-  }
+/* 中央搜索使用真正的三栏网格居中，不会被左右按钮数量推偏。 */
+.titlebar-center {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
 
  .titlebar-search,
  .titlebar-center .arco-input-wrapper {
@@ -188,20 +203,52 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
 
 /* avatar */
 .titlebar-avatar {
+  min-width: 44px;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.titlebar-avatar:hover {
+  background: var(--color-fill-2);
+}
+
+.titlebar-avatar:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -3px;
+}
+
+.titlebar-avatar-upload {
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
 }
 
 /* window controls */
 .titlebar-controls {
+  min-width: 0;
   display: flex;
   align-items: center;
-  height: 40px;
-  margin-left: 48px;
-  flex: 1;
+  height: 100%;
+  margin-left: 0;
   justify-content: flex-end;
+}
+
+.titlebar.titlebar-macos .titlebar-controls {
+  padding-right: 12px;
+}
+
+.titlebar.titlebar-macos .titlebar-avatar {
+  height: 36px;
 }
 
 .titlebar-btn {
@@ -215,6 +262,14 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
   cursor: pointer;
   color: var(--color-text-1);
   transition: background 0.2s, color 0.2s;
+}
+
+.titlebar.titlebar-macos .titlebar-search .arco-input-inner-wrapper,
+.titlebar.titlebar-macos .titlebar-center .arco-input-wrapper .arco-input-inner-wrapper,
+.titlebar.titlebar-macos .titlebar-search-input .arco-input-inner-wrapper {
+  height: 28px;
+  border-radius: 8px !important;
+  background: color-mix(in srgb, var(--color-fill-2) 82%, transparent);
 }
 
 .titlebar-btn svg {
@@ -245,6 +300,12 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
 @media (prefers-reduced-motion: reduce) {
   .titlebar-sidebar-icon-pane {
     transition: none;
+  }
+}
+
+@media (max-width: 1040px) {
+  .titlebar {
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 320px) minmax(180px, 1fr);
   }
 }
 

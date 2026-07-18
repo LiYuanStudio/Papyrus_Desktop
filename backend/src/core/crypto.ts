@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { paths } from '../utils/paths.js';
+import { paths, protectPrivateFile } from '../utils/paths.js';
 
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32;
@@ -25,6 +25,7 @@ function getOrCreateMasterKey(): Buffer | null {
   try {
     const keyPath = getMasterKeyPath();
     if (fs.existsSync(keyPath)) {
+      protectPrivateFile(keyPath, 0o400);
       return fs.readFileSync(keyPath);
     }
 
@@ -42,6 +43,7 @@ function getOrCreateMasterKey(): Buffer | null {
       }
     }
 
+    protectPrivateFile(keyPath, 0o400);
     return key;
   } catch {
     return null;
@@ -52,6 +54,7 @@ function getOrCreateSalt(): Buffer {
   try {
     const saltPath = getSaltPath();
     if (fs.existsSync(saltPath)) {
+      protectPrivateFile(saltPath);
       return fs.readFileSync(saltPath);
     }
 
@@ -69,6 +72,7 @@ function getOrCreateSalt(): Buffer {
       }
     }
 
+    protectPrivateFile(saltPath);
     return salt;
   } catch (e) {
     throw new Error(`无法创建或读取 salt 文件: ${e instanceof Error ? e.message : String(e)}`);

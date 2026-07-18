@@ -33,6 +33,14 @@ describe('paths', () => {
     expect(paths.dataDir).toBe(tempDir);
   });
 
+  it('restricts the data directory to the current user on POSIX platforms', () => {
+    process.env.PAPYRUS_DATA_DIR = tempDir;
+    void paths.dataDir;
+    if (process.platform !== 'win32') {
+      expect(fs.statSync(tempDir).mode & 0o777).toBe(0o700);
+    }
+  });
+
   it('logDir creates subdirectory if missing', () => {
     process.env.PAPYRUS_DATA_DIR = tempDir;
     expect(fs.existsSync(paths.logDir)).toBe(true);

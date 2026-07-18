@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { MCPServer } from '../../src/mcp/server.js';
+import { MCPServer, resolveMcpPort } from '../../src/mcp/server.js';
 
 function makeRequest(port: number, path: string, options: http.RequestOptions & { body?: string } = {}): Promise<{ status: number; body: unknown }> {
   return new Promise((resolve, reject) => {
@@ -34,6 +34,12 @@ describe('MCPServer', () => {
 
   afterEach(() => {
     server?.stop();
+  });
+
+  it('should resolve an isolated MCP port from the environment', () => {
+    expect(resolveMcpPort('28402')).toBe(28402);
+    expect(resolveMcpPort('0')).toBe(9200);
+    expect(resolveMcpPort('not-a-port')).toBe(9200);
   });
 
   it('should expose auth token', () => {

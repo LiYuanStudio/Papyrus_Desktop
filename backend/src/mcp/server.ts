@@ -10,6 +10,19 @@ export interface MCPServerOptions {
   authToken?: string;
 }
 
+/**
+ * 将环境变量中的 MCP 端口收窄为有效 TCP 端口。
+ * 原因：E2E、并行开发实例和 macOS 调试进程需要避免固定 9200 端口互相争用。
+ * 未接受 NaN、浮点数或越界值：无效配置静默回退到稳定默认值比启动到不可监听端口更可靠。
+ */
+export function resolveMcpPort(rawPort: string | undefined): number {
+  if (!rawPort) {
+    return 9200;
+  }
+  const port = Number(rawPort);
+  return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : 9200;
+}
+
 function generateToken(): string {
   return randomBytes(24).toString('base64url');
 }
@@ -44,7 +57,7 @@ export class MCPServer {
 
   constructor(options: MCPServerOptions = {}) {
     this.host = options.host ?? '127.0.0.1';
-    this.port = options.port ?? 9200;
+    this.port = options.port ?? resolveMcpPort(process.env.PAPYRUS_MCP_PORT);
     this.logger = options.logger;
     this.authToken = options.authToken ?? generateToken();
   }
@@ -161,4 +174,3 @@ export class MCPServer {
     return this.authToken;
   }
 }
-
