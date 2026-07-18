@@ -17,6 +17,13 @@ const REQUIRED_FILES = [
   'backend/package.json',
 ];
 
+// Normalize an ASAR entry to the same relative, slash-separated form used by REQUIRED_FILES.
+// This is necessary because @electron/asar prefixes entries with a root separator and uses the host OS separator.
+// Direct string comparison is not used because it produces false missing-file reports on every supported runner.
+function normalizeAsarPath(filePath) {
+  return filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
 function findAppAsar() {
   const candidates = [];
   function walk(dir, depth) {
@@ -115,17 +122,16 @@ function main() {
   console.log('');
 
   const missing = [];
+  const asarFiles = asarPath
+    ? new Set(asar.listPackage(asarPath).map(normalizeAsarPath))
+    : new Set();
 
   for (const relPath of REQUIRED_FILES) {
     let found = false;
 
-    if (asarPath) {
-      const asarFiles = asar.listPackage(asarPath);
-      const normalized = relPath.replace(/\\/g, '/');
-      if (asarFiles.includes(normalized)) {
-        console.log(`  OK (asar): ${relPath}`);
-        found = true;
-      }
+    if (asarFiles.has(normalizeAsarPath(relPath))) {
+      console.log(`  OK (asar): ${relPath}`);
+      found = true;
     }
 
     if (!found && unpackedDir) {
@@ -159,4 +165,10 @@ function main() {
   process.exit(0);
 }
 
-main();
+module.exports = {
+  normalizeAsarPath,
+};
+
+if (require.main === module) {
+  main();
+}

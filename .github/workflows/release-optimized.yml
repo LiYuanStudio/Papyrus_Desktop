@@ -171,7 +171,8 @@ jobs:
         run: |
           node --test --test-isolation=none \
             scripts/__tests__/bump-version.test.js \
-            scripts/__tests__/set-version.test.js
+            scripts/__tests__/set-version.test.js \
+            scripts/__tests__/verify-packaged-deps.test.js
 
       - name: Install Playwright Browser
         shell: bash
