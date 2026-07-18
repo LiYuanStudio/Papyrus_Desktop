@@ -1870,6 +1870,7 @@ interface CreateChatSessionInput {
   title?: string;
   model?: string;
   provider?: string;
+  metadata?: string;
   created_at?: number;
   updated_at?: number;
 }
@@ -1884,7 +1885,7 @@ export function createChatSession(input: CreateChatSessionInput = {}, logger?: P
     provider: input.provider ?? '',
     is_active: 0,
     message_count: 0,
-    metadata: '{}',
+    metadata: input.metadata ?? '{}',
     created_at: input.created_at ?? now,
     updated_at: input.updated_at ?? now,
   };
@@ -1930,6 +1931,43 @@ export function updateChatSession(id: string, patch: ChatSessionPatch): boolean 
   values.push(id);
   const stmt = database.prepare(`UPDATE chat_sessions SET ${fields.join(', ')} WHERE id = ?`);
   const result = stmt.run(...values);
+  return result.changes > 0;
+}
+
+/**
+ * 在会话元数据仍与调用方快照一致时原子更新标题与元数据。
+ * 原因：标题生成期间用户可能手动改名，比较原始 metadata 可阻止迟到的 AI 结果覆盖用户选择。
+ * 未使用“先读后写”两条普通语句：并发请求会在读取和更新之间产生竞态。
+ */
+export function compareAndSwapChatSessionTitle(
+  id: string,
+  expectedMetadata: string,
+  nextTitle: string,
+  nextMetadata: string,
+): boolean {
+  const database = getDb();
+  const stmt = database.prepare(
+    'UPDATE chat_sessions SET title = ?, metadata = ?, updated_at = ? WHERE id = ? AND metadata = ?'
+  );
+  const result = stmt.run(nextTitle, nextMetadata, Date.now() / 1000, id, expectedMetadata);
+  return result.changes > 0;
+}
+
+/**
+ * 在会话元数据仍与调用方快照一致时原子替换元数据。
+ * 原因：生成任务需要先声明所有权，并在失败时只撤销自己的声明。
+ * 未改动标题字段：任务声明属于内部状态，不应制造可见标题变化。
+ */
+export function compareAndSwapChatSessionMetadata(
+  id: string,
+  expectedMetadata: string,
+  nextMetadata: string,
+): boolean {
+  const database = getDb();
+  const stmt = database.prepare(
+    'UPDATE chat_sessions SET metadata = ? WHERE id = ? AND metadata = ?'
+  );
+  const result = stmt.run(nextMetadata, id, expectedMetadata);
   return result.changes > 0;
 }
 

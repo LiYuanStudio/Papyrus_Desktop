@@ -310,6 +310,10 @@ export type FeaturesConfig = {
 export type AIConfig = {
   current_provider: string;
   current_model: string;
+  /** 标题生成专用供应商 type；空则与 title_model 一起回退聊天默认 */
+  title_provider?: string;
+  /** 标题生成专用模型 API ID；空则与 title_provider 一起回退聊天默认 */
+  title_model?: string;
   /** 翻译专用供应商 type；空则回退 current_provider */
   translation_provider?: string;
   /** 翻译专用模型 API ID；空则回退 current_model */
@@ -516,6 +520,12 @@ export type RenameChatSessionRes = {
   session: ChatSession;
 };
 
+export type GenerateChatSessionTitleRes = {
+  success: boolean;
+  session: ChatSession;
+  error?: string;
+};
+
 export type DeleteChatSessionRes = {
   success: boolean;
   activeSessionId: string | null;
@@ -710,6 +720,10 @@ export const api = {
     request<RenameChatSessionRes>(`/sessions/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ title })
+    }),
+  generateChatSessionTitle: (id: string) =>
+    request<GenerateChatSessionTitleRes>(`/sessions/${id}/generate-title`, {
+      method: 'POST',
     }),
   deleteChatSession: (id: string) =>
     request<DeleteChatSessionRes>(`/sessions/${id}`, { method: 'DELETE' }),

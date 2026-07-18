@@ -95,6 +95,15 @@ async function processChatStream(
         if (typeof data.model === 'string' && data.model) savedModel = data.model;
         if (typeof data.provider === 'string' && data.provider) savedProvider = data.provider;
         if (typeof data.sessionId === 'string' && data.sessionId) savedSessionId = data.sessionId;
+      } else if (chunk.type === 'title_updated') {
+        const data = chunk.data as Record<string, unknown>;
+        reply.raw.write(`data: ${JSON.stringify({
+          type: 'title_updated',
+          data: {
+            sessionId: typeof data.sessionId === 'string' ? data.sessionId : '',
+            title: typeof data.title === 'string' ? data.title : '',
+          },
+        })}\n\n`);
       } else if (chunk.type === 'error') {
         streamErrored = true;
         const text = typeof chunk.data === 'string' ? chunk.data : 'Unknown error';

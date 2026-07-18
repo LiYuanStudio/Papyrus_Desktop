@@ -28,6 +28,12 @@ export function loadAIConfigFromJson(aiConfig: AIConfig): boolean {
     if (typeof raw.current_model === 'string') {
       aiConfig.config.current_model = raw.current_model;
     }
+    if (typeof raw.title_provider === 'string') {
+      aiConfig.config.title_provider = raw.title_provider;
+    }
+    if (typeof raw.title_model === 'string') {
+      aiConfig.config.title_model = raw.title_model;
+    }
     if (typeof raw.translation_provider === 'string') {
       aiConfig.config.translation_provider = raw.translation_provider;
     }
@@ -122,6 +128,8 @@ export function loadAIConfigFromDb(aiConfig: AIConfig, forceSyncDefault: boolean
     // 从 ui_settings 加载非 provider 配置
     const dbCurrentProvider = readUiSetting('ai.current_provider');
     const dbCurrentModel = readUiSetting('ai.current_model');
+    const dbTitleProvider = readUiSetting('ai.title_provider');
+    const dbTitleModel = readUiSetting('ai.title_model');
     const dbTranslationProvider = readUiSetting('ai.translation_provider');
     const dbTranslationModel = readUiSetting('ai.translation_model');
     const dbParameters = readUiSetting('ai.parameters');
@@ -130,6 +138,9 @@ export function loadAIConfigFromDb(aiConfig: AIConfig, forceSyncDefault: boolean
 
     if (dbCurrentProvider) aiConfig.config.current_provider = dbCurrentProvider;
     if (dbCurrentModel) aiConfig.config.current_model = dbCurrentModel;
+    // 允许空字符串：用户可清空标题专用配置以回退到聊天默认模型。
+    if (dbTitleProvider !== undefined) aiConfig.config.title_provider = dbTitleProvider;
+    if (dbTitleModel !== undefined) aiConfig.config.title_model = dbTitleModel;
     // 允许空字符串：用户可清空翻译专用配置以回退到聊天默认模型
     if (dbTranslationProvider !== undefined) aiConfig.config.translation_provider = dbTranslationProvider;
     if (dbTranslationModel !== undefined) aiConfig.config.translation_model = dbTranslationModel;

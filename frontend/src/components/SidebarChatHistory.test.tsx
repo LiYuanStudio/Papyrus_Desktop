@@ -16,6 +16,7 @@ const translations = {
     loadingChatHistory: '正在加载对话…',
     noChatHistory: '暂无历史对话',
     openConversation: '打开对话：{{title}}',
+    aiRenameConversation: 'AI 重新命名',
     renameConversation: '重命名对话',
     deleteConversation: '删除对话',
     confirmDeleteConversation: '确定删除对话“{{title}}”吗？',
@@ -58,6 +59,7 @@ function renderHistory(collapsed: boolean): string {
         activeSessionId="session-1"
         onSelectSession={() => undefined}
         onRenameSession={async () => true}
+        onGenerateTitle={async () => true}
         onDeleteSession={async () => true}
       />
     </I18nextProvider>,
@@ -79,6 +81,7 @@ describe('SidebarChatHistory', () => {
     assert.match(html, /第一条对话/);
     assert.match(html, /sidebar-chat-history-item-active/);
     assert.doesNotMatch(html, /sidebar-chat-history-active-dot/);
+    assert.match(html, /aria-label="AI 重新命名"/);
     assert.match(html, /aria-label="重命名对话"/);
     assert.match(html, /aria-label="删除对话"/);
     assert.match(html, /sidebar-chat-history-action-danger/);

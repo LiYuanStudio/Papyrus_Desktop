@@ -2,16 +2,25 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { AIConfig } from '../../src/ai/config.js';
-import { AIManager, getProviderModality, modelSupportsReasoning } from '../../src/ai/provider.js';
+import {
+  AIManager,
+  cleanGeneratedSessionTitle,
+  getProviderModality,
+  modelSupportsReasoning,
+} from '../../src/ai/provider.js';
 import {
   closeDb,
   createChatSession,
   appendChatMessage,
   getChatSession,
+  saveModel,
+  saveProvider,
+  updateChatSession,
 } from '../../src/db/database.js';
 
 describe('AI provider helpers and manager utilities', () => {
   const testDir = path.join(os.tmpdir(), `papyrus-ai-provider-helpers-${Date.now()}`);
+  const originalFetch = global.fetch;
 
   beforeAll(() => {
     fs.mkdirSync(testDir, { recursive: true });
@@ -19,12 +28,14 @@ describe('AI provider helpers and manager utilities', () => {
   });
 
   afterAll(() => {
+    global.fetch = originalFetch;
     closeDb();
     fs.rmSync(testDir, { recursive: true, force: true });
     delete process.env.PAPYRUS_DATA_DIR;
   });
 
   beforeEach(() => {
+    global.fetch = originalFetch;
     closeDb();
     const dbFile = path.join(testDir, 'papyrus.db');
     if (fs.existsSync(dbFile)) {
@@ -35,6 +46,45 @@ describe('AI provider helpers and manager utilities', () => {
   function createManager(): AIManager {
     const config = new AIConfig(testDir);
     return new AIManager(config);
+  }
+
+  /**
+   * 注册可由标题生成路径调用的本地 Ollama 模型。
+   * 原因：测试需要覆盖真实的模型目标解析与流读取，但不能访问外部网络。
+   * 未 mock AIManager 私有方法：保留对 provider 配置、安全校验和清洗管线的端到端覆盖。
+   */
+  function configureTitleModel(config: AIConfig): void {
+    const providerId = saveProvider({
+      id: 'title-provider',
+      type: 'ollama',
+      name: 'Title Ollama',
+      baseUrl: 'http://localhost:11434',
+      enabled: true,
+      isDefault: true,
+    });
+    saveModel(providerId, {
+      id: 'title-model',
+      name: 'Title Model',
+      modelId: 'title-model',
+      enabled: true,
+    });
+    config.config.current_provider = 'ollama';
+    config.config.current_model = 'title-model';
+  }
+
+  /**
+   * 返回符合 Ollama 流协议的单段标题响应。
+   * 原因：AIManager 使用逐行 JSON 流，普通 JSON 响应无法触发 content 分支。
+   * 未使用真实 Ollama 服务：单元测试必须离线、快速且结果确定。
+   */
+  function createOllamaTitleResponse(title: string): Response {
+    return new Response(
+      `${JSON.stringify({ message: { content: title }, done: false })}\n${JSON.stringify({ done: true })}\n`,
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/x-ndjson' },
+      },
+    );
   }
 
   it('provider helpers should classify modality and reasoning support', () => {
@@ -48,6 +98,174 @@ describe('AI provider helpers and manager utilities', () => {
     expect(modelSupportsReasoning('openai', 'gpt-4o-mini')).toBe(false);
   });
 
+  it('should clean generated title wrappers, labels, whitespace and length', () => {
+    expect(cleanGeneratedSessionTitle('## 标题： “记忆训练计划”\n额外解释')).toBe('记忆训练计划');
+    expect(cleanGeneratedSessionTitle('Title:   Spaced   repetition   setup ')).toBe('Spaced repetition setup');
+    expect(cleanGeneratedSessionTitle(`"${'a'.repeat(80)}"`)).toHaveLength(50);
+    expect(cleanGeneratedSessionTitle(' \n ')).toBe('');
+  });
+
+  it('should automatically generate a title for the first user message and persist AI ownership', async () => {
+    const config = new AIConfig(testDir);
+    configureTitleModel(config);
+    const manager = new AIManager(config);
+    const session = manager.createSession(undefined, true);
+    await manager.persistUserMessage(session.id, '请帮我设计一份间隔重复训练计划', []);
+    global.fetch = async () => createOllamaTitleResponse('标题：间隔重复训练计划');
+
+    const generated = await manager.generateSessionTitle(session.id, { timeoutMs: 1_000 });
+
+    expect(generated?.title).toBe('间隔重复训练计划');
+    expect(JSON.parse(getChatSession(session.id)?.metadata ?? '{}')).toEqual({
+      title_source: 'ai',
+    });
+    expect(await manager.generateSessionTitle(session.id, { timeoutMs: 1_000 })).toBeNull();
+  });
+
+  it('should exclude user input beyond 4000 characters from the title request', async () => {
+    const config = new AIConfig(testDir);
+    configureTitleModel(config);
+    const manager = new AIManager(config);
+    const session = manager.createSession(undefined, true);
+    await manager.persistUserMessage(
+      session.id,
+      `${'x'.repeat(4000)}SENSITIVE_TAIL_MARKER`,
+      [],
+    );
+    let requestBody = '';
+    global.fetch = async (_input, init) => {
+      requestBody = typeof init?.body === 'string' ? init.body : '';
+      return createOllamaTitleResponse('Long Input');
+    };
+
+    await manager.generateSessionTitle(session.id, { timeoutMs: 1_000 });
+
+    expect(requestBody).toContain('x'.repeat(100));
+    expect(requestBody).not.toContain('SENSITIVE_TAIL_MARKER');
+  });
+
+  it('should preserve a manual rename when an in-flight automatic title arrives late', async () => {
+    const config = new AIConfig(testDir);
+    configureTitleModel(config);
+    const manager = new AIManager(config);
+    const session = manager.createSession(undefined, true);
+    await manager.persistUserMessage(session.id, 'Explain memory palaces', []);
+
+    let releaseResponse: ((response: Response) => void) | undefined;
+    global.fetch = () => new Promise<Response>((resolve) => {
+      releaseResponse = resolve;
+    });
+    const generation = manager.generateSessionTitle(session.id, { timeoutMs: 1_000 });
+    await Promise.resolve();
+    manager.renameSession(session.id, 'My manual title');
+    releaseResponse?.(createOllamaTitleResponse('Late AI title'));
+
+    expect(await generation).toBeNull();
+    expect(manager.getSession(session.id)?.title).toBe('My manual title');
+    expect(JSON.parse(getChatSession(session.id)?.metadata ?? '{}')).toEqual({
+      title_source: 'user',
+    });
+  });
+
+  it('should restore system ownership when automatic title generation fails', async () => {
+    const config = new AIConfig(testDir);
+    configureTitleModel(config);
+    const manager = new AIManager(config);
+    const session = manager.createSession(undefined, true);
+    await manager.persistUserMessage(session.id, 'A title request', []);
+    global.fetch = async () => {
+      throw new Error('offline');
+    };
+
+    await expect(
+      manager.generateSessionTitle(session.id, { timeoutMs: 1_000 }),
+    ).rejects.toThrow('offline');
+
+    const unchanged = getChatSession(session.id);
+    expect(unchanged?.title).toBe(session.title);
+    expect(JSON.parse(unchanged?.metadata ?? '{}')).toEqual({
+      title_source: 'system',
+    });
+  });
+
+  it('should abort a timed-out title request and release the generation claim', async () => {
+    const config = new AIConfig(testDir);
+    configureTitleModel(config);
+    const manager = new AIManager(config);
+    const session = manager.createSession(undefined, true);
+    await manager.persistUserMessage(session.id, 'A slow title request', []);
+    global.fetch = (_input, init) => new Promise<Response>((_resolve, reject) => {
+      const signal = init?.signal;
+      if (!signal) {
+        reject(new Error('missing abort signal'));
+        return;
+      }
+      signal.addEventListener('abort', () => {
+        reject(new DOMException('aborted', 'AbortError'));
+      }, { once: true });
+    });
+
+    await expect(
+      manager.generateSessionTitle(session.id, { timeoutMs: 5 }),
+    ).rejects.toThrow('标题生成超时');
+
+    expect(JSON.parse(getChatSession(session.id)?.metadata ?? '{}')).toEqual({
+      title_source: 'system',
+    });
+  });
+
+  it('should reclaim a stale title-generation claim left by an interrupted process', async () => {
+    const config = new AIConfig(testDir);
+    configureTitleModel(config);
+    const manager = new AIManager(config);
+    const session = manager.createSession(undefined, true);
+    await manager.persistUserMessage(session.id, 'Recover a stranded title task', []);
+    const row = getChatSession(session.id);
+    expect(row).toBeDefined();
+    if (!row) {
+      throw new Error('Expected the test session to exist');
+    }
+    const staleMetadata = JSON.stringify({
+      title_source: 'system',
+      title_generation_id: 'stale-generation',
+      title_generation_mode: 'auto',
+      title_generation_started_at: Date.now() - 120_000,
+    });
+    expect(
+      updateChatSession(session.id, { metadata: staleMetadata }),
+    ).toBe(true);
+    global.fetch = async () => createOllamaTitleResponse('Recovered Title');
+
+    const generated = await manager.generateSessionTitle(session.id, {
+      timeoutMs: 1_000,
+    });
+
+    expect(generated?.title).toBe('Recovered Title');
+    expect(JSON.parse(getChatSession(session.id)?.metadata ?? '{}')).toEqual({
+      title_source: 'ai',
+    });
+  });
+
+  it('should allow explicit AI regeneration to replace a user-owned title', async () => {
+    const config = new AIConfig(testDir);
+    configureTitleModel(config);
+    const manager = new AIManager(config);
+    const session = manager.createSession('User title', true);
+    await manager.persistUserMessage(session.id, 'Explain the Leitner system', []);
+    global.fetch = async () => createOllamaTitleResponse('Leitner System Guide');
+
+    expect(await manager.generateSessionTitle(session.id)).toBeNull();
+    const generated = await manager.generateSessionTitle(session.id, {
+      force: true,
+      timeoutMs: 1_000,
+    });
+
+    expect(generated?.title).toBe('Leitner System Guide');
+    expect(JSON.parse(getChatSession(session.id)?.metadata ?? '{}')).toEqual({
+      title_source: 'ai',
+    });
+  });
+
   it('session helpers should create, switch, rename, delete and reset sessions', () => {
     const manager = createManager();
     const initial = manager.getActiveSession();
@@ -55,6 +273,9 @@ describe('AI provider helpers and manager utilities', () => {
 
     const created = manager.createSession('  Session A  ', true);
     expect(created.title).toBe('Session A');
+    expect(JSON.parse(getChatSession(created.id)?.metadata ?? '{}')).toEqual({
+      title_source: 'user',
+    });
     expect(manager.getActiveSessionId()).toBe(created.id);
     expect(manager.listSessions().some((item) => item.id === created.id)).toBe(true);
 
@@ -64,6 +285,9 @@ describe('AI provider helpers and manager utilities', () => {
 
     const another = manager.createSession('', false);
     expect(another.title.length).toBeGreaterThan(0);
+    expect(JSON.parse(getChatSession(another.id)?.metadata ?? '{}')).toEqual({
+      title_source: 'system',
+    });
 
     const switched = manager.switchSession(another.id);
     expect(switched.id).toBe(another.id);

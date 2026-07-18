@@ -39,6 +39,18 @@ export interface AIConfigData {
   current_provider: string;
   current_model: string;
   /**
+   * 对话标题生成专用供应商 type。
+   * 原因：轻量标题任务可使用更快、更便宜的独立模型。
+   * 未单独配置时不做字段级混搭，而是整组回退聊天默认目标。
+   */
+  title_provider: string;
+  /**
+   * 对话标题生成专用模型 API ID。
+   * 原因：模型 ID 只在所属供应商内有意义，必须与 title_provider 成对保存。
+   * 未复用翻译模型：翻译与摘要命名对输出能力和成本的偏好不同。
+   */
+  title_model: string;
+  /**
    * 翻译专用供应商 type（如 openai / deepseek）。
    * 为空时回退到 current_provider，保证未配置翻译模型时行为与旧版一致。
    * 未与 current_provider 合并：翻译可选用与聊天不同的供应商与密钥。
@@ -93,6 +105,8 @@ export class AIConfig {
       providers: {},
       current_provider: '',
       current_model: '',
+      title_provider: '',
+      title_model: '',
       translation_provider: '',
       translation_model: '',
       parameters: {
@@ -135,6 +149,8 @@ export class AIConfig {
     try {
       const dbCurrentProvider = readUiSetting('ai.current_provider');
       const dbCurrentModel = readUiSetting('ai.current_model');
+      const dbTitleProvider = readUiSetting('ai.title_provider');
+      const dbTitleModel = readUiSetting('ai.title_model');
       const dbTranslationProvider = readUiSetting('ai.translation_provider');
       const dbTranslationModel = readUiSetting('ai.translation_model');
       const dbParameters = readUiSetting('ai.parameters');
@@ -144,6 +160,8 @@ export class AIConfig {
       if (
         !dbCurrentProvider &&
         !dbCurrentModel &&
+        !dbTitleProvider &&
+        !dbTitleModel &&
         !dbTranslationProvider &&
         !dbTranslationModel &&
         !dbParameters &&
@@ -158,6 +176,8 @@ export class AIConfig {
         providers: {},
         current_provider: dbCurrentProvider ?? defaultConfig.current_provider,
         current_model: dbCurrentModel ?? defaultConfig.current_model,
+        title_provider: dbTitleProvider ?? defaultConfig.title_provider,
+        title_model: dbTitleModel ?? defaultConfig.title_model,
         translation_provider: dbTranslationProvider ?? defaultConfig.translation_provider,
         translation_model: dbTranslationModel ?? defaultConfig.translation_model,
         parameters: dbParameters
@@ -180,6 +200,8 @@ export class AIConfig {
     try {
       writeUiSetting('ai.current_provider', this.config.current_provider);
       writeUiSetting('ai.current_model', this.config.current_model);
+      writeUiSetting('ai.title_provider', this.config.title_provider);
+      writeUiSetting('ai.title_model', this.config.title_model);
       writeUiSetting('ai.translation_provider', this.config.translation_provider);
       writeUiSetting('ai.translation_model', this.config.translation_model);
       writeUiSetting('ai.parameters', JSON.stringify(this.config.parameters));
@@ -190,6 +212,36 @@ export class AIConfig {
       console.error('保存 AI 配置到数据库失败:', e instanceof Error ? e.message : String(e));
       return false;
     }
+  }
+
+  /**
+   * 解析标题生成应使用的供应商与模型。
+   * 原因：只有完整的 title_provider/title_model 配对才能保证模型属于正确供应商。
+   * 未做字段级回退：供应商 A 与聊天模型 B 的组合可能请求不存在的模型。
+   */
+  resolveTitleTarget(): { provider: string; model: string } {
+    const titleProvider = this.config.title_provider.trim();
+    const titleModel = this.config.title_model.trim();
+    if (titleProvider && titleModel) {
+      return { provider: titleProvider, model: titleModel };
+    }
+
+    return {
+      provider: this.config.current_provider,
+      model: this.config.current_model,
+    };
+  }
+
+  /**
+   * 判断是否存在完整的标题专用模型配置。
+   * 原因：设置页与调用层需要区分显式标题目标和聊天默认回退。
+   * 未仅检查模型字段：缺少供应商时无法可靠解析密钥与 Base URL。
+   */
+  hasTitleTarget(): boolean {
+    return (
+      this.config.title_provider.trim().length > 0 &&
+      this.config.title_model.trim().length > 0
+    );
   }
 
   /**

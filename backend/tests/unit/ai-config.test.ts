@@ -81,6 +81,46 @@ describe('AIConfig', () => {
     });
   });
 
+  it('should persist title model config and resolve complete pairs with chat fallback', () => {
+    const config1 = new AIConfig(tempDir);
+    config1.config.current_provider = 'openai';
+    config1.config.current_model = 'gpt-4o';
+    config1.config.title_provider = 'deepseek';
+    config1.config.title_model = 'deepseek-chat';
+    config1.saveConfig();
+
+    const config2 = new AIConfig(tempDir);
+    expect(config2.config.title_provider).toBe('deepseek');
+    expect(config2.config.title_model).toBe('deepseek-chat');
+    expect(config2.hasTitleTarget()).toBe(true);
+    expect(config2.resolveTitleTarget()).toEqual({
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+    });
+
+    config2.config.title_provider = '';
+    config2.config.title_model = '';
+    expect(config2.hasTitleTarget()).toBe(false);
+    expect(config2.resolveTitleTarget()).toEqual({
+      provider: 'openai',
+      model: 'gpt-4o',
+    });
+  });
+
+  it('should not mix title provider with the current chat model when the pair is incomplete', () => {
+    const config = new AIConfig(tempDir);
+    config.config.current_provider = 'openai';
+    config.config.current_model = 'gpt-4o';
+    config.config.title_provider = 'deepseek';
+    config.config.title_model = '';
+
+    expect(config.hasTitleTarget()).toBe(false);
+    expect(config.resolveTitleTarget()).toEqual({
+      provider: 'openai',
+      model: 'gpt-4o',
+    });
+  });
+
   it('should not mix translation_provider with current_model when pair incomplete', () => {
     const config = new AIConfig(tempDir);
     config.config.current_provider = 'openai';

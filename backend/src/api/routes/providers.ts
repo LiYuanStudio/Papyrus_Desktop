@@ -192,6 +192,13 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         aiConfig.saveConfig();
       }
 
+      // 同步清空标题专用配置，避免指向已删除供应商。
+      if (providerToDelete?.type && providerToDelete.type === aiConfig.config.title_provider) {
+        aiConfig.config.title_provider = '';
+        aiConfig.config.title_model = '';
+        aiConfig.saveConfig();
+      }
+
       // 同步清空翻译专用配置，避免指向已删除供应商
       if (providerToDelete?.type && providerToDelete.type === aiConfig.config.translation_provider) {
         aiConfig.config.translation_provider = '';
@@ -232,6 +239,17 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         return;
       }
       updateProviderEnabled(providerId, parseResult.data.enabled);
+      if (!parseResult.data.enabled) {
+        const disabledProvider = loadAllProviders().find((provider) => provider.id === providerId);
+        if (disabledProvider?.type === aiConfig.config.title_provider) {
+          // 禁用供应商后清空标题目标，使标题生成安全回退默认聊天模型。
+          // 原因：保留禁用引用会让后台标题请求持续失败。
+          // 未自动选择其他专用模型：替用户决定供应商会改变成本与隐私边界。
+          aiConfig.config.title_provider = '';
+          aiConfig.config.title_model = '';
+          aiConfig.saveConfig();
+        }
+      }
       reply.send({ success: true, message: 'Provider enabled status updated' });
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
@@ -290,6 +308,26 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
       };
 
       saveModel(providerId, mergedModel);
+      if (body.enabled === false) {
+        const titleRef = aiConfig.config.title_model;
+        const matchesTitle =
+          Boolean(titleRef) &&
+          (titleRef === existingModel.modelId ||
+            titleRef === existingModel.id ||
+            titleRef === modelId);
+        if (
+          matchesTitle &&
+          (!aiConfig.config.title_provider ||
+            aiConfig.config.title_provider === loadAllProviders().find((provider) => provider.id === providerId)?.type)
+        ) {
+          // 禁用标题模型后清空专用目标，让配置按既定规则回退聊天默认。
+          // 原因：禁用模型不应继续收到后台标题请求。
+          // 未自动选择同供应商其他模型：不同模型的价格与数据策略可能不同。
+          aiConfig.config.title_provider = '';
+          aiConfig.config.title_model = '';
+          aiConfig.saveConfig();
+        }
+      }
       reply.send({ success: true, message: 'Model updated' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -324,6 +362,20 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         if (!aiConfig.config.translation_provider || aiConfig.config.translation_provider === provider?.type) {
           aiConfig.config.translation_provider = '';
           aiConfig.config.translation_model = '';
+          aiConfig.saveConfig();
+        }
+      }
+
+      const titleRef = aiConfig.config.title_model;
+      const matchesTitle =
+        Boolean(titleRef) &&
+        (titleRef === modelRow?.modelId ||
+          titleRef === modelRow?.id ||
+          titleRef === modelId);
+      if (matchesTitle) {
+        if (!aiConfig.config.title_provider || aiConfig.config.title_provider === provider?.type) {
+          aiConfig.config.title_provider = '';
+          aiConfig.config.title_model = '';
           aiConfig.saveConfig();
         }
       }

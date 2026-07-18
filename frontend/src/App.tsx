@@ -200,6 +200,29 @@ const App = () => {
   }, [t]);
 
   /**
+   * 请求 AI 重新生成指定会话标题，并同步 App 持有的唯一会话摘要。
+   * 原因：主侧边栏不直接持有服务器状态，成功结果必须由协调层合并后再向下传递。
+   * 未进行乐观改名：标题内容完全由模型决定，失败时应原样保留当前标题。
+   */
+  const handleChatSessionGenerateTitle = useCallback(async (sessionId: string): Promise<boolean> => {
+    try {
+      const result = await api.generateChatSessionTitle(sessionId);
+      if (!result.success) {
+        return false;
+      }
+      setChatSessions((sessions) => sessions.map((session) => (
+        session.id === sessionId ? result.session : session
+      )));
+      Message.success(t('chatHistory.aiRenameSuccess'));
+      return true;
+    } catch (error) {
+      console.error('Failed to generate chat session title:', error);
+      Message.error(t('chatHistory.aiRenameFailed'));
+      return false;
+    }
+  }, [t]);
+
+  /**
    * 删除侧边栏中的会话，并在删除当前会话时请求 ChatPanel 切换到后端选出的下一项。
    * 原因：删除结果会改变活动会话，必须由同时掌握列表与面板请求状态的 App 统一协调。
    * 未只从数组中过滤：仅做乐观删除会留下已失效的活动会话和消息正文。
@@ -661,6 +684,7 @@ const App = () => {
           }}
           onChatSessionSelect={handleChatSessionSelect}
           onChatSessionRename={handleChatSessionRename}
+          onChatSessionGenerateTitle={handleChatSessionGenerateTitle}
           onChatSessionDelete={handleChatSessionDelete}
         />
 

@@ -263,6 +263,8 @@ describe('API Integration Tests', () => {
     const body = JSON.parse(response.body);
     expect(body.success).toBe(true);
     expect(body.config.current_provider).toBeDefined();
+    expect(body.config.title_provider).toBeDefined();
+    expect(body.config.title_model).toBeDefined();
     expect(body.config.providers).toBeDefined();
   });
 
@@ -1706,6 +1708,56 @@ describe('API Integration Tests', () => {
       expect(deleteResponse.statusCode).toBe(200);
     });
 
+    it('should clear dedicated title targets when their provider or model becomes unavailable', async () => {
+      const { aiConfig } = await import('../../src/api/routes/ai.js');
+      await app.inject({
+        method: 'POST',
+        url: '/api/providers',
+        payload: {
+          id: 'provider-title-cleanup',
+          type: 'title-cleanup',
+          name: 'Title Cleanup Provider',
+          enabled: true,
+          models: [
+            {
+              id: 'model-title-cleanup',
+              name: 'Title Cleanup Model',
+              modelId: 'title-cleanup-model',
+              enabled: true,
+            },
+          ],
+        },
+      });
+
+      aiConfig.config.title_provider = 'title-cleanup';
+      aiConfig.config.title_model = 'title-cleanup-model';
+      aiConfig.saveConfig();
+      const disableProviderResponse = await app.inject({
+        method: 'POST',
+        url: '/api/providers/provider-title-cleanup/enabled',
+        payload: { enabled: false },
+      });
+      expect(disableProviderResponse.statusCode).toBe(200);
+      expect(aiConfig.config.title_provider).toBe('');
+      expect(aiConfig.config.title_model).toBe('');
+
+      await app.inject({
+        method: 'POST',
+        url: '/api/providers/provider-title-cleanup/enabled',
+        payload: { enabled: true },
+      });
+      aiConfig.config.title_provider = 'title-cleanup';
+      aiConfig.config.title_model = 'title-cleanup-model';
+      aiConfig.saveConfig();
+      const deleteModelResponse = await app.inject({
+        method: 'DELETE',
+        url: '/api/providers/provider-title-cleanup/models/model-title-cleanup',
+      });
+      expect(deleteModelResponse.statusCode).toBe(200);
+      expect(aiConfig.config.title_provider).toBe('');
+      expect(aiConfig.config.title_model).toBe('');
+    });
+
     it('provider api key endpoints should validate, create, and delete', async () => {
       await app.inject({
         method: 'POST',
@@ -1848,6 +1900,72 @@ describe('API Integration Tests', () => {
       });
       expect(clearResponse.statusCode).toBe(200);
       expect(JSON.parse(clearResponse.body).deletedCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('POST /api/sessions/:sessionId/generate-title should validate and return the generated session', async () => {
+      const { aiManager } = await import('../../src/api/routes/ai.js');
+      const originalGenerateSessionTitle = aiManager.generateSessionTitle.bind(aiManager);
+
+      const missingResponse = await app.inject({
+        method: 'POST',
+        url: '/api/sessions/missing-session/generate-title',
+      });
+      expect(missingResponse.statusCode).toBe(404);
+
+      const blankSession = aiManager.createSession('Blank session', true);
+      const blankResponse = await app.inject({
+        method: 'POST',
+        url: `/api/sessions/${blankSession.id}/generate-title`,
+      });
+      expect(blankResponse.statusCode).toBe(400);
+
+      const session = aiManager.createSession('Manual title', true);
+      await aiManager.persistUserMessage(session.id, 'Explain spaced repetition', []);
+      aiManager.generateSessionTitle = async (sessionId) => {
+        const current = aiManager.getSession(sessionId);
+        return current ? { ...current, title: 'Spaced Repetition Guide' } : null;
+      };
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: `/api/sessions/${session.id}/generate-title`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(JSON.parse(response.body)).toMatchObject({
+          success: true,
+          session: {
+            id: session.id,
+            title: 'Spaced Repetition Guide',
+          },
+        });
+      } finally {
+        aiManager.generateSessionTitle = originalGenerateSessionTitle;
+      }
+    });
+
+    it('POST /api/sessions/:sessionId/generate-title should keep failures non-destructive', async () => {
+      const { aiManager } = await import('../../src/api/routes/ai.js');
+      const originalGenerateSessionTitle = aiManager.generateSessionTitle.bind(aiManager);
+      const session = aiManager.createSession('Keep this title', true);
+      await aiManager.persistUserMessage(session.id, 'Generate a title', []);
+      aiManager.generateSessionTitle = async () => {
+        throw new Error('title provider offline');
+      };
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: `/api/sessions/${session.id}/generate-title`,
+        });
+
+        expect(response.statusCode).toBe(502);
+        expect(JSON.parse(response.body).error).toBe('title provider offline');
+        expect(aiManager.getSession(session.id)?.title).toBe('Keep this title');
+      } finally {
+        aiManager.generateSessionTitle = originalGenerateSessionTitle;
+      }
     });
 
     it('message endpoints should validate payload, persist message and delete it', async () => {
@@ -2367,6 +2485,13 @@ describe('API Integration Tests', () => {
         yield { type: 'content', data: 'Hello' };
         yield { type: 'reasoning', data: 'Think' };
         yield {
+          type: 'title_updated',
+          data: {
+            sessionId: session.id,
+            title: 'Generated SSE Title',
+          },
+        };
+        yield {
           type: 'tool_start',
           data: {
             id: 'tool-call-1',
@@ -2398,6 +2523,8 @@ describe('API Integration Tests', () => {
         expect(response.body).toContain('"type":"user_saved"');
         expect(response.body).toContain('"type":"text"');
         expect(response.body).toContain('"type":"reasoning"');
+        expect(response.body).toContain('"type":"title_updated"');
+        expect(response.body).toContain('"title":"Generated SSE Title"');
         expect(response.body).toContain('"type":"tool_call"');
         expect(response.body).toContain('"type":"tool_result"');
         expect(response.body).toContain('"type":"done"');

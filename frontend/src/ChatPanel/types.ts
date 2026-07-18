@@ -26,8 +26,8 @@ export interface MessageBlock {
   toolName?: string;
   toolCallId?: string;
   toolStatus?: MessageBlockToolStatus;
-  toolParams?: Record<string, any>;
-  toolResult?: any;
+  toolParams?: Record<string, unknown>;
+  toolResult?: unknown;
   toolError?: string;
 }
 
@@ -47,10 +47,34 @@ export interface SelectedFile {
   type: 'image' | 'document' | 'unknown';
 }
 
-export interface SSEEvent {
-  type: 'text' | 'reasoning' | 'tool_call' | 'tool_result' | 'error' | 'done' | 'user_saved';
-  data: any;
-}
+// 聊天流事件使用 type 判别联合描述每类载荷。
+// 原因：解析后的网络数据仍需在消费处分支收窄，避免 `any` 让损坏载荷穿透到消息状态。
+// 未使用统一 Record：文本、错误和工具事件的结构不同，统一对象会丢失判别联合的类型保护。
+export type SSEEvent =
+  | { type: 'text' | 'reasoning'; data: string }
+  | {
+      type: 'tool_call';
+      data: {
+        callId?: string;
+        id?: string;
+        function?: { name?: string; arguments?: string };
+        name?: string;
+        params?: Record<string, unknown>;
+      };
+    }
+  | {
+      type: 'tool_result';
+      data: {
+        callId?: string;
+        name?: string;
+        success?: boolean;
+        result?: unknown;
+        error?: string;
+      };
+    }
+  | { type: 'done' | 'user_saved'; data: { messageId?: string } }
+  | { type: 'title_updated'; data: { sessionId?: string; title?: string } }
+  | { type: 'error'; data: string | { message?: string } };
 
 export interface RestoredMessageView {
   content: string;

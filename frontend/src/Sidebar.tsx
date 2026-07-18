@@ -27,6 +27,7 @@ interface SidebarProps {
   onNewChat: () => void;
   onChatSessionSelect: (sessionId: string) => void;
   onChatSessionRename: (sessionId: string, title: string) => Promise<boolean>;
+  onChatSessionGenerateTitle: (sessionId: string) => Promise<boolean>;
   onChatSessionDelete: (sessionId: string) => Promise<boolean>;
 }
 
@@ -68,6 +69,7 @@ const Sidebar = ({
   onNewChat,
   onChatSessionSelect,
   onChatSessionRename,
+  onChatSessionGenerateTitle,
   onChatSessionDelete,
 }: SidebarProps) => {
   const { t } = useTranslation();
@@ -164,6 +166,7 @@ const Sidebar = ({
         activeSessionId={activeChatSessionId}
         onSelectSession={onChatSessionSelect}
         onRenameSession={onChatSessionRename}
+        onGenerateTitle={onChatSessionGenerateTitle}
         onDeleteSession={onChatSessionDelete}
       />
       <Tooltip

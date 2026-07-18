@@ -1,6 +1,6 @@
 import { useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Input, Spin, Tooltip, Trigger } from '@arco-design/web-react';
-import { IconDelete, IconEdit, IconHistory } from '@arco-design/web-react/icon';
+import { IconDelete, IconEdit, IconHistory, IconRobot } from '@arco-design/web-react/icon';
 import { useTranslation } from 'react-i18next';
 import type { ChatSession } from '../api';
 
@@ -16,6 +16,7 @@ interface SidebarChatHistoryProps {
   activeSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
   onRenameSession: (sessionId: string, title: string) => Promise<boolean>;
+  onGenerateTitle: (sessionId: string) => Promise<boolean>;
   onDeleteSession: (sessionId: string) => Promise<boolean>;
 }
 
@@ -31,6 +32,7 @@ export function SidebarChatHistory({
   activeSessionId,
   onSelectSession,
   onRenameSession,
+  onGenerateTitle,
   onDeleteSession,
 }: SidebarChatHistoryProps) {
   const { t } = useTranslation();
@@ -39,6 +41,7 @@ export function SidebarChatHistory({
   const [editingTitle, setEditingTitle] = useState('');
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [generatingTitleIds, setGeneratingTitleIds] = useState<Set<string>>(() => new Set());
 
   /**
    * 侧边栏布局切换后关闭收起态弹出菜单，并撤销尚未执行的删除确认。
@@ -180,6 +183,31 @@ export function SidebarChatHistory({
   };
 
   /**
+   * 为单个会话触发 AI 重新命名，并仅锁定该行的 AI 操作。
+   * 原因：不同会话的标题生成彼此独立，不应因一个慢请求冻结全部历史管理。
+   * 未直接调用 API：App 需要合并服务端会话对象，保证展开与收起视图共享同一状态。
+   */
+  const handleGenerateTitle = async (
+    sessionId: string,
+    event: MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    if (generatingTitleIds.has(sessionId)) {
+      return;
+    }
+    setGeneratingTitleIds((current) => new Set(current).add(sessionId));
+    try {
+      await onGenerateTitle(sessionId);
+    } finally {
+      setGeneratingTitleIds((current) => {
+        const next = new Set(current);
+        next.delete(sessionId);
+        return next;
+      });
+    }
+  };
+
+  /**
    * 允许键盘用户用 Escape 撤销已经展开的删除胶囊。
    * 原因：确认态没有自动超时，必须提供无需移动焦点的明确退出路径。
    * 未让 Escape 关闭整个历史菜单：该按键只撤销当前危险操作，避免丢失浏览上下文。
@@ -227,6 +255,7 @@ export function SidebarChatHistory({
           const isEditing = session.id === editingId;
           const isDeleteConfirming = session.id === deleteConfirmationId;
           const isDeleting = session.id === deletingId;
+          const isGeneratingTitle = generatingTitleIds.has(session.id);
           return (
             <div
               key={session.id}
@@ -267,16 +296,32 @@ export function SidebarChatHistory({
                   }
                 >
                   {!isDeleteConfirming && (
-                    <Tooltip key="rename" content={t('sidebar.renameConversation')} mini>
-                      <button
-                        className="sidebar-chat-history-action"
-                        type="button"
-                        onClick={(event) => startEditing(session, event)}
-                        aria-label={t('sidebar.renameConversation')}
-                      >
-                        <IconEdit aria-hidden="true" />
-                      </button>
-                    </Tooltip>
+                    <>
+                      <Tooltip key="ai-rename" content={t('sidebar.aiRenameConversation')} mini>
+                        <button
+                          className="sidebar-chat-history-action"
+                          type="button"
+                          onClick={(event) => {
+                            void handleGenerateTitle(session.id, event);
+                          }}
+                          aria-label={t('sidebar.aiRenameConversation')}
+                          aria-busy={isGeneratingTitle || undefined}
+                          disabled={isGeneratingTitle}
+                        >
+                          {isGeneratingTitle ? <Spin size={12} /> : <IconRobot aria-hidden="true" />}
+                        </button>
+                      </Tooltip>
+                      <Tooltip key="rename" content={t('sidebar.renameConversation')} mini>
+                        <button
+                          className="sidebar-chat-history-action"
+                          type="button"
+                          onClick={(event) => startEditing(session, event)}
+                          aria-label={t('sidebar.renameConversation')}
+                        >
+                          <IconEdit aria-hidden="true" />
+                        </button>
+                      </Tooltip>
+                    </>
                   )}
                   <Tooltip key="delete" content={t('sidebar.deleteConversation')} mini>
                     <button

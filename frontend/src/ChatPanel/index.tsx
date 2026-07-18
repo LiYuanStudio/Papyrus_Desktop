@@ -73,6 +73,16 @@ const ChatPanel = ({
 
   const fileHandler = useFileHandler();
 
+  /**
+   * 标题 SSE 到达后同时刷新面板抽屉和 App 持有的主侧边栏摘要。
+   * 原因：两处列表各自从服务端加载，必须在同一事件后收敛到新标题。
+   * 未直接修改局部数组：服务端返回的消息数、更新时间和标题应作为唯一事实来源。
+   */
+  const handleTitleUpdated = useCallback(() => {
+    void loadSessions();
+    void onSessionsChange?.();
+  }, [loadSessions, onSessionsChange]);
+
   const {
     sendMessage,
     stopGeneration,
@@ -93,6 +103,7 @@ const ChatPanel = ({
     setMessages,
     setIsGenerating,
     messages,
+    onTitleUpdated: handleTitleUpdated,
   });
 
   useEffect(() => {

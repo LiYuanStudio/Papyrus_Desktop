@@ -3,6 +3,8 @@ import type { ToolCallRecord } from '../../ai/tool-manager.js';
 export interface AIConfigPayload {
   current_provider?: string;
   current_model?: string;
+  title_provider?: string;
+  title_model?: string;
   translation_provider?: string;
   translation_model?: string;
   providers?: Record<string, { api_key: string; base_url: string; models: string[] }>;

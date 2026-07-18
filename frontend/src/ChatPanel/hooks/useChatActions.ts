@@ -18,6 +18,7 @@ export interface UseChatActionsProps {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>;
   messages: Message[];
+  onTitleUpdated?: () => void;
 }
 
 export interface UseChatActionsReturn {
@@ -70,6 +71,7 @@ export function useChatActions({
   setText,
   setMessages,
   setIsGenerating,
+  onTitleUpdated,
 }: UseChatActionsProps): UseChatActionsReturn {
   const abortControllerRef = useRef<AbortController | null>(null);
   const textOverrideRef = useRef<string | null>(null);
@@ -116,6 +118,11 @@ export function useChatActions({
                     ),
                   );
                 }
+                continue;
+              }
+
+              if (event.type === 'title_updated') {
+                onTitleUpdated?.();
                 continue;
               }
 
@@ -261,7 +268,7 @@ export function useChatActions({
     } finally {
       reader.releaseLock();
     }
-  }, [setMessages]);
+  }, [onTitleUpdated, setMessages]);
 
   const sendMessage = useCallback(async () => {
     const messageFromOverride = textOverrideRef.current;

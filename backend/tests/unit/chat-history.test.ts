@@ -64,6 +64,47 @@ describe('Chat History DB Repo', () => {
       expect(dbModule.updateChatSession('nope', { title: 'x' })).toBe(false);
     });
 
+    it('should compare-and-swap session metadata and title atomically', () => {
+      const originalMetadata = JSON.stringify({ title_source: 'system' });
+      const claimedMetadata = JSON.stringify({
+        title_source: 'system',
+        title_generation_id: 'generation-1',
+      });
+      dbModule.createChatSession({
+        id: 's1',
+        title: 'New conversation',
+        metadata: originalMetadata,
+      });
+
+      expect(
+        dbModule.compareAndSwapChatSessionMetadata(
+          's1',
+          originalMetadata,
+          claimedMetadata,
+        ),
+      ).toBe(true);
+      expect(
+        dbModule.compareAndSwapChatSessionTitle(
+          's1',
+          originalMetadata,
+          'Stale AI title',
+          JSON.stringify({ title_source: 'ai' }),
+        ),
+      ).toBe(false);
+      expect(
+        dbModule.compareAndSwapChatSessionTitle(
+          's1',
+          claimedMetadata,
+          'Generated title',
+          JSON.stringify({ title_source: 'ai' }),
+        ),
+      ).toBe(true);
+
+      const updated = dbModule.getChatSession('s1');
+      expect(updated?.title).toBe('Generated title');
+      expect(JSON.parse(updated?.metadata ?? '{}')).toEqual({ title_source: 'ai' });
+    });
+
     it('should ensure setActiveChatSession leaves only one active row', () => {
       dbModule.createChatSession({ id: 's1' });
       dbModule.createChatSession({ id: 's2' });

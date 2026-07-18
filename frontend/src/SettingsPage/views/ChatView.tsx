@@ -51,6 +51,7 @@ const ChatView = ({ onBack }: ChatViewProps) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [, setProvidersLoading] = useState(false);
   const [currentModelId, setCurrentModelId] = useState<string>('');
+  const [titleModelId, setTitleModelId] = useState<string>('');
   const [translationModelId, setTranslationModelId] = useState<string>('');
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [modelModalVisible, setModelModalVisible] = useState(false);
@@ -89,9 +90,9 @@ const ChatView = ({ onBack }: ChatViewProps) => {
   }, []);
 
   /**
-   * 根据已保存的 AI 配置，把 current_model / translation_model 解析为模型行 id。
+   * 根据已保存的 AI 配置，把聊天、标题与翻译模型解析为模型行 id。
    * 原因：UI 用 DB 行 id 高亮卡片，而配置存的是 API modelId + provider type。
-   * 未仅用 isDefault：翻译模型可能与默认聊天模型不同；但 current_model 为空时仍回退 isDefault，与聊天工具栏一致。
+   * 未仅用 isDefault：标题和翻译模型可能与默认聊天模型不同；只有 current_model 缺失时才回退默认项。
    */
   const hydrateModelSelections = (providerList: Provider[]) => {
     api.getAIConfig()
@@ -122,6 +123,23 @@ const ChatView = ({ onBack }: ChatViewProps) => {
 
         if (resolvedCurrentId) {
           setCurrentModelId(resolvedCurrentId);
+        }
+
+        if (cfg?.title_model) {
+          let resolvedTitleId = '';
+          for (const p of providerList) {
+            if (cfg.title_provider && p.type !== cfg.title_provider) continue;
+            const match = p.models.find(
+              m => m.modelId === cfg.title_model || m.id === cfg.title_model,
+            );
+            if (match) {
+              resolvedTitleId = match.id;
+              break;
+            }
+          }
+          setTitleModelId(resolvedTitleId);
+        } else {
+          setTitleModelId('');
         }
 
         if (cfg?.translation_model) {
@@ -283,6 +301,31 @@ const ChatView = ({ onBack }: ChatViewProps) => {
       notifyAIConfigChanged();
     } catch (err) {
       console.error('Failed to sync model config to backend:', err);
+      Message.error(t('chatView.syncFailed'));
+    }
+  };
+
+  /**
+   * 将指定模型设为对话标题生成模型，并成对保存供应商 type 与 API modelId。
+   * 原因：模型 ID 可能跨供应商重名，后台需要用供应商定位正确密钥和 Base URL。
+   * 未强制配置：清空或失效时后台会成对回退默认聊天模型，保持开箱即用。
+   */
+  const saveTitleModel = async (modelId: string) => {
+    setTitleModelId(modelId);
+    try {
+      const provider = providers.find(p => p.models.some(m => m.id === modelId));
+      const model = provider?.models.find(m => m.id === modelId);
+      const updated: Partial<import('../../api').AIConfig> = {
+        title_model: model?.modelId || modelId,
+      };
+      if (provider) {
+        updated.title_provider = provider.type;
+      }
+      await api.saveAIConfig(updated);
+      notifyAIConfigChanged();
+      Message.success(t('chatView.titleModelSet'));
+    } catch (err) {
+      console.error('Failed to sync title model config to backend:', err);
       Message.error(t('chatView.syncFailed'));
     }
   };
@@ -591,8 +634,10 @@ const ChatView = ({ onBack }: ChatViewProps) => {
                 <ModelsSection
                   providers={providers}
                   currentModelId={currentModelId}
+                  titleModelId={titleModelId}
                   translationModelId={translationModelId}
                   saveDefaultModel={saveDefaultModel}
+                  saveTitleModel={saveTitleModel}
                   saveTranslationModel={saveTranslationModel}
                   deleteModel={deleteModel}
                   openModelModal={openModelModal}

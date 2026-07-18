@@ -18,6 +18,8 @@ import {
   listChatSessions as repoListChatSessions,
   getChatSession as repoGetChatSession,
   updateChatSession as repoUpdateChatSession,
+  compareAndSwapChatSessionTitle as repoCompareAndSwapChatSessionTitle,
+  compareAndSwapChatSessionMetadata as repoCompareAndSwapChatSessionMetadata,
   setActiveChatSession as repoSetActiveChatSession,
   getActiveChatSession as repoGetActiveChatSession,
   deleteChatSession as repoDeleteChatSession,
@@ -40,6 +42,7 @@ export type StreamEventType =
   | 'done'
   | 'error'
   | 'user_saved'
+  | 'title_updated'
   | 'stream_end';
 
 export interface StreamChunk {
@@ -138,6 +141,31 @@ interface BackendHistoryMessage {
   blocks: import('../core/types.js').ChatBlock[];
 }
 
+/**
+ * 描述会话标题的所有权和正在执行的生成任务。
+ * 原因：标题生成与手动改名并发时，需要持久化来源和一次性任务令牌来决定谁可提交结果。
+ * 未新增数据库列：现有 metadata 已能兼容扩展，且老会话缺少 title_source 时可安全视为不可自动覆盖。
+ */
+interface ChatSessionMetadata {
+  title_source?: 'system' | 'ai' | 'user';
+  title_generation_id?: string;
+  title_generation_mode?: 'auto' | 'manual';
+  title_generation_started_at?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * 标题生成调用的行为选项。
+ * 原因：自动命名与用户主动重命名共享生成管线，但覆盖权限和等待时限不同。
+ * 未拆成两套方法：重复的模型解析、清洗和原子提交逻辑更容易发生行为漂移。
+ */
+interface GenerateSessionTitleOptions {
+  force?: boolean;
+  timeoutMs?: number;
+}
+
+const TITLE_GENERATION_CLAIM_TTL_MS = 60_000;
+
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 const DOCUMENT_EXTENSIONS = new Set(['.pdf', '.txt', '.md', '.docx']);
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
@@ -176,6 +204,45 @@ function safeParseJsonObject<T>(text: string): T | null {
     // ignore
   }
   return null;
+}
+
+/**
+ * 解析会话 metadata 为可扩展对象。
+ * 原因：历史数据可能是空对象或损坏 JSON，生成资格判断必须失败安全。
+ * 未把缺失 title_source 推断为 system：老会话的标题来源未知，自动覆盖会有数据损失风险。
+ */
+function parseChatSessionMetadata(text: string): ChatSessionMetadata {
+  return safeParseJsonObject<ChatSessionMetadata>(text) ?? {};
+}
+
+/**
+ * 将模型输出规范化为现有标题输入可接受的单行文本。
+ * 原因：兼容模型常返回引号、Markdown 标题或“标题：”说明，需要在持久化前统一收敛。
+ * 未使用模型原始输出：未经清洗的多行内容会破坏列表布局并绕过 50 字符 UI 限制。
+ */
+export function cleanGeneratedSessionTitle(rawTitle: string): string {
+  const firstLine = rawTitle
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```[\w-]*|```/g, ''))
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0) ?? '';
+  const withoutPrefix = firstLine
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^(?:标题|標題|title|会话标题|會話標題)\s*[:：]\s*/i, '')
+    .trim();
+  const withoutWrappingQuotes = withoutPrefix
+    .replace(/^[\s"'“”‘’「」『』`]+/, '')
+    .replace(/[\s"'“”‘’「」『』`]+$/, '');
+  return withoutWrappingQuotes.replace(/\s+/g, ' ').trim().slice(0, 50);
+}
+
+/**
+ * 序列化标题元数据并保持稳定的 JSON 对象结构。
+ * 原因：数据库的比较交换以原始 metadata 字符串作为并发令牌，提交阶段必须复用确切的声明值。
+ * 未对键排序：调用方保存并持有同一次序列化结果，不依赖跨进程重建字符串。
+ */
+function serializeChatSessionMetadata(metadata: ChatSessionMetadata): string {
+  return JSON.stringify(metadata);
 }
 
 function rowToChatMessage(row: ChatMessageRow): ChatMessage {
@@ -228,7 +295,11 @@ export class AIManager {
     this.migrateLegacySessionsJson();
 
     if (repoListChatSessions().length === 0) {
-      const fresh = repoCreateChatSession({ id: this.generateSessionId(), title: '新对话' });
+      const fresh = repoCreateChatSession({
+        id: this.generateSessionId(),
+        title: '新对话',
+        metadata: serializeChatSessionMetadata({ title_source: 'system' }),
+      });
       repoSetActiveChatSession(fresh.id);
     } else if (!repoGetActiveChatSession()) {
       const list = repoListChatSessions();
@@ -268,6 +339,7 @@ export class AIManager {
         repoCreateChatSession({
           id: sid,
           title: s.title !== undefined ? String(s.title) : '新对话',
+          metadata: serializeChatSessionMetadata({ title_source: 'user' }),
           created_at: createdAt,
           updated_at: updatedAt,
         });
@@ -310,10 +382,17 @@ export class AIManager {
   }
 
   createSession(title?: string, switchSession = true): ChatSession {
-    const generatedTitle = (title && title.trim()) || new Date().toLocaleString('zh-CN', {
+    const requestedTitle = title?.trim();
+    const generatedTitle = requestedTitle || new Date().toLocaleString('zh-CN', {
       month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
     }).replace(/\//g, '-');
-    const row = repoCreateChatSession({ id: this.generateSessionId(), title: generatedTitle });
+    const row = repoCreateChatSession({
+      id: this.generateSessionId(),
+      title: generatedTitle,
+      metadata: serializeChatSessionMetadata({
+        title_source: requestedTitle ? 'user' : 'system',
+      }),
+    });
     if (switchSession) {
       repoSetActiveChatSession(row.id);
       const refreshed = repoGetChatSession(row.id);
@@ -332,7 +411,17 @@ export class AIManager {
 
   renameSession(sessionId: string, title: string): ChatSession {
     const trimmed = title.trim() || '新对话';
-    const ok = repoUpdateChatSession(sessionId, { title: trimmed });
+    const current = repoGetChatSession(sessionId);
+    if (!current) throw new Error('会话不存在');
+    const metadata = parseChatSessionMetadata(current.metadata);
+    delete metadata.title_generation_id;
+    delete metadata.title_generation_mode;
+    delete metadata.title_generation_started_at;
+    metadata.title_source = 'user';
+    const ok = repoUpdateChatSession(sessionId, {
+      title: trimmed,
+      metadata: serializeChatSessionMetadata(metadata),
+    });
     if (!ok) throw new Error('会话不存在');
     const row = repoGetChatSession(sessionId);
     if (!row) throw new Error('会话不存在');
@@ -343,7 +432,7 @@ export class AIManager {
     const result = repoDeleteChatSession(sessionId);
     if (!result.deleted) throw new Error('会话不存在');
     if (result.newActiveId === null && repoListChatSessions().length === 0) {
-      const fresh = this.createSession('新对话', true);
+      const fresh = this.createSession(undefined, true);
       return { activeSessionId: fresh.id };
     }
     return { activeSessionId: result.newActiveId };
@@ -351,7 +440,7 @@ export class AIManager {
 
   clearAllSessions(): { activeSessionId: string | null; deletedCount: number } {
     const deleted = repoClearAllChatSessions();
-    const fresh = this.createSession('新对话', true);
+    const fresh = this.createSession(undefined, true);
     return { activeSessionId: fresh.id, deletedCount: deleted };
   }
 
@@ -384,6 +473,191 @@ export class AIManager {
   getMessage(messageId: string): ChatMessage | null {
     const row = repoGetChatMessage(messageId);
     return row ? rowToChatMessage(row) : null;
+  }
+
+  /**
+   * 使用会话首条用户输入生成并原子提交标题。
+   * 原因：自动与手动入口都必须共享同一模型选择、超时、清洗及并发保护规则。
+   * 未直接调用 renameSession：普通重命名会标记为 user，且无法阻止迟到结果覆盖并发手动编辑。
+   */
+  async generateSessionTitle(
+    sessionId: string,
+    options: GenerateSessionTitleOptions = {},
+  ): Promise<ChatSession | null> {
+    const session = repoGetChatSession(sessionId);
+    if (!session) {
+      throw new Error('会话不存在');
+    }
+
+    const firstUserMessage = repoListChatMessages(sessionId)
+      .find((message) => message.role === 'user');
+    if (!firstUserMessage?.content.trim()) {
+      throw new Error('会话没有可用于生成标题的用户消息');
+    }
+
+    const originalMetadata = parseChatSessionMetadata(session.metadata);
+    const isAutomatic = options.force !== true;
+    if (
+      isAutomatic &&
+      (originalMetadata.title_source !== 'system' || session.message_count !== 1)
+    ) {
+      return null;
+    }
+    if (originalMetadata.title_generation_id) {
+      const claimStartedAt = originalMetadata.title_generation_started_at;
+      const claimAge = typeof claimStartedAt === 'number' && Number.isFinite(claimStartedAt)
+        ? Date.now() - claimStartedAt
+        : Number.POSITIVE_INFINITY;
+      if (claimAge >= 0 && claimAge < TITLE_GENERATION_CLAIM_TTL_MS) {
+        return null;
+      }
+      // 回收崩溃或旧版本遗留的任务声明。
+      // 原因：进程退出后不会执行 finally/catch，永久保留 generation_id 会锁死手动与自动重命名。
+      // 未无条件抢占：一分钟内的声明仍可能是另一个并发请求持有，必须继续尊重其所有权。
+      delete originalMetadata.title_generation_id;
+      delete originalMetadata.title_generation_mode;
+      delete originalMetadata.title_generation_started_at;
+    }
+
+    const generationId = uuidv4();
+    const baseMetadataText = serializeChatSessionMetadata(originalMetadata);
+    const claimedMetadata: ChatSessionMetadata = {
+      ...originalMetadata,
+      title_generation_id: generationId,
+      title_generation_mode: isAutomatic ? 'auto' : 'manual',
+      title_generation_started_at: Date.now(),
+    };
+    const claimedMetadataText = serializeChatSessionMetadata(claimedMetadata);
+    const claimed = repoCompareAndSwapChatSessionMetadata(
+      sessionId,
+      session.metadata,
+      claimedMetadataText,
+    );
+    if (!claimed) {
+      return null;
+    }
+
+    const { provider: providerName, model } = this.config.resolveTitleTarget();
+    const providerConfig = getProviderConfigFromDB(providerName);
+    if (!providerName || !model || !providerConfig) {
+      repoCompareAndSwapChatSessionMetadata(sessionId, claimedMetadataText, baseMetadataText);
+      throw new Error('标题生成模型未配置或不可用');
+    }
+
+    const promptInput = firstUserMessage.content.trim().slice(0, 4000);
+    const messages: ProviderMessage[] = [
+      {
+        role: 'system',
+        content: [
+          'Generate a concise conversation title from the user input.',
+          'Use the same primary language as the input.',
+          'For Chinese or Japanese, prefer 4-16 characters; otherwise prefer 2-8 words.',
+          'Return only the title without quotes, markdown, labels, punctuation-only suffixes, or explanation.',
+        ].join(' '),
+      },
+      { role: 'user', content: promptInput },
+    ];
+    const controller = new AbortController();
+    const timeoutMs = options.timeoutMs ?? (isAutomatic ? 10_000 : 30_000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      let rawTitle = '';
+      const titleParams = {
+        temperature: 0.2,
+        top_p: 0.9,
+        max_tokens: 32,
+        presence_penalty: 0,
+        frequency_penalty: 0,
+      };
+      const stream = providerName === 'ollama'
+        ? this.chatStreamOllama(
+            messages,
+            model,
+            titleParams,
+            providerConfig,
+            undefined,
+            controller.signal,
+          )
+        : this.chatStreamOpenAI(
+            messages,
+            model,
+            titleParams,
+            providerConfig,
+            providerName,
+            undefined,
+            false,
+            controller.signal,
+          );
+
+      for await (const chunk of stream) {
+        if (chunk.type === 'content' && typeof chunk.data === 'string') {
+          rawTitle += chunk.data;
+        } else if (chunk.type === 'error') {
+          throw new Error(typeof chunk.data === 'string' ? chunk.data : '标题生成失败');
+        }
+      }
+
+      const title = cleanGeneratedSessionTitle(rawTitle);
+      if (!title) {
+        throw new Error('标题模型返回了空标题');
+      }
+
+      const completedMetadata: ChatSessionMetadata = {
+        ...originalMetadata,
+        title_source: 'ai',
+      };
+      delete completedMetadata.title_generation_id;
+      delete completedMetadata.title_generation_mode;
+      delete completedMetadata.title_generation_started_at;
+      const updated = repoCompareAndSwapChatSessionTitle(
+        sessionId,
+        claimedMetadataText,
+        title,
+        serializeChatSessionMetadata(completedMetadata),
+      );
+      if (!updated) {
+        return null;
+      }
+      const refreshed = repoGetChatSession(sessionId);
+      return refreshed ? rowToChatSession(refreshed) : null;
+    } catch (error) {
+      repoCompareAndSwapChatSessionMetadata(sessionId, claimedMetadataText, baseMetadataText);
+      if (controller.signal.aborted) {
+        throw new Error('标题生成超时');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * 将自动标题任务转换为可发送给前端的 SSE 数据块。
+   * 原因：自动命名失败不能中断主聊天，而成功时需要即时同步两个历史列表。
+   * 未把错误转换为普通 error 事件：标题属于附属增强，错误提示会误导用户认为主回答失败。
+   */
+  private async resolveAutoTitleChunk(
+    titleTask: Promise<ChatSession | null> | null,
+  ): Promise<StreamChunk | null> {
+    if (!titleTask) {
+      return null;
+    }
+    try {
+      const session = await titleTask;
+      if (!session) {
+        return null;
+      }
+      return {
+        type: 'title_updated',
+        data: {
+          sessionId: session.id,
+          title: session.title,
+        },
+      };
+    } catch {
+      return null;
+    }
   }
 
   deleteMessage(messageId: string): boolean {
@@ -426,7 +700,7 @@ export class AIManager {
   }
 
   clearHistory(): void {
-    const fresh = this.createSession('新对话', true);
+    const fresh = this.createSession(undefined, true);
     void fresh;
   }
 
@@ -827,6 +1101,12 @@ export class AIManager {
       yield { type: 'error', data: e instanceof Error ? e.message : String(e) };
       return;
     }
+    // 首条用户消息落库后立即启动标题任务，与主回答并行，避免增加首 token 延迟。
+    // 原因：生成方法内部会再次校验 message_count 和 title_source，并用 metadata 原子声明任务。
+    // 未在持久化前启动：失败的聊天请求不应给空会话生成标题。
+    const titleTask = chatSessionRow.message_count === 0
+      ? this.generateSessionTitle(targetSessionId, { timeoutMs: 10_000 }).catch(() => null)
+      : null;
     yield {
       type: 'user_saved',
       data: {
@@ -844,6 +1124,10 @@ export class AIManager {
       try {
         for (const chunk of cached) {
           yield chunk;
+        }
+        const titleChunk = await this.resolveAutoTitleChunk(titleTask);
+        if (titleChunk) {
+          yield titleChunk;
         }
         yield {
           type: 'stream_end',
@@ -872,6 +1156,10 @@ export class AIManager {
       }
 
       this.llmCache.set(cacheKey, collectedChunks);
+      const titleChunk = await this.resolveAutoTitleChunk(titleTask);
+      if (titleChunk) {
+        yield titleChunk;
+      }
       yield {
         type: 'stream_end',
         data: {
@@ -883,6 +1171,10 @@ export class AIManager {
       };
     } catch (e) {
       yield { type: 'error', data: e instanceof Error ? e.message : String(e) };
+      const titleChunk = await this.resolveAutoTitleChunk(titleTask);
+      if (titleChunk) {
+        yield titleChunk;
+      }
     }
   }
 
@@ -1012,6 +1304,7 @@ Output only the translation, no explanations.`;
     providerName: string,
     mode?: string,
     reasoning: ReasoningEffort | false = false,
+    signal?: AbortSignal,
   ): AsyncGenerator<StreamChunk> {
     const rawBaseUrl = (providerConfig.base_url || '').replace(/\/$/, '');
     const baseUrl = providerName === 'gemini' ? `${rawBaseUrl}/openai` : rawBaseUrl;
@@ -1081,7 +1374,7 @@ Output only the translation, no explanations.`;
       }
     }
 
-    const stream = await client.chat.completions.create(requestParams);
+    const stream = await client.chat.completions.create(requestParams, { signal });
 
     interface PendingToolCall {
       id: string;
@@ -1156,6 +1449,7 @@ Output only the translation, no explanations.`;
     params: { temperature?: number },
     providerConfig: { base_url: string },
     mode?: string,
+    signal?: AbortSignal,
   ): AsyncGenerator<StreamChunk> {
     const urlError = validateProviderBaseUrl(providerConfig.base_url, 'ollama');
     if (urlError) {
@@ -1173,7 +1467,7 @@ Output only the translation, no explanations.`;
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(60000),
+      signal: signal ?? AbortSignal.timeout(60000),
       body: JSON.stringify({
         model,
         messages: enrichedMessages,

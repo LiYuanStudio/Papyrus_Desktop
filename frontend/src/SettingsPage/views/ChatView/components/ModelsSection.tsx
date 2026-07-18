@@ -9,8 +9,10 @@ const { Text, Paragraph } = Typography;
 interface ModelsSectionProps {
   providers: Provider[];
   currentModelId: string;
+  titleModelId: string;
   translationModelId: string;
   saveDefaultModel: (id: string) => void;
+  saveTitleModel: (id: string) => void;
   saveTranslationModel: (id: string) => void;
   deleteModel: (providerId: string, modelId: string) => void;
   openModelModal: (providerId?: string, model?: Model) => void;
@@ -19,15 +21,17 @@ interface ModelsSectionProps {
 }
 
 /**
- * 模型管理列表：展示已启用供应商下的模型，并支持设为默认聊天模型 / 翻译模型。
- * 翻译模型单独标记，避免与聊天默认模型混淆；未选翻译模型时后端回退到聊天默认。
+ * 模型管理列表：展示已启用供应商下的模型，并支持设为默认聊天、标题或翻译模型。
+ * 标题与翻译模型单独标记，避免与聊天默认混淆；未选择专用模型时后端回退聊天默认。
  * 未做成独立下拉页：复用卡片操作与「设为默认」一致，降低设置路径认知成本。
  */
 const ModelsSection = ({
   providers,
   currentModelId,
+  titleModelId,
   translationModelId,
   saveDefaultModel,
+  saveTitleModel,
   saveTranslationModel,
   deleteModel,
   openModelModal,
@@ -53,7 +57,7 @@ const ModelsSection = ({
   return (
     <>
       <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 16 }}>
-        {t('chatView.translationModelHint')}
+        {t('chatView.specialModelHint')}
       </Paragraph>
       {enabledProviders.map(provider => (
         <div key={provider.id} style={{ marginBottom: 24 }}>
@@ -65,6 +69,7 @@ const ModelsSection = ({
           {provider.models.map(model => {
             const apiKey = provider.apiKeys.find(k => k.id === model.apiKeyId);
             const isDefault = currentModelId === model.id;
+            const isTitle = titleModelId === model.id;
             const isTranslation = translationModelId === model.id;
             return (
               <Card
@@ -73,7 +78,7 @@ const ModelsSection = ({
                   marginBottom: 10,
                   borderRadius: 'var(--radius-lg)',
                   // 选中(默认/翻译)卡用主色描边强调,其余统一发丝边框
-                  border: isDefault || isTranslation
+                  border: isDefault || isTitle || isTranslation
                     ? '1px solid var(--color-primary)'
                     : '1px solid var(--color-border-hairline)',
                 }}
@@ -85,6 +90,7 @@ const ModelsSection = ({
                       <ModelLogo model={model.name} modelId={model.modelId || model.id} size={18} />
                       <Text bold style={{ fontSize: 14 }}>{model.name}</Text>
                       {isDefault && <Tag color="arcoblue" size="small">{t('chatView.default')}</Tag>}
+                      {isTitle && <Tag color="purple" size="small">{t('chatView.title')}</Tag>}
                       {isTranslation && <Tag color="green" size="small">{t('chatView.translation')}</Tag>}
                       {renderCapabilityIcons(model.capabilities, t)}
                     </div>
@@ -100,6 +106,15 @@ const ModelsSection = ({
                       onClick={() => saveDefaultModel(model.id)}
                       disabled={isDefault}
                       title={t('chatView.setAsDefault')}
+                    />
+                    <Button
+                      type="text"
+                      size="mini"
+                      icon={<IconRobot />}
+                      onClick={() => saveTitleModel(model.id)}
+                      disabled={isTitle}
+                      title={t('chatView.setAsTitleModel')}
+                      aria-label={t('chatView.setAsTitleModel')}
                     />
                     <Button
                       type="text"
