@@ -165,6 +165,8 @@ interface GenerateSessionTitleOptions {
 }
 
 const TITLE_GENERATION_CLAIM_TTL_MS = 60_000;
+const MAX_GENERATED_SESSION_TITLE_CHARACTERS = 24;
+const TITLE_GENERATION_MAX_TOKENS = 20;
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 const DOCUMENT_EXTENSIONS = new Set(['.pdf', '.txt', '.md', '.docx']);
@@ -218,7 +220,7 @@ function parseChatSessionMetadata(text: string): ChatSessionMetadata {
 /**
  * 将模型输出规范化为现有标题输入可接受的单行文本。
  * 原因：兼容模型常返回引号、Markdown 标题或“标题：”说明，需要在持久化前统一收敛。
- * 未使用模型原始输出：未经清洗的多行内容会破坏列表布局并绕过 50 字符 UI 限制。
+ * 未使用模型原始输出：未经清洗的多行或超长内容会破坏侧栏列表布局。
  */
 export function cleanGeneratedSessionTitle(rawTitle: string): string {
   const firstLine = rawTitle
@@ -233,7 +235,10 @@ export function cleanGeneratedSessionTitle(rawTitle: string): string {
   const withoutWrappingQuotes = withoutPrefix
     .replace(/^[\s"'“”‘’「」『』`]+/, '')
     .replace(/[\s"'“”‘’「」『』`]+$/, '');
-  return withoutWrappingQuotes.replace(/\s+/g, ' ').trim().slice(0, 50);
+  const normalizedTitle = withoutWrappingQuotes.replace(/\s+/g, ' ').trim();
+  return Array.from(normalizedTitle)
+    .slice(0, MAX_GENERATED_SESSION_TITLE_CHARACTERS)
+    .join('');
 }
 
 /**
@@ -551,7 +556,7 @@ export class AIManager {
         content: [
           'Generate a concise conversation title from the user input.',
           'Use the same primary language as the input.',
-          'For Chinese or Japanese, prefer 4-16 characters; otherwise prefer 2-8 words.',
+          'For Chinese or Japanese, use 4-12 characters; otherwise use 2-5 words.',
           'Return only the title without quotes, markdown, labels, punctuation-only suffixes, or explanation.',
         ].join(' '),
       },
@@ -566,7 +571,7 @@ export class AIManager {
       const titleParams = {
         temperature: 0.2,
         top_p: 0.9,
-        max_tokens: 32,
+        max_tokens: TITLE_GENERATION_MAX_TOKENS,
         presence_penalty: 0,
         frequency_penalty: 0,
       };
@@ -1446,7 +1451,7 @@ Output only the translation, no explanations.`;
   private async *chatStreamOllama(
     messages: ProviderMessage[],
     model: string,
-    params: { temperature?: number },
+    params: { temperature?: number; max_tokens?: number },
     providerConfig: { base_url: string },
     mode?: string,
     signal?: AbortSignal,
@@ -1472,7 +1477,10 @@ Output only the translation, no explanations.`;
         model,
         messages: enrichedMessages,
         stream: true,
-        options: { temperature: params.temperature ?? 0.7 },
+        options: {
+          temperature: params.temperature ?? 0.7,
+          num_predict: params.max_tokens ?? 2000,
+        },
         ...(ollamaTools && ollamaTools.length > 0 ? { tools: ollamaTools } : {}),
       }),
     });
