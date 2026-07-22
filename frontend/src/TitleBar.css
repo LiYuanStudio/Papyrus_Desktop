@@ -164,13 +164,14 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
   app-region: no-drag;
 }
 
-/* 搜索框: 填充式灰底替代硬描边,hover 加深,focus 浮白 + 柔光晕 —— 更现代的中控台观感 */
+/* 搜索框: 保留填充式灰底，并使用 2px 边框强化顶栏中的可发现性；
+   未使用额外常驻阴影，避免在 26px 紧凑输入框上形成模糊的双重边界。 */
 .titlebar-search .arco-input-inner-wrapper,
 .titlebar-center .arco-input-wrapper .arco-input-inner-wrapper,
 .titlebar-search-input .arco-input-inner-wrapper {
   height: 26px;
   border-radius: 32px !important;
-  border: 1px solid transparent;
+  border: 2px solid var(--color-border-structure);
   background: var(--color-fill-2);
   transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
@@ -179,7 +180,7 @@ body[arco-theme='dark'] .titlebar.titlebar-windows {
 .titlebar-center .arco-input-wrapper .arco-input-inner-wrapper:hover,
 .titlebar-search-input .arco-input-inner-wrapper:hover {
   background: var(--color-fill-3);
-  border-color: transparent;
+  border-color: var(--color-border-hover);
 }
 
 /* 焦点指示挂在外层 wrapper 上,用 box-shadow 跟随 32px 圆角,而不是内层 input 的方形 outline */
