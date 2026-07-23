@@ -171,7 +171,9 @@ jobs:
         run: |
           node --test --test-isolation=none \
             scripts/__tests__/bump-version.test.js \
+            scripts/__tests__/release-workflow.test.js \
             scripts/__tests__/set-version.test.js \
+            scripts/__tests__/verify-packaged-app.test.js \
             scripts/__tests__/verify-packaged-deps.test.js
 
       - name: Install Playwright Browser
@@ -378,6 +380,9 @@ jobs:
       - name: Verify Packaged Dependencies
         run: node scripts/verify-packaged-deps.js
 
+      - name: Smoke Test Packaged Application
+        run: node scripts/verify-packaged-app.js
+
       - name: Clean Up Unpacked Directories
         if: always()
         shell: bash
@@ -403,6 +408,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare-release.outputs.tag_name }}
+          draft: ${{ needs.prepare-release.outputs.is_draft == 'true' }}
+          prerelease: ${{ needs.prepare-release.outputs.is_prerelease == 'true' }}
           files: |
             dist-electron/*-Setup.exe
             dist-electron/*.dmg
@@ -470,6 +477,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare-release.outputs.tag_name }}
+          draft: ${{ needs.prepare-release.outputs.is_draft == 'true' }}
+          prerelease: ${{ needs.prepare-release.outputs.is_prerelease == 'true' }}
           body_path: RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

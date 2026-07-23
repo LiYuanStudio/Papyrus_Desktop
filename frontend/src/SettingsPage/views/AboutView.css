@@ -84,6 +84,8 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-hairline);
   box-shadow: var(--shadow-1);
+  box-sizing: border-box;
+  padding: 24px;
 }
 
 .about-update-title {
@@ -114,12 +116,24 @@
   padding: 12px;
   border-radius: var(--radius-sm);
   margin-bottom: 16px;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 .about-release-notes-text {
   margin: 0;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   font-size: 13px;
+}
+
+/* 窄窗口减少卡片内边距，保留按钮与边框之间的安全距离。
+   原因：设置详情页在 768px 以下已缩小外层留白，更新卡也应同步收紧。
+   未移除内边距：无内边距正是操作按钮贴边并视觉溢出的根因。 */
+@media (max-width: 768px) {
+  .about-update-card {
+    padding: 16px;
+  }
 }
 
 .about-paragraph {

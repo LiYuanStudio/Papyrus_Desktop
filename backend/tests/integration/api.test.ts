@@ -611,13 +611,13 @@ describe('API Integration Tests', () => {
       global.fetch = () => Promise.resolve({
         ok: true,
         status: 200,
-          json: () => Promise.resolve({
+          json: () => Promise.resolve([{
             tag_name: 'v999.0.0',
           html_url: 'https://github.com/PapyrusOR/Papyrus_Desktop/releases/tag/v999.0.0',
           body: 'Release notes here',
           published_at: '2026-01-01T00:00:00Z',
           assets: [{ browser_download_url: 'https://github.com/PapyrusOR/Papyrus_Desktop/releases/download/v999.0.0/Papyrus.exe' }],
-        }),
+        }]),
       } as unknown as Response);
 
       const response = await app.inject({
@@ -642,7 +642,7 @@ describe('API Integration Tests', () => {
   it('GET /api/update/check should select the matching macOS architecture asset', async () => {
     const savedFetch = global.fetch;
     try {
-      global.fetch = () => Promise.resolve(new Response(JSON.stringify({
+      global.fetch = () => Promise.resolve(new Response(JSON.stringify([{
         tag_name: 'v999.0.0',
         html_url: 'https://github.com/PapyrusOR/Papyrus_Desktop/releases/tag/v999.0.0',
         body: null,
@@ -652,7 +652,7 @@ describe('API Integration Tests', () => {
           { browser_download_url: 'https://github.com/PapyrusOR/Papyrus_Desktop/releases/download/v999.0.0/Papyrus-Desktop-macOS-x64.dmg' },
           { browser_download_url: 'https://github.com/PapyrusOR/Papyrus_Desktop/releases/download/v999.0.0/Papyrus-Desktop-macOS-arm64.dmg' },
         ],
-      }), {
+      }]), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }));
@@ -672,6 +672,53 @@ describe('API Integration Tests', () => {
       expect(body.data.download_url).toBe(
         'https://github.com/PapyrusOR/Papyrus_Desktop/releases/download/v999.0.0/Papyrus-Desktop-macOS-arm64.dmg',
       );
+    } finally {
+      global.fetch = savedFetch;
+    }
+  });
+
+  it('GET /api/update/check should keep Beta on the prerelease-aware channel and reject downgrade', async () => {
+    const savedFetch = global.fetch;
+    const requestedUrls: string[] = [];
+    try {
+      global.fetch = (input) => {
+        requestedUrls.push(String(input));
+        return Promise.resolve(new Response(JSON.stringify([
+          {
+            tag_name: 'v1.9.9',
+            html_url: 'https://github.com/PapyrusOR/Papyrus_Desktop/releases/tag/v1.9.9',
+            body: 'Older stable release',
+            published_at: '2026-01-01T00:00:00Z',
+            assets: [],
+          },
+          {
+            tag_name: 'v2.0.0-beta.13',
+            html_url: 'https://github.com/PapyrusOR/Papyrus_Desktop/releases/tag/v2.0.0-beta.13',
+            body: 'Previous Beta release',
+            published_at: '2026-01-02T00:00:00Z',
+            assets: [],
+          },
+        ]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      };
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/update/check',
+        headers: {
+          'x-papyrus-app-version': '2.0.0-beta.15',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.data.current_version).toBe('2.0.0-beta.15');
+      expect(body.data.latest_version).toBe('v2.0.0-beta.13');
+      expect(body.data.has_update).toBe(false);
+      expect(requestedUrls[0]).toContain('/releases?per_page=30');
     } finally {
       global.fetch = savedFetch;
     }

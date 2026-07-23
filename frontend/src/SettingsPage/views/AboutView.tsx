@@ -51,8 +51,8 @@ const AboutView = ({ onBack }: AboutViewProps) => {
     try {
       const data = await api.getVersion();
       setVersionInfo({
-        current_version: data.version,
-        latest_version: data.version,
+        current_version: APP_VERSION,
+        latest_version: APP_VERSION,
         has_update: false,
         release_url: data.repository,
         download_url: '',
@@ -73,7 +73,10 @@ const AboutView = ({ onBack }: AboutViewProps) => {
       const result = await api.checkUpdate();
 
       if (result.success && result.data) {
-        setVersionInfo(result.data);
+        // 当前版本必须来自安装包自身，而不是可能残留在固定端口上的旧后端进程。
+        // 原因：升级后若旧后端尚未退出，其 /version 会让新 UI 回退显示旧版本号。
+        // 未直接信任 result.data.current_version：该字段描述响应后端，不一定描述当前 Electron App。
+        setVersionInfo({ ...result.data, current_version: APP_VERSION });
         if (result.data.has_update) {
           setCheckResult('update');
           Message.info(t('aboutView.updateAvailable', { version: result.data.latest_version }));

@@ -14,6 +14,7 @@ interface GitHubRelease {
   body: string | null;
   published_at: string | null;
   assets: Array<{ browser_download_url: string }>;
+  draft?: boolean;
 }
 
 interface UpdateCheckResponse {
@@ -40,6 +41,16 @@ type UpdatePlatform = 'darwin' | 'linux' | 'win32';
 // 未使用 string：任意架构字符串会让筛选静默回退到错误安装包。
 type UpdateArchitecture = 'arm64' | 'x64';
 
+// 表示经过严格 SemVer 校验的版本，供更新判断逐段比较核心版本和预发布标识符。
+// 原因：结构化比较才能正确区分正式版、Beta 版及各自的优先级。
+// 未直接比较字符串：字典序会把 beta.10 排在 beta.9 之前，也无法阻止跨主版本降级。
+interface ParsedSemVer {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: Array<number | string>;
+}
+
 function isGitHubRelease(value: unknown): value is GitHubRelease {
   return (
     typeof value === 'object' &&
@@ -49,16 +60,163 @@ function isGitHubRelease(value: unknown): value is GitHubRelease {
   );
 }
 
-/** GitHub API 镜像源，按优先级排列 */
-const GITHUB_API_ENDPOINTS = [
-  `https://api.github.com/repos/${REPO}/releases/latest`,
-  `https://gh.api.99988866.xyz/repos/${REPO}/releases/latest`,
-  `https://api.mgithub.com/repos/${REPO}/releases/latest`,
+/** GitHub API 镜像源，按优先级排列，路径会根据当前 App 的发布通道动态补充。 */
+const GITHUB_API_BASE_URLS = [
+  'https://api.github.com',
+  'https://gh.api.99988866.xyz',
+  'https://api.mgithub.com',
 ];
 
 const FETCH_TIMEOUT_MS = 10000;
 const TRUSTED_RELEASE_DOMAINS = ['github.com', 'githubusercontent.com'];
 const FALLBACK_RELEASE_URL = `https://github.com/${REPO}/releases/latest`;
+
+/**
+ * 将可选带 v 前缀的版本字符串解析为严格 SemVer 结构，输入非法时返回 null。
+ * 原因：远端 tag 属于不可信输入，只有完整匹配 SemVer 才能参与更新决策。
+ * 未宽松提取数字：部分匹配可能把畸形或错误 tag 误判为可安装的新版本。
+ */
+function parseSemVer(version: string): ParsedSemVer | null {
+  const match = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(version);
+  const majorText = match?.[1];
+  const minorText = match?.[2];
+  const patchText = match?.[3];
+  if (majorText === undefined || minorText === undefined || patchText === undefined) {
+    return null;
+  }
+
+  const major = Number(majorText);
+  const minor = Number(minorText);
+  const patch = Number(patchText);
+  if (![major, minor, patch].every(Number.isSafeInteger)) {
+    return null;
+  }
+
+  const prerelease: Array<number | string> = [];
+  const prereleaseText = match?.[4];
+  if (prereleaseText !== undefined) {
+    for (const identifier of prereleaseText.split('.')) {
+      if (/^\d+$/.test(identifier)) {
+        if (identifier.length > 1 && identifier.startsWith('0')) {
+          return null;
+        }
+        const numericIdentifier = Number(identifier);
+        if (!Number.isSafeInteger(numericIdentifier)) {
+          return null;
+        }
+        prerelease.push(numericIdentifier);
+      } else {
+        prerelease.push(identifier);
+      }
+    }
+  }
+
+  return { major, minor, patch, prerelease };
+}
+
+/**
+ * 比较两个已解析 SemVer 版本，返回正数表示 left 更新、负数表示 right 更新、零表示等价。
+ * 原因：遵循 SemVer 的数值段和预发布优先级，正式版在相同核心版本下高于预发布版。
+ * 未使用 localeCompare 处理整个版本：它不理解数字标识符及正式版/预发布版语义。
+ */
+function compareSemVer(left: ParsedSemVer, right: ParsedSemVer): number {
+  for (const key of ['major', 'minor', 'patch'] as const) {
+    const difference = left[key] - right[key];
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+
+  if (left.prerelease.length === 0 || right.prerelease.length === 0) {
+    return right.prerelease.length - left.prerelease.length;
+  }
+
+  const identifierCount = Math.max(left.prerelease.length, right.prerelease.length);
+  for (let index = 0; index < identifierCount; index += 1) {
+    const leftIdentifier = left.prerelease[index];
+    const rightIdentifier = right.prerelease[index];
+    if (leftIdentifier === undefined || rightIdentifier === undefined) {
+      return left.prerelease.length - right.prerelease.length;
+    }
+    if (leftIdentifier === rightIdentifier) {
+      continue;
+    }
+    if (typeof leftIdentifier === 'number' && typeof rightIdentifier === 'number') {
+      return leftIdentifier - rightIdentifier;
+    }
+    if (typeof leftIdentifier === 'number') {
+      return -1;
+    }
+    if (typeof rightIdentifier === 'number') {
+      return 1;
+    }
+    return leftIdentifier < rightIdentifier ? -1 : 1;
+  }
+
+  return 0;
+}
+
+/**
+ * 判断远端版本是否严格高于当前版本；任一版本非法时安全地拒绝更新。
+ * 原因：更新提示必须单调向前，尤其不能让 Beta 客户端把旧正式版识别为升级。
+ * 未采用“不相等即更新”：该判断会被 v 前缀、预发布标签和旧版本触发反向升级。
+ */
+export function isVersionNewer(latestVersion: string, currentVersion: string): boolean {
+  const latest = parseSemVer(latestVersion);
+  const current = parseSemVer(currentVersion);
+  return latest !== null && current !== null && compareSemVer(latest, current) > 0;
+}
+
+/**
+ * 为当前 App 版本生成更新源；预发布版读取 Release 列表，正式版读取 GitHub latest。
+ * 原因：GitHub 的 latest 接口明确排除 prerelease，Beta App 使用它会错过后续 Beta。
+ * 未让所有客户端都读取列表：正式版沿用稳定通道，避免意外向正式用户推荐预发布版本。
+ */
+function getGitHubApiEndpoints(currentVersion: string): string[] {
+  const current = parseSemVer(currentVersion);
+  const releasePath = current !== null && current.prerelease.length > 0
+    ? 'releases?per_page=30'
+    : 'releases/latest';
+  return GITHUB_API_BASE_URLS.map((baseUrl) => `${baseUrl}/repos/${REPO}/${releasePath}`);
+}
+
+/**
+ * 从 Electron 注入的请求头读取当前 App 版本，非法或缺失时回退到后端包版本。
+ * 原因：固定端口可能暂时仍由旧后端占用，更新基线应以用户实际启动的 Electron App 为准。
+ * 未无条件信任 header：普通浏览器也能调用只读接口，必须先通过严格 SemVer 校验。
+ */
+function readCurrentAppVersion(versionHeader: string | string[] | undefined): string {
+  const rawVersion = Array.isArray(versionHeader) ? versionHeader[0] : versionHeader;
+  return rawVersion !== undefined && parseSemVer(rawVersion) !== null
+    ? rawVersion
+    : CURRENT_VERSION;
+}
+
+/**
+ * 从 GitHub Release 列表选出 SemVer 优先级最高的非草稿版本。
+ * 原因：GitHub 列表按发布时间而非版本优先级排序，不能假设第一项就是最高版本。
+ * 未只筛选 prerelease：同核心版本的正式版应允许 Beta 用户正常向前升级。
+ */
+function selectHighestRelease(releases: GitHubRelease[]): GitHubRelease | null {
+  let selected: GitHubRelease | null = null;
+  let selectedVersion: ParsedSemVer | null = null;
+
+  for (const release of releases) {
+    if (release.draft === true) {
+      continue;
+    }
+    const candidateVersion = parseSemVer(release.tag_name);
+    if (candidateVersion === null) {
+      continue;
+    }
+    if (selectedVersion === null || compareSemVer(candidateVersion, selectedVersion) > 0) {
+      selected = release;
+      selectedVersion = candidateVersion;
+    }
+  }
+
+  return selected;
+}
 
 /**
  * 将可信主进程注入的请求头收窄为支持的平台和架构。
@@ -133,16 +291,24 @@ async function fetchReleaseFromEndpoint(url: string): Promise<GitHubRelease> {
     throw new Error(`HTTP ${res.status}`);
   }
   const rawData: unknown = await res.json();
+  if (Array.isArray(rawData)) {
+    const releases = rawData.filter(isGitHubRelease);
+    const selectedRelease = selectHighestRelease(releases);
+    if (selectedRelease === null) {
+      throw new Error('No valid release found');
+    }
+    return selectedRelease;
+  }
   if (!isGitHubRelease(rawData)) {
     throw new Error('Invalid response format');
   }
   return rawData;
 }
 
-async function fetchReleaseWithFallback(): Promise<GitHubRelease> {
+async function fetchReleaseWithFallback(currentVersion: string): Promise<GitHubRelease> {
   let lastError: Error | undefined;
 
-  for (const url of GITHUB_API_ENDPOINTS) {
+  for (const url of getGitHubApiEndpoints(currentVersion)) {
     try {
       const release = await fetchReleaseFromEndpoint(url);
       return release;
@@ -158,14 +324,15 @@ async function fetchReleaseWithFallback(): Promise<GitHubRelease> {
 export default async function updateRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/check', async (request, reply) => {
     try {
-      const rawData = await fetchReleaseWithFallback();
+      const currentVersion = readCurrentAppVersion(request.headers['x-papyrus-app-version']);
+      const rawData = await fetchReleaseWithFallback(currentVersion);
       const target = readUpdateTarget(
         request.headers['x-papyrus-platform'],
         request.headers['x-papyrus-arch'],
       );
 
       const latest = rawData.tag_name;
-      const hasUpdate = latest !== CURRENT_VERSION;
+      const hasUpdate = isVersionNewer(latest, currentVersion);
       const releaseUrl = safeExternalUrlOrNull(rawData.html_url, TRUSTED_RELEASE_DOMAINS) ?? FALLBACK_RELEASE_URL;
       const selectedAssetUrl = selectReleaseAssetUrl(rawData.assets, target.platform, target.arch);
       const downloadUrl = safeExternalUrlOrNull(selectedAssetUrl ?? '', TRUSTED_RELEASE_DOMAINS) ?? releaseUrl;
@@ -173,7 +340,7 @@ export default async function updateRoutes(fastify: FastifyInstance): Promise<vo
       reply.send({
         success: true,
         data: {
-          current_version: CURRENT_VERSION,
+          current_version: currentVersion,
           latest_version: latest,
           has_update: hasUpdate,
           release_url: releaseUrl,

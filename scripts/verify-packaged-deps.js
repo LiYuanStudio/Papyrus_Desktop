@@ -7,7 +7,13 @@ const fs = require('fs');
 const path = require('path');
 const asar = require('@electron/asar');
 
-const DIST_ELECTRON = path.resolve(__dirname, '..', 'dist-electron');
+// Allow isolated smoke builds to point at a temporary electron-builder output directory.
+// This preserves existing release artifacts while keeping the CI default at dist-electron.
+// A command-line parser is not used because one environment variable works consistently across all runners.
+const DIST_ELECTRON = path.resolve(
+  process.env.PAPYRUS_DIST_ELECTRON_DIR
+    || path.join(__dirname, '..', 'dist-electron'),
+);
 
 // Files we expect to find in the packaged app
 const REQUIRED_FILES = [
@@ -166,6 +172,9 @@ function main() {
 }
 
 module.exports = {
+  DIST_ELECTRON,
+  findAppAsar,
+  findExtraResourcesDir,
   normalizeAsarPath,
 };
 

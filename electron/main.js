@@ -590,6 +590,10 @@ function setupIPC() {
         // 未使用 query 参数：可信运行时元数据属于请求上下文，不应污染公开 API URL。
         'X-Papyrus-Platform': process.platform,
         'X-Papyrus-Arch': process.arch,
+        // 当前 App 版本由 Electron 主进程提供，避免固定端口上的旧后端替新 UI 决定更新基线。
+        // 原因：app.getVersion() 读取安装包元数据，与用户实际启动的可执行文件一致。
+        // 未让 renderer 自报版本：渲染进程内容不应成为更新决策的可信来源。
+        'X-Papyrus-App-Version': app.getVersion(),
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
