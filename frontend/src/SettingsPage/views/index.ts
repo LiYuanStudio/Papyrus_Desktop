@@ -6,4 +6,5 @@ export { default as ShortcutsView } from './ShortcutsView';
 export { default as AccessibilityView } from './AccessibilityView';
 export { default as StatisticsView } from './StatisticsView';
 export { default as DataView } from './DataView';
+export { default as VersionControlView } from './VersionControlView';
 export { default as AboutView } from './AboutView';

@@ -382,6 +382,44 @@ export type VersionRes = {
   repository: string;
 };
 
+// ========== Knowledge Version Control Types ==========
+export type KnowledgeVersionStats = {
+  cards: number;
+  notes: number;
+  relations: number;
+  files: number;
+  progressDays: number;
+  sizeBytes: number;
+};
+
+export type KnowledgeBranch = {
+  id: string;
+  name: string;
+  headVersionId: string | null;
+  isActive: boolean;
+  isProtected: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type KnowledgeVersion = {
+  id: string;
+  branchId: string;
+  name: string;
+  description: string;
+  kind: 'manual' | 'safety';
+  isHead: boolean;
+  stats: KnowledgeVersionStats;
+  createdAt: number;
+};
+
+export type KnowledgeVersionStateRes = {
+  success: boolean;
+  branches: KnowledgeBranch[];
+  activeBranch: KnowledgeBranch;
+  versions: KnowledgeVersion[];
+};
+
 // ========== File Types ==========
 export type FileItemData = {
   id: string;
@@ -654,6 +692,68 @@ export const api = {
     }),
   resetData: () => 
     request<{ success: boolean }>('/data/reset', { method: 'POST' }),
+
+  // Knowledge Version Control
+  getKnowledgeVersionState: () =>
+    request<KnowledgeVersionStateRes>('/knowledge-versions'),
+  createKnowledgeVersion: (data: { name: string; description?: string }) =>
+    request<{ success: boolean; version: KnowledgeVersion }>('/knowledge-versions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  renameKnowledgeVersion: (
+    versionId: string,
+    data: { name: string; description?: string },
+  ) =>
+    request<{ success: boolean; version: KnowledgeVersion }>(
+      `/knowledge-versions/${encodeURIComponent(versionId)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      },
+    ),
+  deleteKnowledgeVersion: (versionId: string) =>
+    request<{ success: boolean }>(
+      `/knowledge-versions/${encodeURIComponent(versionId)}`,
+      { method: 'DELETE' },
+    ),
+  restoreKnowledgeVersion: (versionId: string) =>
+    request<KnowledgeVersionStateRes>(
+      `/knowledge-versions/${encodeURIComponent(versionId)}/restore`,
+      { method: 'POST' },
+    ),
+  createKnowledgeBranch: (versionId: string, name: string) =>
+    request<KnowledgeVersionStateRes>(
+      `/knowledge-versions/${encodeURIComponent(versionId)}/branch`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      },
+    ),
+  getKnowledgeBranches: () =>
+    request<{
+      success: boolean;
+      branches: KnowledgeBranch[];
+      activeBranch: KnowledgeBranch;
+    }>('/knowledge-branches'),
+  renameKnowledgeBranch: (branchId: string, name: string) =>
+    request<{ success: boolean; branch: KnowledgeBranch }>(
+      `/knowledge-branches/${encodeURIComponent(branchId)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      },
+    ),
+  deleteKnowledgeBranch: (branchId: string) =>
+    request<{ success: boolean }>(
+      `/knowledge-branches/${encodeURIComponent(branchId)}`,
+      { method: 'DELETE' },
+    ),
+  switchKnowledgeBranch: (branchId: string) =>
+    request<KnowledgeVersionStateRes>(
+      `/knowledge-branches/${encodeURIComponent(branchId)}/switch`,
+      { method: 'POST' },
+    ),
 
   // Completion
   getCompletionConfig: () =>

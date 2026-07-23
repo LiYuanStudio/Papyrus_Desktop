@@ -89,11 +89,15 @@
 .settings-category-card {
   display: flex;
   align-items: center;
+  width: 100%;
   gap: 16px;
   padding: 24px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-hairline);
   background: var(--color-bg-1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   box-shadow: var(--shadow-1);
   transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
