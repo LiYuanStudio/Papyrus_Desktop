@@ -36,6 +36,19 @@ module.exports = {
     '!**/*.map',
     '!**/*.ts',
     '!**/*.tsx',
+    '!**/*.db',
+    '!**/*.db-wal',
+    '!**/*.db-shm',
+    '!**/*.db-journal',
+    '!**/*.sqlite',
+    '!**/*.sqlite3',
+    '!**/.master_key',
+    '!**/.salt',
+    '!**/ai_config.json',
+    '!**/.env*',
+    '!**/*.log',
+    '!**/*.bak',
+    '!**/*.backup',
   ],
 
   extraResources: [
@@ -46,6 +59,22 @@ module.exports = {
     {
       from: 'backend/dist',
       to: 'backend/dist',
+      filter: [
+        '**/*',
+        '!**/*.db',
+        '!**/*.db-*',
+        '!**/*.sqlite',
+        '!**/*.sqlite3',
+        '!**/.master_key',
+        '!**/.salt',
+        '!**/ai_config.json',
+        '!**/.env*',
+        '!**/*.log',
+        '!**/*.bak',
+        '!**/*.backup',
+        '!**/backups',
+        '!**/backups/**/*',
+      ],
     },
     {
       from: 'backend/node_modules',
@@ -88,7 +117,9 @@ module.exports = {
     shortcutName: 'Papyrus Desktop',
     uninstallDisplayName: 'Papyrus Desktop',
     include: 'build/installer.nsh',
-    deleteAppDataOnUninstall: true,
+    // Data deletion is owned by build/installer.nsh, whose prompt defaults to "No".
+    // electron-builder's automatic deletion would bypass that explicit user choice.
+    deleteAppDataOnUninstall: false,
     artifactName: '${productName}-Setup.${ext}',
   },
   

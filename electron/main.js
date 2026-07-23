@@ -108,6 +108,7 @@ const CONFIG = {
 let mainWindow = null;
 let tray = null;
 let backendProcess = null;
+let backendStartupError = null;
 let isQuitting = false;
 let isDevMode = !app.isPackaged;
 
@@ -195,6 +196,10 @@ async function waitForBackend(timeout = CONFIG.backendStartupTimeout) {
   const startTime = Date.now();
   
   while (Date.now() - startTime < timeout) {
+    if (backendProcess && backendProcess.exitCode !== null) {
+      const detail = backendStartupError || `exit code ${backendProcess.exitCode}`;
+      throw new Error(`Backend exited during startup: ${detail}`);
+    }
     const isReady = await checkBackendHealth();
     if (isReady) {
       log('Backend is ready');
@@ -216,6 +221,7 @@ async function startBackend() {
   log(`  userData: ${app.getPath('userData')}`);
 
   const { command, args, cwd } = getBackendExecutableInfo();
+  backendStartupError = null;
 
   log(`Starting backend: ${command} ${args.join(' ')}`);
   log(`Backend cwd: ${cwd}`);
@@ -223,6 +229,8 @@ async function startBackend() {
   const env = {
     ...process.env,
     PAPYRUS_DATA_DIR: app.getPath('userData'),
+    PAPYRUS_LEGACY_DATA_DIR: path.join(os.homedir(), 'PapyrusData'),
+    PAPYRUS_APP_VERSION: app.getVersion(),
     PAPYRUS_PORT: CONFIG.backendPort.toString(),
     PAPYRUS_AUTH_TOKEN: PAPYRUS_AUTH_TOKEN,
   };
@@ -247,7 +255,9 @@ async function startBackend() {
   });
 
   backendProcess.stderr?.on('data', (data) => {
-    log(`[Backend Error] ${data.toString().trim()}`, 'error');
+    const message = data.toString().trim();
+    backendStartupError = message.slice(-2000);
+    log(`[Backend Error] ${message}`, 'error');
   });
 
   backendProcess.on('error', (error) => {

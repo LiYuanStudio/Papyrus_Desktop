@@ -16,7 +16,11 @@ import {
   allowsQueryTokenAuth,
   validateRequestToken,
 } from '../utils/auth.js';
-import { closeDb } from '../db/database.js';
+import {
+  closeDb,
+  getDatabaseStatus,
+  initializeDatabase,
+} from '../db/database.js';
 
 const logger = new PapyrusLogger(
   paths.logDir,
@@ -81,6 +85,7 @@ const PORT = process.env.PAPYRUS_PORT ? parseInt(process.env.PAPYRUS_PORT, 10) :
 export async function initApp(): Promise<void> {
   ensureAuthToken();
   setGlobalLogger(logger);
+  initializeDatabase();
   const { initAIConfig, aiConfig } = await import('../ai/config-instance.js');
   initAIConfig();
   // 同步持久化日志配置到全局 logger
@@ -163,7 +168,14 @@ export async function initApp(): Promise<void> {
   }
 
   // Health check
-  app.get('/api/health', async () => ({ status: 'ok' }));
+  app.get('/api/health', async () => {
+    const database = getDatabaseStatus();
+    return {
+      status: database.state === 'ready' ? 'ok' : 'error',
+      databaseState: database.state,
+      schemaVersion: database.schemaVersion,
+    };
+  });
 
   // Register routes
   const { default: cardsRoutes } = await import('./routes/cards.js');

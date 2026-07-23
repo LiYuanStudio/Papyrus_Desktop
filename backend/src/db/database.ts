@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { paths, protectPrivateFile } from '../utils/paths.js';
 import { encryptApiKey, decryptApiKey } from '../core/crypto.js';
 import type { CardRecord, Note, Provider, FileRecord } from '../core/types.js';
@@ -10,31 +10,539 @@ import { maskApiKeyForDisplay } from '../utils/provider-security.js';
 
 let db: DatabaseSync | null = null;
 
-function getDb(): DatabaseSync {
-  if (db === null) {
-    const dbPath = paths.dbFile;
-    try {
-      fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-      db = new DatabaseSync(dbPath);
-      db.exec('PRAGMA journal_mode = WAL;');
-      db.exec('PRAGMA foreign_keys = ON;');
-      db.exec('PRAGMA busy_timeout = 5000;');
-      protectPrivateFile(dbPath);
-      initSchema(db);
-    } catch (err) {
-      const message = `Failed to open database at "${dbPath}": ${err instanceof Error ? err.message : String(err)}`;
-      console.error(message);
-      throw new Error(message);
+export const CURRENT_SCHEMA_VERSION = 1;
+
+export interface DatabaseStatus {
+  state: 'uninitialized' | 'initializing' | 'ready' | 'rolled_back' | 'failed';
+  schemaVersion: number;
+  inheritedLegacyData: boolean;
+}
+
+interface DataCounts {
+  [tableName: string]: number;
+}
+
+interface RollbackSnapshot {
+  databasePath: string;
+  manifestPath: string;
+  operationId: string;
+  sha256: string;
+}
+
+const PRESERVED_TABLES = [
+  'cards',
+  'notes',
+  'note_versions',
+  'card_versions',
+  'files',
+  'chat_sessions',
+  'chat_messages',
+  'api_keys',
+  'daily_progress',
+];
+
+let databaseStatus: DatabaseStatus = {
+  state: 'uninitialized',
+  schemaVersion: 0,
+  inheritedLegacyData: false,
+};
+
+function quoteSqlitePath(filePath: string): string {
+  if (filePath.includes('\x00')) {
+    throw new Error('SQLite path cannot contain a null byte');
+  }
+  return `'${filePath.replaceAll("'", "''")}'`;
+}
+
+function tableExists(database: DatabaseSync, tableName: string): boolean {
+  const row = database.prepare(
+    "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?",
+  ).get(tableName) as { present: number } | undefined;
+  return row?.present === 1;
+}
+
+function readSchemaVersion(database: DatabaseSync): number {
+  const row = database.prepare('PRAGMA user_version').get() as { user_version?: number } | undefined;
+  return Number(row?.user_version ?? 0);
+}
+
+function readPragmaResult(database: DatabaseSync, pragma: string): string {
+  const row = database.prepare(pragma).get() as Record<string, unknown> | undefined;
+  const value = row ? Object.values(row)[0] : undefined;
+  return String(value ?? '');
+}
+
+function validateDatabase(database: DatabaseSync): void {
+  const quickCheck = readPragmaResult(database, 'PRAGMA quick_check');
+  if (quickCheck !== 'ok') {
+    throw new Error(`Database quick_check failed: ${quickCheck || 'no result'}`);
+  }
+  const foreignKeyErrors = database.prepare('PRAGMA foreign_key_check').all();
+  if (foreignKeyErrors.length > 0) {
+    throw new Error(`Database foreign_key_check failed with ${foreignKeyErrors.length} violation(s)`);
+  }
+}
+
+function configureDatabase(database: DatabaseSync): void {
+  database.exec('PRAGMA foreign_keys = ON;');
+  database.exec('PRAGMA busy_timeout = 5000;');
+  database.exec('PRAGMA journal_mode = WAL;');
+}
+
+function captureDataCounts(database: DatabaseSync): DataCounts {
+  const counts: DataCounts = {};
+  for (const tableName of PRESERVED_TABLES) {
+    if (!tableExists(database, tableName)) {
+      counts[tableName] = 0;
+      continue;
     }
+    const row = database.prepare(`SELECT COUNT(*) AS count FROM "${tableName}"`).get() as { count: number };
+    counts[tableName] = Number(row.count);
+  }
+  return counts;
+}
+
+function assertDataCountsPreserved(before: DataCounts, after: DataCounts): void {
+  for (const tableName of PRESERVED_TABLES) {
+    const beforeCount = before[tableName] ?? 0;
+    const afterCount = after[tableName] ?? 0;
+    if (afterCount < beforeCount) {
+      throw new Error(
+        `Migration reduced protected table "${tableName}" from ${beforeCount} to ${afterCount}`,
+      );
+    }
+  }
+}
+
+// Injects deterministic migration faults for rollback tests without exposing a production control.
+// The NODE_ENV guard keeps attackers and normal launch environments from selecting failure stages.
+// We do not monkey-patch SQLite because that would test mocks instead of the real transaction path.
+function failMigrationForTest(stage: 'after_snapshot' | 'after_migration' | 'after_validation'): void {
+  if (
+    process.env.NODE_ENV === 'test'
+    && process.env.PAPYRUS_TEST_MIGRATION_FAILURE_STAGE === stage
+  ) {
+    throw new Error(`Injected migration failure at ${stage}`);
+  }
+}
+
+function sha256File(filePath: string): string {
+  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
+
+function createRollbackSnapshot(database: DatabaseSync, fromVersion: number): RollbackSnapshot {
+  const operationId = `${Date.now()}-${randomUUID()}`;
+  const rollbackDir = path.join(paths.backupDir, 'pre-upgrade');
+  fs.mkdirSync(rollbackDir, { recursive: true, mode: 0o700 });
+  const databasePath = path.join(
+    rollbackDir,
+    `schema-${fromVersion}-to-${CURRENT_SCHEMA_VERSION}-${operationId}.db`,
+  );
+  const manifestPath = `${databasePath}.json`;
+  database.exec(`VACUUM INTO ${quoteSqlitePath(databasePath)}`);
+  protectPrivateFile(databasePath);
+  const sha256 = sha256File(databasePath);
+  const manifest = {
+    operationId,
+    createdAt: new Date().toISOString(),
+    applicationVersion: process.env.PAPYRUS_APP_VERSION ?? 'unknown',
+    fromSchemaVersion: fromVersion,
+    toSchemaVersion: CURRENT_SCHEMA_VERSION,
+    sha256,
+  };
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
+  protectPrivateFile(manifestPath);
+  return { databasePath, manifestPath, operationId, sha256 };
+}
+
+function moveIfExists(sourcePath: string, destinationPath: string): void {
+  if (!fs.existsSync(sourcePath)) return;
+  fs.renameSync(sourcePath, destinationPath);
+}
+
+function restoreAfterFailedMigration(
+  dbPath: string,
+  snapshot: RollbackSnapshot,
+  migrationError: unknown,
+): never {
+  const actualSnapshotHash = sha256File(snapshot.databasePath);
+  if (actualSnapshotHash !== snapshot.sha256) {
+    throw new Error('Database migration failed, but rollback snapshot integrity verification also failed');
+  }
+  const failedDir = path.join(paths.backupDir, 'failed-migrations', snapshot.operationId);
+  fs.mkdirSync(failedDir, { recursive: true, mode: 0o700 });
+  moveIfExists(dbPath, path.join(failedDir, path.basename(dbPath)));
+  moveIfExists(`${dbPath}-wal`, path.join(failedDir, `${path.basename(dbPath)}-wal`));
+  moveIfExists(`${dbPath}-shm`, path.join(failedDir, `${path.basename(dbPath)}-shm`));
+
+  const restoreTempPath = `${dbPath}.restore-${snapshot.operationId}`;
+  fs.copyFileSync(snapshot.databasePath, restoreTempPath);
+  protectPrivateFile(restoreTempPath);
+  fs.renameSync(restoreTempPath, dbPath);
+  const restored = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    validateDatabase(restored);
+  } finally {
+    restored.close();
+  }
+  protectPrivateFile(dbPath);
+  databaseStatus = {
+    ...databaseStatus,
+    state: 'rolled_back',
+    schemaVersion: readSnapshotSchemaVersion(snapshot.databasePath),
+  };
+  const detail = migrationError instanceof Error ? migrationError.message : String(migrationError);
+  throw new Error(`Database migration failed and the original database was restored: ${detail}`);
+}
+
+function readSnapshotSchemaVersion(snapshotPath: string): number {
+  const snapshot = new DatabaseSync(snapshotPath, { readOnly: true });
+  try {
+    return readSchemaVersion(snapshot);
+  } finally {
+    snapshot.close();
+  }
+}
+
+function runMigrations(database: DatabaseSync, fromVersion: number): void {
+  const migrations: Record<number, (target: DatabaseSync) => void> = {
+    1: initSchema,
+  };
+  for (let targetVersion = fromVersion + 1; targetVersion <= CURRENT_SCHEMA_VERSION; targetVersion += 1) {
+    const migration = migrations[targetVersion];
+    if (migration === undefined) {
+      throw new Error(`Missing database migration for schema ${targetVersion}`);
+    }
+    database.exec('BEGIN IMMEDIATE;');
+    try {
+      migration(database);
+      database.exec(`PRAGMA user_version = ${targetVersion};`);
+      database.exec('COMMIT;');
+    } catch (error) {
+      try {
+        database.exec('ROLLBACK;');
+      } catch {
+        // The original migration error is more useful than a secondary rollback failure.
+      }
+      throw error;
+    }
+  }
+}
+
+function assertFreshDatabaseIsEmpty(database: DatabaseSync): void {
+  const userTables = [
+    'cards',
+    'notes',
+    'providers',
+    'api_keys',
+    'provider_models',
+    'files',
+    'relations',
+    'chat_sessions',
+    'chat_messages',
+    'daily_progress',
+  ];
+  if (process.env.PAPYRUS_ENABLE_SEED_DATA !== 'true') {
+    userTables.push('extensions');
+  }
+  for (const tableName of userTables) {
+    const row = database.prepare(`SELECT COUNT(*) AS count FROM "${tableName}"`).get() as { count: number };
+    if (Number(row.count) !== 0) {
+      throw new Error(`Fresh database unexpectedly contains rows in "${tableName}"`);
+    }
+  }
+}
+
+function createFreshDatabase(dbPath: string): DatabaseSync {
+  const tempPath = `${dbPath}.initializing-${randomUUID()}`;
+  let fresh: DatabaseSync | null = null;
+  try {
+    fresh = new DatabaseSync(tempPath);
+    fresh.exec('PRAGMA foreign_keys = ON;');
+    fresh.exec('PRAGMA busy_timeout = 5000;');
+    runMigrations(fresh, 0);
+    validateDatabase(fresh);
+    assertFreshDatabaseIsEmpty(fresh);
+    fresh.close();
+    fresh = null;
+    protectPrivateFile(tempPath);
+    fs.renameSync(tempPath, dbPath);
+  } catch (error) {
+    if (fresh !== null) fresh.close();
+    for (const candidate of [tempPath, `${tempPath}-wal`, `${tempPath}-shm`]) {
+      try {
+        fs.unlinkSync(candidate);
+      } catch {
+        // Temporary first-run files are safe to retry on the next launch.
+      }
+    }
+    throw error;
+  }
+  const database = new DatabaseSync(dbPath);
+  configureDatabase(database);
+  protectPrivateFile(dbPath);
+  return database;
+}
+
+function isPathInsideDirectory(candidatePath: string, directoryPath: string): boolean {
+  const relative = path.relative(directoryPath, candidatePath);
+  return relative !== ''
+    && relative !== '..'
+    && !relative.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relative);
+}
+
+function rewriteLegacyPaths(
+  stagedDatabasePath: string,
+  legacyDataDir: string,
+  canonicalDataDir: string,
+  stagingDir: string,
+): void {
+  const staged = new DatabaseSync(stagedDatabasePath);
+  try {
+    staged.exec('PRAGMA foreign_keys = ON;');
+    if (tableExists(staged, 'files')) {
+      const rows = staged.prepare(
+        'SELECT id, file_storage_path FROM files WHERE is_folder = 0 AND file_storage_path IS NOT NULL',
+      ).all() as Array<{ id: string; file_storage_path: string }>;
+      const update = staged.prepare('UPDATE files SET file_storage_path = ? WHERE id = ?');
+      for (const row of rows) {
+        const sourcePath = path.resolve(row.file_storage_path);
+        const legacyVault = path.join(legacyDataDir, 'vault');
+        if (!isPathInsideDirectory(sourcePath, legacyVault)) {
+          throw new Error(`Legacy attachment path is outside the legacy vault for file ${row.id}`);
+        }
+        const relativePath = path.relative(legacyVault, sourcePath);
+        const stagedFile = path.join(stagingDir, 'vault', relativePath);
+        if (!fs.existsSync(stagedFile)) {
+          throw new Error(`Legacy attachment is missing for file ${row.id}`);
+        }
+        update.run(path.join(canonicalDataDir, 'vault', relativePath), row.id);
+      }
+    }
+    if (tableExists(staged, 'knowledge_versions')) {
+      const rows = staged.prepare(
+        'SELECT id, manifest_path FROM knowledge_versions',
+      ).all() as Array<{ id: string; manifest_path: string }>;
+      const update = staged.prepare('UPDATE knowledge_versions SET manifest_path = ? WHERE id = ?');
+      const legacyVersions = path.join(legacyDataDir, 'versions');
+      for (const row of rows) {
+        const sourcePath = path.resolve(row.manifest_path);
+        if (!isPathInsideDirectory(sourcePath, legacyVersions)) {
+          throw new Error(`Legacy version manifest path is outside the version store for ${row.id}`);
+        }
+        update.run(
+          path.join(canonicalDataDir, 'versions', path.relative(legacyVersions, sourcePath)),
+          row.id,
+        );
+      }
+    }
+    validateDatabase(staged);
+  } finally {
+    staged.close();
+  }
+}
+
+function copyLegacyCompanion(sourcePath: string, destinationPath: string): void {
+  if (!fs.existsSync(sourcePath)) return;
+  fs.cpSync(sourcePath, destinationPath, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+    preserveTimestamps: true,
+  });
+}
+
+function inheritLegacyDataIfNeeded(canonicalDataDir: string, dbPath: string): boolean {
+  const configuredLegacyDir = process.env.PAPYRUS_LEGACY_DATA_DIR;
+  if (!configuredLegacyDir) return false;
+  const legacyDataDir = path.resolve(configuredLegacyDir);
+  if (legacyDataDir === path.resolve(canonicalDataDir)) return false;
+  const legacyDbPath = path.join(legacyDataDir, 'papyrus.db');
+  if (fs.existsSync(dbPath)) {
+    if (fs.existsSync(legacyDbPath)) {
+      console.info('Both current and legacy Papyrus databases exist; using the current database without merging');
+    }
+    return false;
+  }
+  if (!fs.existsSync(legacyDbPath)) return false;
+
+  const operationId = randomUUID();
+  const stagingDir = path.join(canonicalDataDir, `.legacy-import-${operationId}`);
+  fs.mkdirSync(stagingDir, { recursive: true, mode: 0o700 });
+  const stagedDatabasePath = path.join(stagingDir, 'papyrus.db');
+  const legacy = new DatabaseSync(legacyDbPath, { readOnly: true });
+  try {
+    validateDatabase(legacy);
+  } finally {
+    legacy.close();
+  }
+  const legacyForSnapshot = new DatabaseSync(legacyDbPath);
+  try {
+    legacyForSnapshot.exec(`VACUUM INTO ${quoteSqlitePath(stagedDatabasePath)}`);
+  } finally {
+    legacyForSnapshot.close();
+  }
+
+  const companionNames = [
+    '.master_key',
+    '.salt',
+    'ai_config.json',
+    'data.json',
+    'vault',
+    'versions',
+    'backups',
+  ];
+  const promotedPaths: Array<{ source: string; destination: string }> = [];
+  try {
+    for (const name of companionNames) {
+      copyLegacyCompanion(path.join(legacyDataDir, name), path.join(stagingDir, name));
+    }
+    rewriteLegacyPaths(stagedDatabasePath, legacyDataDir, canonicalDataDir, stagingDir);
+    for (const name of companionNames) {
+      const stagedPath = path.join(stagingDir, name);
+      if (!fs.existsSync(stagedPath)) continue;
+      const destinationPath = path.join(canonicalDataDir, name);
+      if (fs.existsSync(destinationPath)) {
+        throw new Error(`Cannot inherit legacy data because destination already exists: ${name}`);
+      }
+    }
+    for (const name of companionNames) {
+      const stagedPath = path.join(stagingDir, name);
+      if (!fs.existsSync(stagedPath)) continue;
+      const destinationPath = path.join(canonicalDataDir, name);
+      fs.renameSync(stagedPath, destinationPath);
+      promotedPaths.push({ source: stagedPath, destination: destinationPath });
+    }
+    fs.renameSync(stagedDatabasePath, dbPath);
+    promotedPaths.push({ source: stagedDatabasePath, destination: dbPath });
+    protectPrivateFile(dbPath);
+    for (const name of ['.master_key', '.salt', 'ai_config.json']) {
+      const privatePath = path.join(canonicalDataDir, name);
+      if (fs.existsSync(privatePath)) protectPrivateFile(privatePath);
+    }
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+    console.info(`Inherited legacy Papyrus data from "${legacyDataDir}"`);
+    return true;
+  } catch (error) {
+    for (const promoted of promotedPaths.reverse()) {
+      if (fs.existsSync(promoted.destination) && !fs.existsSync(promoted.source)) {
+        fs.renameSync(promoted.destination, promoted.source);
+      }
+    }
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+function verifyEncryptedKeysCanBeRead(database: DatabaseSync): void {
+  if (!tableExists(database, 'api_keys')) return;
+  const keys = database.prepare(
+    "SELECT id, encrypted_key FROM api_keys WHERE encrypted_key LIKE 'enc:%'",
+  ).all() as Array<{ id: string; encrypted_key: string }>;
+  for (const key of keys) {
+    if (decryptApiKey(key.encrypted_key) === '') {
+      throw new Error(`Inherited API key ${key.id} cannot be decrypted with the migrated master key`);
+    }
+  }
+}
+
+export function initializeDatabase(): DatabaseStatus {
+  if (db !== null && databaseStatus.state === 'ready') {
+    return { ...databaseStatus };
+  }
+  const dbPath = paths.dbFile;
+  const dataDir = path.dirname(dbPath);
+  databaseStatus = {
+    state: 'initializing',
+    schemaVersion: 0,
+    inheritedLegacyData: false,
+  };
+  try {
+    fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    databaseStatus.inheritedLegacyData = inheritLegacyDataIfNeeded(dataDir, dbPath);
+    if (!fs.existsSync(dbPath)) {
+      db = createFreshDatabase(dbPath);
+      databaseStatus = {
+        ...databaseStatus,
+        state: 'ready',
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      };
+      return { ...databaseStatus };
+    }
+
+    let database = new DatabaseSync(dbPath);
+    const sourceVersion = readSchemaVersion(database);
+    if (sourceVersion > CURRENT_SCHEMA_VERSION) {
+      database.close();
+      throw new Error(
+        `Database schema ${sourceVersion} is newer than supported schema ${CURRENT_SCHEMA_VERSION}`,
+      );
+    }
+    validateDatabase(database);
+    if (sourceVersion < CURRENT_SCHEMA_VERSION) {
+      const beforeCounts = captureDataCounts(database);
+      const snapshot = createRollbackSnapshot(database, sourceVersion);
+      try {
+        failMigrationForTest('after_snapshot');
+        configureDatabase(database);
+        runMigrations(database, sourceVersion);
+        failMigrationForTest('after_migration');
+        validateDatabase(database);
+        failMigrationForTest('after_validation');
+        assertDataCountsPreserved(beforeCounts, captureDataCounts(database));
+      } catch (error) {
+        database.close();
+        restoreAfterFailedMigration(dbPath, snapshot, error);
+      }
+    } else {
+      configureDatabase(database);
+    }
+    db = database;
+    protectPrivateFile(dbPath);
+    if (databaseStatus.inheritedLegacyData) verifyEncryptedKeysCanBeRead(database);
+    databaseStatus = {
+      ...databaseStatus,
+      state: 'ready',
+      schemaVersion: readSchemaVersion(database),
+    };
+    return { ...databaseStatus };
+  } catch (error) {
+    if (db !== null) {
+      db.close();
+      db = null;
+    }
+    if (databaseStatus.state !== 'rolled_back') {
+      databaseStatus = { ...databaseStatus, state: 'failed' };
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Database initialization failed: ${detail}`);
+    throw new Error(`Failed to initialize database: ${detail}`);
+  }
+}
+
+export function getDatabaseStatus(): DatabaseStatus {
+  return { ...databaseStatus };
+}
+
+export function getDb(): DatabaseSync {
+  if (db === null) initializeDatabase();
+  if (db === null) {
+    throw new Error('Database initialization completed without an open database');
   }
   return db;
 }
 
-function closeDb(): void {
+export function closeDb(): void {
   if (db !== null) {
     db.close();
     db = null;
   }
+  databaseStatus = {
+    state: 'uninitialized',
+    schemaVersion: 0,
+    inheritedLegacyData: false,
+  };
 }
 
 function resetDb(): void {
@@ -68,7 +576,7 @@ export function restoreDbSnapshot(snapshotPath: string): void {
 }
 
 function initSchema(database: DatabaseSync): void {
-  try {
+  if (tableExists(database, 'extensions')) {
     const columns = database.prepare("SELECT name FROM pragma_table_info('extensions')").all() as Array<{ name: string }>;
     const existingColumns = new Set(columns.map(c => c.name));
     
@@ -94,34 +602,32 @@ function initSchema(database: DatabaseSync): void {
         database.exec(`ALTER TABLE extensions ADD COLUMN ${col.name} ${col.type};`);
       }
     }
-  } catch {
   }
 
-  try {
-    const relationsDef = database.prepare(
-      "SELECT sql FROM sqlite_master WHERE type='table' AND name='relations'"
-    ).get() as { sql: string } | undefined;
-    if (relationsDef && relationsDef.sql.includes('UNIQUE(source_id, target_id)') && !relationsDef.sql.includes('relation_type')) {
-      database.exec(`
-        CREATE TABLE IF NOT EXISTS relations_new (
-          id TEXT PRIMARY KEY,
-          source_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
-          target_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
-          relation_type TEXT NOT NULL DEFAULT 'reference',
-          description TEXT DEFAULT '',
-          created_at REAL DEFAULT 0.0,
-          updated_at REAL DEFAULT 0.0,
-          UNIQUE(source_id, target_id, relation_type)
-        );
-        INSERT OR IGNORE INTO relations_new SELECT * FROM relations;
-        DROP TABLE relations;
-        ALTER TABLE relations_new RENAME TO relations;
-        CREATE INDEX IF NOT EXISTS idx_relations_source ON relations(source_id);
-        CREATE INDEX IF NOT EXISTS idx_relations_target ON relations(target_id);
-      `);
-    }
-  } catch (err) {
-    console.error('迁移 relations 表约束失败:', err instanceof Error ? err.message : String(err));
+  const relationsDef = database.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='relations'"
+  ).get() as { sql: string } | undefined;
+  if (relationsDef && relationsDef.sql.includes('UNIQUE(source_id, target_id)') && !relationsDef.sql.includes('relation_type')) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS relations_new (
+        id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        target_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        relation_type TEXT NOT NULL DEFAULT 'reference',
+        description TEXT DEFAULT '',
+        created_at REAL DEFAULT 0.0,
+        updated_at REAL DEFAULT 0.0,
+        UNIQUE(source_id, target_id, relation_type)
+      );
+      INSERT OR IGNORE INTO relations_new
+        (id, source_id, target_id, relation_type, description, created_at, updated_at)
+      SELECT id, source_id, target_id, 'reference', description, created_at, updated_at
+      FROM relations;
+      DROP TABLE relations;
+      ALTER TABLE relations_new RENAME TO relations;
+      CREATE INDEX IF NOT EXISTS idx_relations_source ON relations(source_id);
+      CREATE INDEX IF NOT EXISTS idx_relations_target ON relations(target_id);
+    `);
   }
 
   database.exec(`
@@ -352,23 +858,16 @@ function initSchema(database: DatabaseSync): void {
 
   deduplicateData(database);
 
-  try {
-    database.exec(`
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_providers_unique ON providers(type, name, base_url);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_models_unique ON provider_models(provider_id, model_id);
-    `);
-  } catch (err) {
-    console.error('创建唯一索引失败:', err instanceof Error ? err.message : String(err));
-  }
+  database.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_providers_unique ON providers(type, name, base_url);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_models_unique ON provider_models(provider_id, model_id);
+  `);
 }
 
 function deduplicateData(database: DatabaseSync): void {
-  try {
-    database.exec('BEGIN TRANSACTION;');
-
-    // Step 1: Deduplicate providers by (type, name, base_url)
-    // Keep the one that is default, or has the earliest created_at, or minimum id
-    const providerDups = database.prepare(`
+  // This function runs inside the versioned migration transaction.
+  // A separate transaction would make rollback impossible because SQLite does not support nesting BEGIN.
+  const providerDups = database.prepare(`
       SELECT type, name, base_url,
         COALESCE(
           MIN(CASE WHEN is_default = 1 THEN id END),
@@ -418,14 +917,12 @@ function deduplicateData(database: DatabaseSync): void {
       console.info(`数据去重: 清理 ${modelDups.length} 组重复模型`);
     }
 
-    database.exec('COMMIT;');
-  } catch (err) {
-    database.exec('ROLLBACK;');
-    console.error('数据去重失败:', err instanceof Error ? err.message : String(err));
-  }
 }
 
 function seedDefaults(database: DatabaseSync): void {
+  if (process.env.PAPYRUS_ENABLE_SEED_DATA !== 'true') {
+    return;
+  }
   const now = Date.now();
   const extensionCount = (database.prepare('SELECT COUNT(*) as c FROM extensions WHERE is_builtin = 1').get() as { c: number }).c;
   if (extensionCount === 0) {
@@ -2745,4 +3242,4 @@ export function getExtensionStats(): { total: number; enabled: number; builtin: 
   return { total, enabled, builtin };
 }
 
-export { closeDb, getDb, resetDb };
+export { resetDb };

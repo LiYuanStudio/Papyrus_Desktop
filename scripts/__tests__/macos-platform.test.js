@@ -122,3 +122,13 @@ test('macOS release configuration builds native arm64 and Intel artifacts', () =
   assert.match(workflow, /platform: macos-x64[\s\S]*arch: x64[\s\S]*os: macos-15-intel/);
   assert.match(workflow, /electron-builder --\$\{\{ matrix\.target \}\} --\$\{\{ matrix\.arch \}\}/);
 });
+
+test('Windows uninstall keeps user data unless the user explicitly confirms deletion', () => {
+  assert.equal(builderConfig.nsis.deleteAppDataOnUninstall, false);
+  const installerScript = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'build', 'installer.nsh'),
+    'utf8',
+  );
+  assert.match(installerScript, /MB_YESNO[\s\S]*\/SD IDNO/);
+  assert.match(installerScript, /IDYES deleteUserData/);
+});

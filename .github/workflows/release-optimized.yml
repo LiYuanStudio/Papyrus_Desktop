@@ -172,7 +172,8 @@ jobs:
           node --test --test-isolation=none \
             scripts/__tests__/bump-version.test.js \
             scripts/__tests__/set-version.test.js \
-            scripts/__tests__/verify-packaged-deps.test.js
+            scripts/__tests__/verify-packaged-deps.test.js \
+            scripts/__tests__/release-data-guard.test.js
 
       - name: Install Playwright Browser
         shell: bash
@@ -306,34 +307,8 @@ jobs:
         shell: bash
         run: npm prune --omit=dev
 
-      - name: Clean Packaged First-Run Data
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const file = 'backend/dist/db/database.js';
-          const target = 'function seedDefaults(database) {';
-          const replacement = [
-            'function seedDefaults(database) {',
-            '  // CI release build keeps first-run user data clean by default.',
-            '  // Source stays unchanged; this only affects the packaged backend output.',
-            "  if (process.env.PAPYRUS_ENABLE_SEED_DATA !== 'true') { return; }",
-          ].join('\n');
-
-          if (!fs.existsSync(file)) {
-            console.error(`Missing compiled database file: ${file}`);
-            process.exit(1);
-          }
-
-          const content = fs.readFileSync(file, 'utf8');
-          const occurrences = content.split(target).length - 1;
-          if (occurrences !== 1) {
-            console.error(`Expected exactly one seedDefaults() definition in ${file}, found ${occurrences}`);
-            process.exit(1);
-          }
-
-          fs.writeFileSync(file, content.replace(target, replacement));
-          NODE
+      - name: Purge Runtime Data From Release Inputs
+        run: npm run release:data:purge
 
       - name: Build Electron App
         shell: bash
@@ -377,6 +352,9 @@ jobs:
 
       - name: Verify Packaged Dependencies
         run: node scripts/verify-packaged-deps.js
+
+      - name: Verify Packaged Runtime Data
+        run: npm run release:data:verify
 
       - name: Clean Up Unpacked Directories
         if: always()

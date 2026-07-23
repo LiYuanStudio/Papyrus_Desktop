@@ -57,7 +57,11 @@ describe('API Integration Tests', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({ status: 'ok' });
+    expect(JSON.parse(response.body)).toEqual({
+      status: 'ok',
+      databaseState: 'ready',
+      schemaVersion: 1,
+    });
   });
 
   it('should reject non-localhost CORS', async () => {
