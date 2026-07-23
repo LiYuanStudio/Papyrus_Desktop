@@ -736,6 +736,11 @@ export const api = {
       branches: KnowledgeBranch[];
       activeBranch: KnowledgeBranch;
     }>('/knowledge-branches'),
+  createKnowledgeBranchFromCurrent: (name: string) =>
+    request<KnowledgeVersionStateRes>('/knowledge-branches', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
   renameKnowledgeBranch: (branchId: string, name: string) =>
     request<{ success: boolean; branch: KnowledgeBranch }>(
       `/knowledge-branches/${encodeURIComponent(branchId)}`,

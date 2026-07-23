@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
-  Empty,
   Form,
   Input,
   Message,
@@ -41,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
 
 type EditorMode =
   | { kind: 'create-version' }
+  | { kind: 'create-current-branch' }
   | { kind: 'create-branch'; version: KnowledgeVersion }
   | { kind: 'rename-version'; version: KnowledgeVersion }
   | { kind: 'rename-branch'; branch: KnowledgeBranch };
@@ -163,6 +163,11 @@ export default function VersionControlView({ onBack }: VersionControlViewProps) 
         });
         Message.success(t('versionControl.createVersionSuccess'));
         await loadState();
+      } else if (editor.kind === 'create-current-branch') {
+        const result = await api.createKnowledgeBranchFromCurrent(name);
+        setState(result);
+        dispatchKnowledgeChanged();
+        Message.success(t('versionControl.createBranchSuccess', { name }));
       } else if (editor.kind === 'create-branch') {
         const result = await api.createKnowledgeBranch(editor.version.id, name);
         setState(result);
@@ -300,8 +305,11 @@ export default function VersionControlView({ onBack }: VersionControlViewProps) 
     if (!state) {
       return (
         <div className="knowledge-version-empty">
-          <div>
-            <Empty description={t('versionControl.loadFailed')} />
+          <div className="knowledge-version-empty-content">
+            <span className="knowledge-version-empty-icon" aria-hidden="true">
+              <IconRefresh />
+            </span>
+            <Text bold>{t('versionControl.loadFailed')}</Text>
             <Button icon={<IconRefresh />} onClick={() => void loadState(true)}>
               {t('versionControl.retry')}
             </Button>
@@ -314,31 +322,51 @@ export default function VersionControlView({ onBack }: VersionControlViewProps) 
       return (
         <>
           <div className="knowledge-version-toolbar">
-            <Select
-              className="knowledge-version-branch-picker"
-              value={state.activeBranch.id}
-              disabled={operating}
-              onChange={(branchId) => void handleSwitchBranch(branchId)}
-              aria-label={t('versionControl.currentBranch')}
-            >
-              {state.branches.map((branch) => (
-                <Option key={branch.id} value={branch.id}>
-                  <IconBranch aria-hidden="true" />
-                  <span style={{ marginLeft: 8 }}>{branch.name}</span>
-                </Option>
-              ))}
-            </Select>
+            <div className="knowledge-version-branch-context">
+              <span className="knowledge-version-context-icon" aria-hidden="true">
+                <IconBranch />
+              </span>
+              <div className="knowledge-version-context-copy">
+                <Text type="secondary" className="knowledge-version-context-label">
+                  {t('versionControl.currentBranch')}
+                </Text>
+                <Select
+                  className="knowledge-version-branch-picker"
+                  value={state.activeBranch.id}
+                  disabled={operating}
+                  onChange={(branchId) => void handleSwitchBranch(branchId)}
+                  aria-label={t('versionControl.currentBranch')}
+                >
+                  {state.branches.map((branch) => (
+                    <Option key={branch.id} value={branch.id}>
+                      <IconBranch aria-hidden="true" />
+                      <span style={{ marginLeft: 8 }}>{branch.name}</span>
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+            </div>
             <div className="knowledge-version-toolbar-actions">
+              <Tooltip content={t('versionControl.refresh')}>
+                <Button
+                  shape="circle"
+                  icon={<IconRefresh />}
+                  disabled={operating}
+                  onClick={() => void loadState()}
+                  aria-label={t('versionControl.refresh')}
+                />
+              </Tooltip>
               <Button
-                icon={<IconRefresh />}
+                shape="round"
+                icon={<IconBranch />}
                 disabled={operating}
-                onClick={() => void loadState()}
-                aria-label={t('versionControl.refresh')}
+                onClick={() => openEditor({ kind: 'create-current-branch' })}
               >
-                {t('versionControl.refresh')}
+                {t('versionControl.newBranch')}
               </Button>
               <Button
                 type="primary"
+                shape="round"
                 icon={<IconPlus />}
                 loading={operating}
                 onClick={() => openEditor({ kind: 'create-version' })}
@@ -348,17 +376,52 @@ export default function VersionControlView({ onBack }: VersionControlViewProps) 
             </div>
           </div>
 
+          <div className="knowledge-version-summary" aria-label={t('versionControl.overview')}>
+            <div className="knowledge-version-summary-item">
+              <Text className="knowledge-version-summary-value">{state.versions.length}</Text>
+              <Text type="secondary">{t('versionControl.versionCount')}</Text>
+            </div>
+            <span className="knowledge-version-summary-divider" aria-hidden="true" />
+            <div className="knowledge-version-summary-item">
+              <Text className="knowledge-version-summary-value">{state.branches.length}</Text>
+              <Text type="secondary">{t('versionControl.branchCount')}</Text>
+            </div>
+            <span className="knowledge-version-summary-divider" aria-hidden="true" />
+            <div className="knowledge-version-summary-item knowledge-version-summary-current">
+              <IconBranch aria-hidden="true" />
+              <Text>{state.activeBranch.name}</Text>
+            </div>
+          </div>
+
           {state.versions.length === 0 ? (
             <div className="knowledge-version-empty">
-              <div>
-                <Empty description={t('versionControl.emptyHistory')} />
+              <div className="knowledge-version-empty-content">
+                <span className="knowledge-version-empty-icon" aria-hidden="true">
+                  <IconHistory />
+                </span>
+                <div className="knowledge-version-empty-copy">
+                  <Text bold>{t('versionControl.emptyHistory')}</Text>
+                  <Paragraph type="secondary">
+                    {t('versionControl.emptyHistoryDesc')}
+                  </Paragraph>
+                </div>
+                <div className="knowledge-version-empty-actions">
+                  <Button
+                    shape="round"
+                    icon={<IconBranch />}
+                    onClick={() => openEditor({ kind: 'create-current-branch' })}
+                  >
+                    {t('versionControl.newBranch')}
+                  </Button>
                 <Button
                   type="primary"
+                    shape="round"
                   icon={<IconPlus />}
                   onClick={() => openEditor({ kind: 'create-version' })}
                 >
                   {t('versionControl.createFirstVersion')}
                 </Button>
+                </div>
               </div>
             </div>
           ) : (
@@ -388,58 +451,93 @@ export default function VersionControlView({ onBack }: VersionControlViewProps) 
 
     if (sectionId === 'branches-section') {
       return (
-        <div className="knowledge-branch-list">
-          {state.branches.map((branch) => {
-            const deleteDisabled = branch.isProtected || branch.isActive || operating;
-            return (
-              <div className="knowledge-branch-row" key={branch.id}>
-                <div className="knowledge-branch-name">
-                  <IconBranch aria-hidden="true" />
-                  <Text bold>{branch.name}</Text>
-                  {branch.isActive && (
-                    <Tag size="small" color="green">{t('versionControl.activeBranch')}</Tag>
-                  )}
-                  {branch.isProtected && (
-                    <Tag size="small">{t('versionControl.protectedBranch')}</Tag>
-                  )}
-                </div>
+        <>
+          <div className="knowledge-branch-section-header">
+            <div>
+              <Text bold>{t('versionControl.branchWorkspaceTitle')}</Text>
+              <Paragraph type="secondary">
+                {t('versionControl.branchManagementDesc')}
+              </Paragraph>
+            </div>
+            <Button
+              type="primary"
+              shape="round"
+              icon={<IconPlus />}
+              disabled={operating}
+              onClick={() => openEditor({ kind: 'create-current-branch' })}
+            >
+              {t('versionControl.newBranch')}
+            </Button>
+          </div>
+          <div className="knowledge-branch-list">
+            {state.branches.map((branch) => {
+              const deleteDisabled = branch.isProtected || branch.isActive || operating;
+              return (
                 <div
-                  className="knowledge-branch-actions"
-                  role="group"
-                  aria-label={t('versionControl.branchActionsNamed', { name: branch.name })}
+                  className={`knowledge-branch-row${branch.isActive ? ' knowledge-branch-row-active' : ''}`}
+                  key={branch.id}
                 >
-                  <Tooltip content={branch.isProtected
-                    ? t('versionControl.mainProtectedHint')
-                    : t('versionControl.renameBranch')}
+                  <span className="knowledge-branch-icon" aria-hidden="true">
+                    <IconBranch />
+                  </span>
+                  <div className="knowledge-branch-details">
+                    <div className="knowledge-branch-name">
+                      <Text bold>{branch.name}</Text>
+                      {branch.isActive && (
+                        <Tag size="small" color="green">{t('versionControl.activeBranch')}</Tag>
+                      )}
+                      {branch.isProtected && (
+                        <Tag size="small">{t('versionControl.protectedBranch')}</Tag>
+                      )}
+                    </div>
+                    <Text type="secondary" className="knowledge-branch-head">
+                      {branch.headVersionId
+                        ? t('versionControl.branchHeadVersion', {
+                          id: branch.headVersionId.slice(0, 8),
+                        })
+                        : t('versionControl.branchNoVersions')}
+                    </Text>
+                  </div>
+                  <div
+                    className="knowledge-branch-actions"
+                    role="group"
+                    aria-label={t('versionControl.branchActionsNamed', { name: branch.name })}
                   >
-                    <Button
-                      type="text"
-                      icon={<IconEdit />}
-                      disabled={branch.isProtected || operating}
-                      aria-label={t('versionControl.renameBranchNamed', { name: branch.name })}
-                      onClick={() => openEditor({ kind: 'rename-branch', branch })}
-                    />
-                  </Tooltip>
-                  <Tooltip content={branch.isProtected
-                    ? t('versionControl.mainProtectedHint')
-                    : branch.isActive
-                      ? t('versionControl.activeBranchDeleteHint')
-                      : t('versionControl.deleteBranch')}
-                  >
-                    <Button
-                      type="text"
-                      status="danger"
-                      icon={<IconDelete />}
-                      disabled={deleteDisabled}
-                      aria-label={t('versionControl.deleteBranchNamed', { name: branch.name })}
-                      onClick={() => confirmDeleteBranch(branch)}
-                    />
-                  </Tooltip>
+                    <Tooltip content={branch.isProtected
+                      ? t('versionControl.mainProtectedHint')
+                      : t('versionControl.renameBranch')}
+                    >
+                      <Button
+                        type="text"
+                        shape="circle"
+                        icon={<IconEdit />}
+                        disabled={branch.isProtected || operating}
+                        aria-label={t('versionControl.renameBranchNamed', { name: branch.name })}
+                        onClick={() => openEditor({ kind: 'rename-branch', branch })}
+                      />
+                    </Tooltip>
+                    <Tooltip content={branch.isProtected
+                      ? t('versionControl.mainProtectedHint')
+                      : branch.isActive
+                        ? t('versionControl.activeBranchDeleteHint')
+                        : t('versionControl.deleteBranch')}
+                    >
+                      <Button
+                        type="text"
+                        shape="circle"
+                        status="danger"
+                        icon={<IconDelete />}
+                        disabled={deleteDisabled}
+                        aria-label={t('versionControl.deleteBranchNamed', { name: branch.name })}
+                        onClick={() => confirmDeleteBranch(branch)}
+                      />
+                    </Tooltip>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       );
     }
     return null;
@@ -449,6 +547,8 @@ export default function VersionControlView({ onBack }: VersionControlViewProps) 
     ? t('versionControl.createVersion')
     : editor?.kind === 'create-branch'
       ? t('versionControl.createBranch')
+      : editor?.kind === 'create-current-branch'
+        ? t('versionControl.newBranch')
       : editor?.kind === 'rename-version'
         ? t('versionControl.renameVersion')
         : t('versionControl.renameBranch');
@@ -483,7 +583,9 @@ export default function VersionControlView({ onBack }: VersionControlViewProps) 
         focusLock
       >
         <Form layout="vertical">
-          <Form.Item label={editor?.kind === 'create-branch' || editor?.kind === 'rename-branch'
+          <Form.Item label={editor?.kind === 'create-branch'
+            || editor?.kind === 'create-current-branch'
+            || editor?.kind === 'rename-branch'
             ? t('versionControl.branchName')
             : t('versionControl.versionName')}
           >
@@ -512,6 +614,11 @@ export default function VersionControlView({ onBack }: VersionControlViewProps) 
           {editor?.kind === 'create-branch' && (
             <Paragraph type="secondary">
               {t('versionControl.branchFromHint', { name: editor.version.name })}
+            </Paragraph>
+          )}
+          {editor?.kind === 'create-current-branch' && (
+            <Paragraph type="secondary">
+              {t('versionControl.newBranchFromCurrentHint')}
             </Paragraph>
           )}
         </Form>

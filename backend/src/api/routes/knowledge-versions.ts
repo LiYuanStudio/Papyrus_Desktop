@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
+  createKnowledgeBranch,
   createKnowledgeBranchFromVersion,
   createKnowledgeVersion,
   deleteKnowledgeBranch,
@@ -140,6 +141,16 @@ export default async function knowledgeVersionRoutes(fastify: FastifyInstance): 
         branches: state.branches,
         activeBranch: state.activeBranch,
       });
+    } catch (error) {
+      sendVersionError(request, reply, error);
+    }
+  });
+
+  fastify.post('/knowledge-branches', async (request, reply) => {
+    try {
+      const { name } = branchNameBodySchema.parse(request.body);
+      const state = await createKnowledgeBranch(name);
+      reply.status(201).send({ success: true, ...state });
     } catch (error) {
       sendVersionError(request, reply, error);
     }

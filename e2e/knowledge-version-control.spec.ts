@@ -36,6 +36,25 @@ test('settings version control creates, branches, switches and deletes through t
   await category.click();
   await expect(page.getByRole('heading', { name: '版本控制', level: 2 })).toBeVisible();
 
+  await page.locator('.knowledge-version-toolbar-actions')
+    .getByRole('button', { name: '新建分支' })
+    .click();
+  const directBranchModal = page.locator('.arco-modal').filter({ hasText: '新建分支' });
+  await directBranchModal.locator('input').fill('e2e-direct-branch');
+  const directBranchResponsePromise = page.waitForResponse((response) =>
+    response.url().endsWith('/api/knowledge-branches')
+      && response.request().method() === 'POST'
+  );
+  await directBranchModal.getByRole('button', { name: '确认' }).click();
+  const directBranchResponse = await directBranchResponsePromise;
+  expect(directBranchResponse.status(), await directBranchResponse.text()).toBe(201);
+  await expect(page.getByText('已创建并切换到分支“e2e-direct-branch”')).toBeVisible();
+  await expect(page.locator('.knowledge-version-branch-picker')).toContainText('e2e-direct-branch');
+
+  await page.locator('.knowledge-version-branch-picker').click();
+  await page.locator('.arco-select-option').filter({ hasText: /^main$/ }).click();
+  await expect(page.getByText('已切换到分支“main”')).toBeVisible();
+
   await page.getByRole('button', { name: '创建版本' }).first().click();
   const versionModal = page.locator('.arco-modal').filter({ hasText: '创建版本' });
   await versionModal.locator('input').fill('E2E UI 基线');

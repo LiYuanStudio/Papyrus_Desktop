@@ -89,6 +89,17 @@ describe('Knowledge version control', () => {
     expect(finalState.branches.map((branch) => branch.id)).toEqual(['main']);
     expect(notes.getNoteById(note.id)?.content).toBe('main content');
 
+    const directBranchState = await versioning.createKnowledgeBranch('current-work');
+    expect(directBranchState.activeBranch.name).toBe('current-work');
+    expect(directBranchState.versions).toHaveLength(1);
+    expect(directBranchState.versions[0]).toMatchObject({
+      kind: 'safety',
+      isHead: true,
+    });
+    expect(notes.getNoteById(note.id)?.content).toBe('main content');
+    await versioning.switchKnowledgeBranch('main');
+    await versioning.deleteKnowledgeBranch(directBranchState.activeBranch.id);
+
     const blobDir = path.join(testDir, 'versions', 'blobs');
     const blobs = fs.readdirSync(blobDir).filter((name) => /^[a-f0-9]{64}$/.test(name));
     expect(blobs).toHaveLength(1);
@@ -137,5 +148,33 @@ describe('Knowledge version control', () => {
       database.loadAllNotes()[0]?.id ?? '',
     )?.content;
     expect(contentAfter).toBe(contentBefore);
+  });
+
+  it('restores an older snapshot after the current knowledge schema gains a defaulted column', async () => {
+    const database = await import('../../src/db/database.js');
+    const note = database.loadAllNotes()[0];
+    if (!note) {
+      throw new Error('Expected a note for schema compatibility test');
+    }
+    await notes.updateNote(note.id, { content: 'legacy schema content' });
+    const legacyVersion = await versioning.createKnowledgeVersion({ name: 'Legacy schema' });
+
+    const db = database.getDb();
+    db.exec(
+      "ALTER TABLE notes ADD COLUMN future_restore_marker TEXT NOT NULL DEFAULT 'migrated-default'"
+    );
+    await notes.updateNote(note.id, { content: 'new schema content' });
+    db.prepare('UPDATE notes SET future_restore_marker = ? WHERE id = ?')
+      .run('working-copy', note.id);
+
+    await versioning.restoreKnowledgeVersion(legacyVersion.id);
+
+    const restored = db.prepare(
+      'SELECT content, future_restore_marker FROM notes WHERE id = ?'
+    ).get(note.id) as { content: string; future_restore_marker: string } | undefined;
+    expect(restored).toEqual({
+      content: 'legacy schema content',
+      future_restore_marker: 'migrated-default',
+    });
   });
 });

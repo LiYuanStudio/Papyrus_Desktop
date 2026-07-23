@@ -658,6 +658,65 @@ export async function restoreKnowledgeVersion(versionId: string): Promise<Knowle
 // 从版本旁开新分支并立即切换，输入源版本与分支名，输出新状态。
 // 原因：新分支复制独立快照元数据并共享 blob，删除任一分支不会破坏另一分支。
 // 未让新分支直接引用源 manifest：源分支删除会留下悬空路径。
+// 从已校验的快照记录创建并激活分支，输入源版本与规范化名称，输出新分支状态。
+// 原因：从当前工作状态和从历史版本旁开最终都遵循同一套克隆、恢复与事务清理流程。
+// 未在此创建安全快照：调用方必须先确定正确的分支点，避免当前状态入口产生两份重复快照。
+function createBranchFromSnapshotInternal(
+  source: KnowledgeVersionRow,
+  name: string,
+): KnowledgeVersionState {
+  const branchId = randomUUID();
+  const baseVersionId = randomUUID();
+  const artifacts = cloneSnapshotArtifacts(source, baseVersionId);
+  const createdAt = Date.now() / 1000;
+  const branchRow: KnowledgeBranchRow = {
+    id: branchId,
+    name,
+    head_version_id: baseVersionId,
+    is_active: 0,
+    created_at: createdAt,
+    updated_at: createdAt,
+  };
+  const baseVersionRow: KnowledgeVersionRow = {
+    id: baseVersionId,
+    branch_id: branchId,
+    name: source.name,
+    description: source.description,
+    kind: source.kind,
+    manifest_path: artifacts.manifestPath,
+    stats_json: JSON.stringify(artifacts.stats),
+    size_bytes: artifacts.sizeBytes,
+    created_at: createdAt,
+  };
+
+  try {
+    runInTransaction(() => {
+      insertKnowledgeBranchRow(branchRow);
+      insertKnowledgeVersionRow(baseVersionRow);
+    });
+    restoreVersionArtifacts(baseVersionRow);
+    activateKnowledgeBranchRow(branchId, Date.now() / 1000);
+  } catch (error) {
+    const persistedBranch = getKnowledgeBranchRow(branchId);
+    if (persistedBranch) {
+      deleteKnowledgeBranchRow(branchId);
+    }
+    fs.rmSync(path.dirname(artifacts.manifestPath), { recursive: true, force: true });
+    throw error;
+  }
+  const activeBranch = getKnowledgeBranchRow(branchId);
+  if (!activeBranch) {
+    throw new Error('Created branch is missing');
+  }
+  return {
+    branches: listKnowledgeBranchRows().map(toBranch),
+    activeBranch: toBranch(activeBranch),
+    versions: listKnowledgeVersionRows(branchId).map((version) =>
+      toVersion(version, activeBranch.head_version_id)
+    ),
+  };
+}
+
 export async function createKnowledgeBranchFromVersion(
   versionId: string,
   requestedName: string,
@@ -677,57 +736,31 @@ export async function createKnowledgeBranchFromVersion(
     }
     readManifest(source);
     createSafetyVersionInternal(active);
+    return createBranchFromSnapshotInternal(source, name);
+  });
+}
 
-    const branchId = randomUUID();
-    const baseVersionId = randomUUID();
-    const artifacts = cloneSnapshotArtifacts(source, baseVersionId);
-    const createdAt = Date.now() / 1000;
-    const branchRow: KnowledgeBranchRow = {
-      id: branchId,
-      name,
-      head_version_id: baseVersionId,
-      is_active: 0,
-      created_at: createdAt,
-      updated_at: createdAt,
-    };
-    const baseVersionRow: KnowledgeVersionRow = {
-      id: baseVersionId,
-      branch_id: branchId,
-      name: source.name,
-      description: source.description,
-      kind: source.kind,
-      manifest_path: artifacts.manifestPath,
-      stats_json: JSON.stringify(artifacts.stats),
-      size_bytes: artifacts.sizeBytes,
-      created_at: createdAt,
-    };
-
-    try {
-      runInTransaction(() => {
-        insertKnowledgeBranchRow(branchRow);
-        insertKnowledgeVersionRow(baseVersionRow);
-      });
-      restoreVersionArtifacts(baseVersionRow);
-      activateKnowledgeBranchRow(branchId, Date.now() / 1000);
-    } catch (error) {
-      const persistedBranch = getKnowledgeBranchRow(branchId);
-      if (persistedBranch) {
-        deleteKnowledgeBranchRow(branchId);
-      }
-      fs.rmSync(path.dirname(artifacts.manifestPath), { recursive: true, force: true });
-      throw error;
+// 从当前知识库工作状态创建并立即切换分支，输入分支名，输出新状态。
+// 原因：用户不应先手动创建版本才能使用“新建分支”，当前内容本身就是合理分支点。
+// 未创建无头空分支：先生成可见安全快照可保证新分支始终可切换、恢复且不丢当前内容。
+export async function createKnowledgeBranch(
+  requestedName: string,
+): Promise<KnowledgeVersionState> {
+  return operationMutex.runExclusive(() => {
+    const name = normalizeName(requestedName, 'Branch name');
+    if (getKnowledgeBranchRowByName(name)) {
+      throw new KnowledgeVersionError(409, 'BRANCH_NAME_CONFLICT', 'Branch name already exists');
     }
-    const activeBranch = getKnowledgeBranchRow(branchId);
-    if (!activeBranch) {
-      throw new Error('Created branch is missing');
+    const active = listKnowledgeBranchRows().find((branch) => branch.is_active === 1);
+    if (!active) {
+      throw new Error('Active knowledge branch is missing');
     }
-    return {
-      branches: listKnowledgeBranchRows().map(toBranch),
-      activeBranch: toBranch(activeBranch),
-      versions: listKnowledgeVersionRows(branchId).map((version) =>
-        toVersion(version, activeBranch.head_version_id)
-      ),
-    };
+    const branchPoint = createSafetyVersionInternal(active);
+    const source = getKnowledgeVersionRow(branchPoint.id);
+    if (!source) {
+      throw new Error('Created branch point is missing');
+    }
+    return createBranchFromSnapshotInternal(source, name);
   });
 }
 

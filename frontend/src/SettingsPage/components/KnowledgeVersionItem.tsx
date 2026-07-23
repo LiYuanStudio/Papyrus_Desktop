@@ -58,6 +58,7 @@ export function KnowledgeVersionItem({
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(version.createdAt * 1000));
+  const createdIso = new Date(version.createdAt * 1000).toISOString();
   const deleteDisabled = disabled || version.isHead;
 
   return (
@@ -71,20 +72,31 @@ export function KnowledgeVersionItem({
       </div>
       <div className="knowledge-version-body">
         <div className="knowledge-version-header">
-          <div className="knowledge-version-heading">
-            <IconHistory className="knowledge-version-icon" aria-hidden="true" />
-            <Text bold className="knowledge-version-name">{version.name}</Text>
-            <Tag
-              size="small"
-              color={version.kind === 'safety' ? 'orange' : 'arcoblue'}
-            >
-              {version.kind === 'safety'
-                ? t('versionControl.safetyVersion')
-                : t('versionControl.manualVersion')}
-            </Tag>
-            {version.isHead && (
-              <Tag size="small" color="green">{t('versionControl.currentVersion')}</Tag>
-            )}
+          <div className="knowledge-version-identity">
+            <span className="knowledge-version-icon" aria-hidden="true">
+              <IconHistory />
+            </span>
+            <div className="knowledge-version-title-block">
+              <div className="knowledge-version-heading">
+                <Text bold className="knowledge-version-name">{version.name}</Text>
+                <Tag
+                  size="small"
+                  color={version.kind === 'safety' ? 'orange' : 'arcoblue'}
+                >
+                  {version.kind === 'safety'
+                    ? t('versionControl.safetyVersion')
+                    : t('versionControl.manualVersion')}
+                </Tag>
+                {version.isHead && (
+                  <Tag size="small" color="green">{t('versionControl.currentVersion')}</Tag>
+                )}
+              </div>
+              <div className="knowledge-version-meta">
+                <time dateTime={createdIso}>{formattedDate}</time>
+                <span className="knowledge-version-meta-dot" aria-hidden="true" />
+                <code className="knowledge-version-id">{version.id.slice(0, 8)}</code>
+              </div>
+            </div>
           </div>
           <div
             className="knowledge-version-actions"
@@ -143,11 +155,7 @@ export function KnowledgeVersionItem({
           </Paragraph>
         )}
 
-        <div className="knowledge-version-meta">
-          <Text type="secondary">{formattedDate}</Text>
-          <Text type="secondary" className="knowledge-version-id">
-            {version.id.slice(0, 8)}
-          </Text>
+        <div className="knowledge-version-footer">
           <Text type="secondary">
             {t('versionControl.contentSummary', {
               notes: version.stats.notes,
@@ -155,7 +163,9 @@ export function KnowledgeVersionItem({
               files: version.stats.files,
             })}
           </Text>
-          <Text type="secondary">{formatBytes(version.stats.sizeBytes)}</Text>
+          <Text type="secondary" className="knowledge-version-size">
+            {formatBytes(version.stats.sizeBytes)}
+          </Text>
         </div>
       </div>
     </article>

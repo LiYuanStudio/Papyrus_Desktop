@@ -132,6 +132,8 @@ describe('KnowledgeVersionItem', () => {
       assert.equal(typeof settings.versionControl, 'string');
       assert.equal(typeof versionControl.title, 'string');
       assert.equal(typeof versionControl.createVersion, 'string');
+      assert.equal(typeof versionControl.newBranch, 'string');
+      assert.equal(typeof versionControl.newBranchFromCurrentHint, 'string');
       assert.equal(typeof versionControl.deleteBranchConfirmContent, 'string');
     }
   });

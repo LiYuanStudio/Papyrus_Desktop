@@ -206,4 +206,31 @@ describe('Knowledge version control API', () => {
     expect(state.branches.map((branch: { id: string }) => branch.id)).toEqual(['main']);
     expect(state.activeBranch.id).toBe('main');
   });
+
+  it('creates a branch directly from the current working state', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/knowledge-branches',
+      payload: { name: 'current-work' },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const created = JSON.parse(createResponse.body);
+    expect(created.activeBranch.name).toBe('current-work');
+    expect(created.versions).toHaveLength(1);
+    expect(created.versions[0]).toMatchObject({
+      kind: 'safety',
+      isHead: true,
+    });
+
+    const duplicateResponse = await app.inject({
+      method: 'POST',
+      url: '/api/knowledge-branches',
+      payload: { name: 'CURRENT-WORK' },
+    });
+    expect(duplicateResponse.statusCode).toBe(409);
+    expect(JSON.parse(duplicateResponse.body).code).toBe('BRANCH_NAME_CONFLICT');
+
+    const currentNote = await app.inject({ method: 'GET', url: `/api/notes/${noteId}` });
+    expect(JSON.parse(currentNote.body).note.content).toBe('main content');
+  });
 });

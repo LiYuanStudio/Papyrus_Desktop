@@ -1968,6 +1968,71 @@ const KNOWLEDGE_SNAPSHOT_TABLES = new Set([
   'daily_progress',
 ]);
 
+interface SqliteTableColumn {
+  name: string;
+  notnull: number;
+  dflt_value: string | null;
+  pk: number;
+}
+
+// 将受信任的 SQLite 标识符转成带引号 SQL，输入表名或列名，输出双引号包裹的标识符。
+// 原因：跨 schema 恢复需要动态拼接 PRAGMA 返回的列名，必须先限制字符集并正确引用。
+// 未用参数占位符：SQLite 参数只能绑定值，不能绑定表名或列名。
+function quoteSqlIdentifier(identifier: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(identifier)) {
+    throw new Error(`Unsafe SQLite identifier: ${identifier}`);
+  }
+  return `"${identifier}"`;
+}
+
+// 从快照恢复单个知识表，输入数据库连接和固定表名，无返回值。
+// 原因：按当前表与旧快照的同名列交集复制，可让新增且有默认值的列在升级后安全采用当前默认值。
+// 未使用 SELECT *：表结构演进会改变列数或顺序，使历史快照在升级后不可恢复。
+function restoreKnowledgeTableFromSnapshot(
+  database: DatabaseSync,
+  tableName: string,
+): void {
+  if (!KNOWLEDGE_SNAPSHOT_TABLES.has(tableName)) {
+    throw new Error(`Unsupported knowledge snapshot table: ${tableName}`);
+  }
+  const quotedTable = quoteSqlIdentifier(tableName);
+  const currentColumns = database.prepare(
+    `PRAGMA main.table_info(${quotedTable})`
+  ).all() as unknown as SqliteTableColumn[];
+  const snapshotColumns = database.prepare(
+    `PRAGMA knowledge_snapshot.table_info(${quotedTable})`
+  ).all() as unknown as SqliteTableColumn[];
+  if (currentColumns.length === 0 || snapshotColumns.length === 0) {
+    throw new Error(`Knowledge snapshot table is missing: ${tableName}`);
+  }
+
+  const snapshotColumnNames = new Set(snapshotColumns.map((column) => column.name));
+  const missingRequiredColumns = currentColumns.filter((column) =>
+    !snapshotColumnNames.has(column.name)
+    && (column.notnull === 1 || column.pk > 0)
+    && column.dflt_value === null
+  );
+  if (missingRequiredColumns.length > 0) {
+    throw new Error(
+      `Knowledge snapshot is incompatible with required columns in ${tableName}: `
+      + missingRequiredColumns.map((column) => column.name).join(', '),
+    );
+  }
+
+  const sharedColumns = currentColumns
+    .map((column) => column.name)
+    .filter((columnName) => snapshotColumnNames.has(columnName));
+  if (sharedColumns.length === 0) {
+    throw new Error(`Knowledge snapshot has no compatible columns for table: ${tableName}`);
+  }
+  const columnSql = sharedColumns.map(quoteSqlIdentifier).join(', ');
+  database.exec(`DELETE FROM ${quotedTable};`);
+  database.exec(
+    `INSERT INTO ${quotedTable} (${columnSql}) `
+    + `SELECT ${columnSql} FROM knowledge_snapshot.${quotedTable};`,
+  );
+}
+
 // 创建只包含知识库表的 SQLite 快照，输入绝对目标路径，无返回值。
 // 原因：先用 VACUUM INTO 获得一致视图，再移除非知识表并二次 VACUUM，可避免复制 API Key 等敏感数据。
 // 未直接复制主库文件：WAL 模式下文件复制可能缺少未检查点事务并产生损坏快照。
@@ -2010,23 +2075,21 @@ export function restoreKnowledgeDbSnapshot(snapshotPath: string, vaultDir: strin
   database.prepare('ATTACH DATABASE ? AS knowledge_snapshot').run(snapshotPath);
   try {
     database.exec('BEGIN IMMEDIATE TRANSACTION;');
-    database.exec(`
-      DELETE FROM relations;
-      DELETE FROM note_versions;
-      DELETE FROM card_versions;
-      DELETE FROM files;
-      DELETE FROM daily_progress;
-      DELETE FROM notes;
-      DELETE FROM cards;
+    database.exec('DELETE FROM relations;');
+    database.exec('DELETE FROM note_versions;');
+    database.exec('DELETE FROM card_versions;');
+    database.exec('DELETE FROM files;');
+    database.exec('DELETE FROM daily_progress;');
+    database.exec('DELETE FROM notes;');
+    database.exec('DELETE FROM cards;');
 
-      INSERT INTO cards SELECT * FROM knowledge_snapshot.cards;
-      INSERT INTO notes SELECT * FROM knowledge_snapshot.notes;
-      INSERT INTO card_versions SELECT * FROM knowledge_snapshot.card_versions;
-      INSERT INTO note_versions SELECT * FROM knowledge_snapshot.note_versions;
-      INSERT INTO relations SELECT * FROM knowledge_snapshot.relations;
-      INSERT INTO files SELECT * FROM knowledge_snapshot.files;
-      INSERT INTO daily_progress SELECT * FROM knowledge_snapshot.daily_progress;
-    `);
+    restoreKnowledgeTableFromSnapshot(database, 'cards');
+    restoreKnowledgeTableFromSnapshot(database, 'notes');
+    restoreKnowledgeTableFromSnapshot(database, 'card_versions');
+    restoreKnowledgeTableFromSnapshot(database, 'note_versions');
+    restoreKnowledgeTableFromSnapshot(database, 'relations');
+    restoreKnowledgeTableFromSnapshot(database, 'files');
+    restoreKnowledgeTableFromSnapshot(database, 'daily_progress');
 
     const fileRows = database.prepare(
       'SELECT id, file_storage_path FROM files WHERE is_folder = 0 AND file_storage_path IS NOT NULL'
