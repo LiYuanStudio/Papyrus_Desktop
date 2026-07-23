@@ -90,6 +90,21 @@ export async function initApp(): Promise<void> {
   if (logConfig.max_log_files !== undefined) logger.setMaxLogFiles(logConfig.max_log_files);
   if (logConfig.log_rotation !== undefined) logger.setLogRotation(logConfig.log_rotation);
   const allowedPorts = new Set([5173, 4173, 8000, 3000, 9100, 9200]);
+  const configuredBackendPort = Number(process.env.PAPYRUS_PORT);
+  const configuredE2ePortBase = Number(process.env.PAPYRUS_E2E_PORT_BASE);
+  if (Number.isInteger(configuredBackendPort) && configuredBackendPort > 0 && configuredBackendPort <= 65535) {
+    allowedPorts.add(configuredBackendPort);
+  }
+  if (
+    Number.isInteger(configuredE2ePortBase)
+    && configuredE2ePortBase > 0
+    && configuredE2ePortBase < 65535
+  ) {
+    // E2E 使用相邻动态端口启动后端与 Vite；只放行当前进程明确配置的两个 loopback 端口。
+    // 未放行所有本地端口：任意 localhost origin 仍可能代表不受信任网页，保持原有 CORS 最小白名单。
+    allowedPorts.add(configuredE2ePortBase);
+    allowedPorts.add(configuredE2ePortBase + 1);
+  }
   await app.register(cors, {
     origin: (origin, cb) => {
       if (!origin) {
@@ -170,6 +185,7 @@ export async function initApp(): Promise<void> {
   const { default: extensionsRoutes } = await import('./routes/extensions.js');
   const { default: cliRoutes } = await import('./routes/cli.js');
   const { default: uiSettingsRoutes } = await import('./routes/ui-settings.js');
+  const { default: knowledgeVersionRoutes } = await import('./routes/knowledge-versions.js');
 
   app.register(cardsRoutes, { prefix: '/api/cards' });
   app.register(reviewRoutes, { prefix: '/api/review' });
@@ -190,6 +206,7 @@ export async function initApp(): Promise<void> {
   app.register(extensionsRoutes, { prefix: '/api/extensions' });
   app.register(cliRoutes, { prefix: '/api/cli' });
   app.register(uiSettingsRoutes, { prefix: '/api/ui-settings' });
+  app.register(knowledgeVersionRoutes, { prefix: '/api' });
 }
 
 let mcpServer: MCPServer | null = null;
@@ -240,4 +257,3 @@ export { app, logger, gracefulShutdown };
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   await start();
 }
-

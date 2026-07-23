@@ -312,11 +312,40 @@ function initSchema(database: DatabaseSync): void {
       study_minutes INTEGER DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS knowledge_branches (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      head_version_id TEXT,
+      is_active INTEGER NOT NULL DEFAULT 0,
+      created_at REAL NOT NULL,
+      updated_at REAL NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS knowledge_versions (
+      id TEXT PRIMARY KEY,
+      branch_id TEXT NOT NULL REFERENCES knowledge_branches(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL CHECK(kind IN ('manual', 'safety')),
+      manifest_path TEXT NOT NULL,
+      stats_json TEXT NOT NULL DEFAULT '{}',
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      created_at REAL NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_versions_branch_created
+      ON knowledge_versions(branch_id, created_at DESC);
+
     CREATE TABLE IF NOT EXISTS ui_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at REAL NOT NULL
     );
+
+    INSERT OR IGNORE INTO knowledge_branches
+      (id, name, head_version_id, is_active, created_at, updated_at)
+    VALUES
+      ('main', 'main', NULL, 1, unixepoch(), unixepoch());
   `);
 
   seedDefaults(database);
@@ -1704,6 +1733,382 @@ export function clearAllData(): void {
   });
   const database = getDb();
   seedDefaults(database);
+}
+
+// ==================== Knowledge Version Control ====================
+
+export interface KnowledgeBranchRow {
+  id: string;
+  name: string;
+  head_version_id: string | null;
+  is_active: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface KnowledgeVersionRow {
+  id: string;
+  branch_id: string;
+  name: string;
+  description: string;
+  kind: 'manual' | 'safety';
+  manifest_path: string;
+  stats_json: string;
+  size_bytes: number;
+  created_at: number;
+}
+
+export interface KnowledgeDataStats {
+  cards: number;
+  notes: number;
+  relations: number;
+  files: number;
+  progressDays: number;
+}
+
+// 返回全部知识库分支，输入为空，输出按活动状态与更新时间排序的元数据。
+// 原因：版本服务需要在一次读取中确定当前分支并渲染选择器。
+// 未在路由层直接查询：集中数据库边界可避免 API 与 SQLite 列名耦合。
+export function listKnowledgeBranchRows(): KnowledgeBranchRow[] {
+  const database = getDb();
+  return database.prepare(
+    'SELECT * FROM knowledge_branches ORDER BY is_active DESC, updated_at DESC, name COLLATE NOCASE'
+  ).all() as unknown as KnowledgeBranchRow[];
+}
+
+// 按 ID 读取单个分支，输入稳定 UUID 或 main，输出元数据或 null。
+// 原因：所有写操作都要先验证分支存在与保护状态。
+// 未从全量列表中过滤：点查可利用主键索引，避免无关对象分配。
+export function getKnowledgeBranchRow(branchId: string): KnowledgeBranchRow | null {
+  const database = getDb();
+  const row = database.prepare('SELECT * FROM knowledge_branches WHERE id = ?').get(branchId);
+  return row ? row as unknown as KnowledgeBranchRow : null;
+}
+
+// 按大小写不敏感名称读取分支，输入用户名称，输出冲突分支或 null。
+// 原因：SQLite 唯一约束负责最终一致性，服务层仍需给出友好的 409。
+// 未仅捕获 UNIQUE 异常：预检查能区分名称冲突与其他数据库失败。
+export function getKnowledgeBranchRowByName(name: string): KnowledgeBranchRow | null {
+  const database = getDb();
+  const row = database.prepare(
+    'SELECT * FROM knowledge_branches WHERE name = ? COLLATE NOCASE'
+  ).get(name);
+  return row ? row as unknown as KnowledgeBranchRow : null;
+}
+
+// 新增知识库分支，输入完整数据库行，无返回值。
+// 原因：ID、时间与校验由版本服务统一生成，数据库层只负责持久化。
+// 未使用 INSERT OR REPLACE：替换可能级联删除已有版本，属于不可接受的数据破坏。
+export function insertKnowledgeBranchRow(branch: KnowledgeBranchRow): void {
+  const database = getDb();
+  database.prepare(
+    `INSERT INTO knowledge_branches
+      (id, name, head_version_id, is_active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    branch.id,
+    branch.name,
+    branch.head_version_id,
+    branch.is_active,
+    branch.created_at,
+    branch.updated_at,
+  );
+}
+
+// 更新分支名称，输入分支 ID、新名称和时间，返回是否命中。
+// 原因：名称变更不能触碰活动状态或版本指针。
+// 未接受任意 Partial：固定列集合可防止动态 SQL 注入与误改保护字段。
+export function renameKnowledgeBranchRow(branchId: string, name: string, updatedAt: number): boolean {
+  const database = getDb();
+  const result = database.prepare(
+    'UPDATE knowledge_branches SET name = ?, updated_at = ? WHERE id = ?'
+  ).run(name, updatedAt, branchId);
+  return Number(result.changes) > 0;
+}
+
+// 更新分支头版本，输入分支 ID、版本 ID 和时间，返回是否命中。
+// 原因：创建、恢复和安全快照完成后都需要原子推进分支头。
+// 未把版本创建与此函数强耦合：分支克隆会先复制快照再设置指针。
+export function setKnowledgeBranchHeadRow(
+  branchId: string,
+  versionId: string | null,
+  updatedAt: number,
+): boolean {
+  const database = getDb();
+  const result = database.prepare(
+    'UPDATE knowledge_branches SET head_version_id = ?, updated_at = ? WHERE id = ?'
+  ).run(versionId, updatedAt, branchId);
+  return Number(result.changes) > 0;
+}
+
+// 切换唯一活动分支，输入目标分支 ID 和时间，返回是否命中目标。
+// 原因：清零与激活必须在同一事务中，避免出现两个活动分支。
+// 未依赖唯一部分索引：SQLite 版本兼容性与现有初始化方式更适合显式事务。
+export function activateKnowledgeBranchRow(branchId: string, updatedAt: number): boolean {
+  return runInTransaction(() => {
+    const database = getDb();
+    database.prepare('UPDATE knowledge_branches SET is_active = 0 WHERE is_active = 1').run();
+    const result = database.prepare(
+      'UPDATE knowledge_branches SET is_active = 1, updated_at = ? WHERE id = ?'
+    ).run(updatedAt, branchId);
+    if (Number(result.changes) === 0) {
+      throw new Error('Knowledge branch not found during activation');
+    }
+    return true;
+  });
+}
+
+// 删除分支行，输入 ID，返回删除数量是否大于零。
+// 原因：外键级联只移除该分支的版本元数据，文件快照由服务层安全回收。
+// 未手工逐版本删除：数据库级联可保证元数据不会残留半删除状态。
+export function deleteKnowledgeBranchRow(branchId: string): boolean {
+  const database = getDb();
+  const result = database.prepare('DELETE FROM knowledge_branches WHERE id = ?').run(branchId);
+  return Number(result.changes) > 0;
+}
+
+// 返回指定分支的版本，输入分支 ID，输出按创建时间倒序的稳定列表。
+// 原因：设置页只展示当前分支历史，避免一次加载所有快照。
+// 未分页：本地桌面 v1 的手动版本量有限，后续可保持响应形状扩展游标。
+export function listKnowledgeVersionRows(branchId: string): KnowledgeVersionRow[] {
+  const database = getDb();
+  return database.prepare(
+    'SELECT * FROM knowledge_versions WHERE branch_id = ? ORDER BY created_at DESC, id DESC'
+  ).all(branchId) as unknown as KnowledgeVersionRow[];
+}
+
+// 返回全部版本元数据，输入为空，用于 blob 引用扫描和安全清理。
+// 原因：垃圾回收必须观察所有分支，不能只看当前列表。
+// 未暴露给 API：这是存储维护接口，不属于用户可见契约。
+export function listAllKnowledgeVersionRows(): KnowledgeVersionRow[] {
+  const database = getDb();
+  return database.prepare('SELECT * FROM knowledge_versions').all() as unknown as KnowledgeVersionRow[];
+}
+
+// 按 ID 读取版本，输入版本 ID，输出元数据或 null。
+// 原因：恢复、旁开分支、重命名和删除共用相同存在性检查。
+// 未从分支列表过滤：版本 ID 是全局唯一主键。
+export function getKnowledgeVersionRow(versionId: string): KnowledgeVersionRow | null {
+  const database = getDb();
+  const row = database.prepare('SELECT * FROM knowledge_versions WHERE id = ?').get(versionId);
+  return row ? row as unknown as KnowledgeVersionRow : null;
+}
+
+// 新增版本元数据，输入完整数据库行，无返回值。
+// 原因：快照文件成功落盘后才写入元数据，避免列表出现不可恢复条目。
+// 未使用 UPSERT：版本不可被同 ID 覆盖，重复 ID 应直接失败。
+export function insertKnowledgeVersionRow(version: KnowledgeVersionRow): void {
+  const database = getDb();
+  database.prepare(
+    `INSERT INTO knowledge_versions
+      (id, branch_id, name, description, kind, manifest_path, stats_json, size_bytes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    version.id,
+    version.branch_id,
+    version.name,
+    version.description,
+    version.kind,
+    version.manifest_path,
+    version.stats_json,
+    version.size_bytes,
+    version.created_at,
+  );
+}
+
+// 更新版本显示信息，输入 ID、名称和描述，返回是否命中。
+// 原因：快照内容保持不可变，重命名只修改可见元数据。
+// 未允许修改 kind 或 manifest：这些字段变化会破坏审计与恢复一致性。
+export function renameKnowledgeVersionRow(
+  versionId: string,
+  name: string,
+  description: string,
+): boolean {
+  const database = getDb();
+  const result = database.prepare(
+    'UPDATE knowledge_versions SET name = ?, description = ? WHERE id = ?'
+  ).run(name, description, versionId);
+  return Number(result.changes) > 0;
+}
+
+// 删除版本元数据，输入 ID，返回是否命中。
+// 原因：受保护检查与快照目录清理由服务层完成，数据库层保持最小职责。
+// 未级联修改分支头：当前头版本在服务层被明确禁止删除。
+export function deleteKnowledgeVersionRow(versionId: string): boolean {
+  const database = getDb();
+  const result = database.prepare('DELETE FROM knowledge_versions WHERE id = ?').run(versionId);
+  return Number(result.changes) > 0;
+}
+
+// 统计当前知识库内容，输入为空，输出版本列表需要的五类计数。
+// 原因：统计与快照来自同一 SQLite 连接，避免从多个核心模块拼接出不一致视图。
+// 未统计 AI/聊天/设置：这些数据明确不属于知识库版本范围。
+export function getKnowledgeDataStats(): KnowledgeDataStats {
+  const database = getDb();
+  const count = (table: string): number => {
+    const row = database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number };
+    return Number(row.count);
+  };
+  return {
+    cards: count('cards'),
+    notes: count('notes'),
+    relations: count('relations'),
+    files: count('files'),
+    progressDays: count('daily_progress'),
+  };
+}
+
+const KNOWLEDGE_SNAPSHOT_TABLES = new Set([
+  'cards',
+  'card_versions',
+  'notes',
+  'note_versions',
+  'relations',
+  'files',
+  'daily_progress',
+]);
+
+interface SqliteTableColumn {
+  name: string;
+  notnull: number;
+  dflt_value: string | null;
+  pk: number;
+}
+
+// 将受信任的 SQLite 标识符转成带引号 SQL，输入表名或列名，输出双引号包裹的标识符。
+// 原因：跨 schema 恢复需要动态拼接 PRAGMA 返回的列名，必须先限制字符集并正确引用。
+// 未用参数占位符：SQLite 参数只能绑定值，不能绑定表名或列名。
+function quoteSqlIdentifier(identifier: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(identifier)) {
+    throw new Error(`Unsafe SQLite identifier: ${identifier}`);
+  }
+  return `"${identifier}"`;
+}
+
+// 从快照恢复单个知识表，输入数据库连接和固定表名，无返回值。
+// 原因：按当前表与旧快照的同名列交集复制，可让新增且有默认值的列在升级后安全采用当前默认值。
+// 未使用 SELECT *：表结构演进会改变列数或顺序，使历史快照在升级后不可恢复。
+function restoreKnowledgeTableFromSnapshot(
+  database: DatabaseSync,
+  tableName: string,
+): void {
+  if (!KNOWLEDGE_SNAPSHOT_TABLES.has(tableName)) {
+    throw new Error(`Unsupported knowledge snapshot table: ${tableName}`);
+  }
+  const quotedTable = quoteSqlIdentifier(tableName);
+  const currentColumns = database.prepare(
+    `PRAGMA main.table_info(${quotedTable})`
+  ).all() as unknown as SqliteTableColumn[];
+  const snapshotColumns = database.prepare(
+    `PRAGMA knowledge_snapshot.table_info(${quotedTable})`
+  ).all() as unknown as SqliteTableColumn[];
+  if (currentColumns.length === 0 || snapshotColumns.length === 0) {
+    throw new Error(`Knowledge snapshot table is missing: ${tableName}`);
+  }
+
+  const snapshotColumnNames = new Set(snapshotColumns.map((column) => column.name));
+  const missingRequiredColumns = currentColumns.filter((column) =>
+    !snapshotColumnNames.has(column.name)
+    && (column.notnull === 1 || column.pk > 0)
+    && column.dflt_value === null
+  );
+  if (missingRequiredColumns.length > 0) {
+    throw new Error(
+      `Knowledge snapshot is incompatible with required columns in ${tableName}: `
+      + missingRequiredColumns.map((column) => column.name).join(', '),
+    );
+  }
+
+  const sharedColumns = currentColumns
+    .map((column) => column.name)
+    .filter((columnName) => snapshotColumnNames.has(columnName));
+  if (sharedColumns.length === 0) {
+    throw new Error(`Knowledge snapshot has no compatible columns for table: ${tableName}`);
+  }
+  const columnSql = sharedColumns.map(quoteSqlIdentifier).join(', ');
+  database.exec(`DELETE FROM ${quotedTable};`);
+  database.exec(
+    `INSERT INTO ${quotedTable} (${columnSql}) `
+    + `SELECT ${columnSql} FROM knowledge_snapshot.${quotedTable};`,
+  );
+}
+
+// 创建只包含知识库表的 SQLite 快照，输入绝对目标路径，无返回值。
+// 原因：先用 VACUUM INTO 获得一致视图，再移除非知识表并二次 VACUUM，可避免复制 API Key 等敏感数据。
+// 未直接复制主库文件：WAL 模式下文件复制可能缺少未检查点事务并产生损坏快照。
+export function createKnowledgeDbSnapshot(snapshotPath: string): void {
+  createDbSnapshot(snapshotPath);
+  const snapshot = new DatabaseSync(snapshotPath);
+  try {
+    snapshot.exec('PRAGMA foreign_keys = OFF;');
+    const tables = snapshot.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+    ).all() as Array<{ name: string }>;
+    for (const { name } of tables) {
+      if (!KNOWLEDGE_SNAPSHOT_TABLES.has(name)) {
+        if (!/^[A-Za-z0-9_]+$/.test(name)) {
+          throw new Error(`Unsafe SQLite table name in snapshot: ${name}`);
+        }
+        snapshot.exec(`DROP TABLE "${name}";`);
+      }
+    }
+
+    const fileRows = snapshot.prepare(
+      'SELECT id, file_storage_path FROM files WHERE is_folder = 0 AND file_storage_path IS NOT NULL'
+    ).all() as Array<{ id: string; file_storage_path: string }>;
+    const updatePath = snapshot.prepare('UPDATE files SET file_storage_path = ? WHERE id = ?');
+    for (const file of fileRows) {
+      updatePath.run(path.basename(file.file_storage_path), file.id);
+    }
+    snapshot.exec('VACUUM;');
+  } finally {
+    snapshot.close();
+  }
+  protectPrivateFile(snapshotPath);
+}
+
+// 用知识库快照替换当前知识表，输入已验证快照路径与文件库目录，无返回值。
+// 原因：显式列复制与单事务可保留非知识表，并确保关系、版本历史和学习进度同步切换。
+// 未恢复整个数据库：整库覆盖会错误替换 AI 配置、聊天、扩展和界面设置。
+export function restoreKnowledgeDbSnapshot(snapshotPath: string, vaultDir: string): void {
+  const database = getDb();
+  database.prepare('ATTACH DATABASE ? AS knowledge_snapshot').run(snapshotPath);
+  try {
+    database.exec('BEGIN IMMEDIATE TRANSACTION;');
+    database.exec('DELETE FROM relations;');
+    database.exec('DELETE FROM note_versions;');
+    database.exec('DELETE FROM card_versions;');
+    database.exec('DELETE FROM files;');
+    database.exec('DELETE FROM daily_progress;');
+    database.exec('DELETE FROM notes;');
+    database.exec('DELETE FROM cards;');
+
+    restoreKnowledgeTableFromSnapshot(database, 'cards');
+    restoreKnowledgeTableFromSnapshot(database, 'notes');
+    restoreKnowledgeTableFromSnapshot(database, 'card_versions');
+    restoreKnowledgeTableFromSnapshot(database, 'note_versions');
+    restoreKnowledgeTableFromSnapshot(database, 'relations');
+    restoreKnowledgeTableFromSnapshot(database, 'files');
+    restoreKnowledgeTableFromSnapshot(database, 'daily_progress');
+
+    const fileRows = database.prepare(
+      'SELECT id, file_storage_path FROM files WHERE is_folder = 0 AND file_storage_path IS NOT NULL'
+    ).all() as Array<{ id: string; file_storage_path: string }>;
+    const updatePath = database.prepare('UPDATE files SET file_storage_path = ? WHERE id = ?');
+    for (const file of fileRows) {
+      updatePath.run(path.join(vaultDir, path.basename(file.file_storage_path)), file.id);
+    }
+    database.exec('COMMIT;');
+  } catch (error) {
+    try {
+      database.exec('ROLLBACK;');
+    } catch {
+      // 如果 BEGIN 尚未成功，SQLite 会拒绝 ROLLBACK；保留原始错误。
+    }
+    throw error;
+  } finally {
+    database.exec('DETACH DATABASE knowledge_snapshot;');
+  }
 }
 
 // ==================== UI Settings ====================

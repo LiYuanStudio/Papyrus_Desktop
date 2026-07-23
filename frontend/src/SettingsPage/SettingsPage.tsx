@@ -12,6 +12,7 @@ import {
   IconFileImage,
   IconInfoCircle,
   IconCommon,
+  IconBranch,
 } from '@arco-design/web-react/icon';
 import IconAccessibility from '../icons/IconAccessibility';
 import IconCharts from '../icons/IconCharts';
@@ -26,6 +27,7 @@ import {
   AccessibilityView,
   StatisticsView,
   DataView,
+  VersionControlView,
   AboutView,
 } from './views';
 
@@ -90,6 +92,13 @@ const getSettingCategories = (t: (key: string) => string) => [
     color: 'rgb(var(--cyan-6))',
   },
   {
+    key: 'version-control',
+    title: t('settings.versionControl'),
+    desc: t('settings.versionControlDesc'),
+    icon: IconBranch,
+    color: 'rgb(var(--purple-6))',
+  },
+  {
     key: 'extensions',
     title: t('settings.extensions'),
     desc: t('settings.extensionsDesc'),
@@ -120,13 +129,11 @@ const CategoryCard = ({ category, onCategoryClick }: CategoryCardProps) => {
   const Icon = category.icon;
 
   return (
-    <div
+    <button
+      type="button"
       className="settings-category-card"
       onClick={() => onCategoryClick(category.key)}
-      role="button"
-      tabIndex={0}
       aria-label={`${category.title}: ${category.desc}`}
-      onKeyDown={(e) => e.key === 'Enter' && onCategoryClick(category.key)}
     >
       <div 
         className="settings-category-icon"
@@ -142,7 +149,7 @@ const CategoryCard = ({ category, onCategoryClick }: CategoryCardProps) => {
           {category.desc}
         </Paragraph>
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -207,6 +214,7 @@ const SettingsPage = () => {
       accessibility: <AccessibilityView onBack={handleBack} />,
       statistics: <StatisticsView onBack={handleBack} />,
       data: <DataView onBack={handleBack} />,
+      'version-control': <VersionControlView onBack={handleBack} />,
       extensions: <ExtensionsPage onBack={handleBack} />,
       about: <AboutView onBack={handleBack} />,
     };

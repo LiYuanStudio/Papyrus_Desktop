@@ -30,6 +30,7 @@
     "test:frontend:sidebar": "node ./backend/node_modules/tsx/dist/cli.mjs --tsconfig frontend/tsconfig.json --test frontend/src/components/SidebarChatHistory.test.tsx",
     "test:frontend:ai-title": "node ./backend/node_modules/tsx/dist/cli.mjs --tsconfig frontend/tsconfig.json --test frontend/src/components/SidebarChatHistory.test.tsx frontend/src/SettingsPage/views/ChatView/components/ModelsSection.test.tsx frontend/src/locales/aiTitleKeys.test.ts",
     "test:frontend:platform": "node ./backend/node_modules/tsx/dist/cli.mjs --tsconfig frontend/tsconfig.json --test frontend/src/utils/platform.test.ts",
+    "test:frontend:version-control": "node ./backend/node_modules/tsx/dist/cli.mjs --tsconfig frontend/tsconfig.json --test frontend/src/SettingsPage/components/KnowledgeVersionItem.test.tsx",
     "test:electron:macos": "node --test scripts/__tests__/macos-platform.test.js scripts/__tests__/electron-security-validators.test.js",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "build:installer": "npm run sync-version && npm run build:backend && npm run build:frontend && electron-builder --win nsis --x64 --publish=never --config .electron-builder.config.js",

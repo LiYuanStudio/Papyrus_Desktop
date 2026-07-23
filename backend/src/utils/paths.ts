@@ -49,4 +49,5 @@ export const paths = {
   get logDir() { return ensureDir(path.join(getDataDir(), 'logs')); },
   get vaultDir() { return path.join(getDataDir(), 'vault'); },
   get backupDir() { return ensureDir(path.join(getDataDir(), 'backups')); },
+  get versionStoreDir() { return ensureDir(path.join(getDataDir(), 'versions')); },
 };
