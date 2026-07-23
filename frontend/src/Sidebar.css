@@ -233,6 +233,7 @@
   flex: 1;
   flex-direction: column;
   gap: 2px;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -250,6 +251,7 @@
 }
 
 .sidebar-chat-history-item {
+  box-sizing: border-box;
   width: 100%;
   min-height: 34px;
   padding: 3px 4px;

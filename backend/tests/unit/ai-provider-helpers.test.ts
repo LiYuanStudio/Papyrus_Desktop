@@ -101,7 +101,8 @@ describe('AI provider helpers and manager utilities', () => {
   it('should clean generated title wrappers, labels, whitespace and length', () => {
     expect(cleanGeneratedSessionTitle('## 标题： “记忆训练计划”\n额外解释')).toBe('记忆训练计划');
     expect(cleanGeneratedSessionTitle('Title:   Spaced   repetition   setup ')).toBe('Spaced repetition setup');
-    expect(cleanGeneratedSessionTitle(`"${'a'.repeat(80)}"`)).toHaveLength(50);
+    expect(cleanGeneratedSessionTitle(`"${'a'.repeat(80)}"`)).toHaveLength(24);
+    expect(Array.from(cleanGeneratedSessionTitle('🧠'.repeat(40)))).toHaveLength(24);
     expect(cleanGeneratedSessionTitle(' \n ')).toBe('');
   });
 
@@ -142,6 +143,7 @@ describe('AI provider helpers and manager utilities', () => {
 
     expect(requestBody).toContain('x'.repeat(100));
     expect(requestBody).not.toContain('SENSITIVE_TAIL_MARKER');
+    expect(requestBody).toContain('"num_predict":20');
   });
 
   it('should preserve a manual rename when an in-flight automatic title arrives late', async () => {
