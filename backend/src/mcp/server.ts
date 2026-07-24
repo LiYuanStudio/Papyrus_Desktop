@@ -48,6 +48,28 @@ function sendJson(res: http.ServerResponse, data: unknown, status = 200, origin?
   res.end(JSON.stringify(data));
 }
 
+/**
+ * 消费剩余请求体后发送 JSON 响应，适用于无需解析 body 的 POST 提前返回分支。
+ * 原因：先关闭响应可能在客户端仍上传 body 时触发连接重置，使客户端收不到预期状态码。
+ * 未直接立即回复：即使路由或鉴权已经失败，完整排空请求流仍能保证跨平台连接行为稳定。
+ */
+function sendJsonAfterDrainingRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  data: unknown,
+  status: number,
+  origin?: string
+): void {
+  if (req.readableEnded) {
+    sendJson(res, data, status, origin);
+    return;
+  }
+  req.once('end', () => {
+    sendJson(res, data, status, origin);
+  });
+  req.resume();
+}
+
 export class MCPServer {
   private host: string;
   private port: number;
@@ -102,12 +124,16 @@ export class MCPServer {
         }
 
         if (req.method !== 'POST' || req.url !== '/call') {
-          sendJson(res, { error: '未知路径' }, 404, origin);
+          if (req.method === 'POST') {
+            sendJsonAfterDrainingRequest(req, res, { error: '未知路径' }, 404, origin);
+          } else {
+            sendJson(res, { error: '未知路径' }, 404, origin);
+          }
           return;
         }
 
         if (!isAuthorized) {
-          sendJson(res, { error: 'Unauthorized' }, 401, origin);
+          sendJsonAfterDrainingRequest(req, res, { error: 'Unauthorized' }, 401, origin);
           return;
         }
 

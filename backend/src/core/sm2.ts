@@ -28,7 +28,12 @@ export function applySm2(card: CardState, grade: number, now?: number): { interv
       intervalDays = 6.0;
     } else {
       const intervalRaw = card.interval;
-      const intervalVal = typeof intervalRaw === 'number' && !Number.isNaN(intervalRaw) ? intervalRaw : 86400.0;
+      // 将缺失、非数值或非正间隔恢复为一天基量，避免旧数据的 interval=0 让卡片永久立即到期。
+      // 原因：第三次及后续复习依赖上次间隔递推，零值会在每次计算中继续保持为零。
+      // 未使用简单空值合并：nullish coalescing 不会覆盖 0、负数和 NaN 这些损坏数据。
+      const intervalVal = typeof intervalRaw === 'number' && Number.isFinite(intervalRaw) && intervalRaw > 0
+        ? intervalRaw
+        : 86400.0;
       intervalDays = (intervalVal / 86400.0) * ef;
     }
     repetitions += 1;

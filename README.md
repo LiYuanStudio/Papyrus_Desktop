@@ -2,9 +2,9 @@
 
 **English** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
-> Papyrus Desktop **v2.0.0-beta.12** — TypeScript / Fastify backend, React 19 frontend, Electron 41 desktop shell.
+> Papyrus Desktop **v2.0.0-beta.14** — TypeScript / Fastify backend, React 19 frontend, Electron 41 desktop shell.
 
-![Version](https://img.shields.io/badge/version-v2.0.0--beta.12-blue)
+![Version](https://img.shields.io/badge/version-v2.0.0--beta.14-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-24-339933)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000)
@@ -45,7 +45,7 @@ Pre-built installers are published on the [Releases](https://github.com/PapyrusO
 | macOS | arm64 | DMG (`.dmg`), ZIP (`.zip`) |
 | Linux | x64 | AppImage, DEB (`.deb`), TAR.GZ |
 
-> ⚠️ `v2.0.0-beta.12` is a beta. The data schema is stable, but the UI and APIs may still evolve before `v2.0.0`.
+> ⚠️ `v2.0.0-beta.14` is a beta. The data schema is stable, but the UI and APIs may still evolve before `v2.0.0`.
 
 ---
 

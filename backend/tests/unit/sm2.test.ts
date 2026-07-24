@@ -94,6 +94,15 @@ describe('SM-2 Algorithm Edge Cases', () => {
     expect(card.repetitions).toBe(1);
   });
 
+  it('should recover a legacy zero interval before recursive scheduling', () => {
+    const card: CardState = { ef: 2.5, repetitions: 2, interval: 0 };
+    const result = applySm2(card, 3, 1000);
+
+    expect(result.intervalDays).toBe(2.5);
+    expect(card.interval).toBe(2.5 * 86400);
+    expect(card.next_review).toBe(1000 + 2.5 * 86400);
+  });
+
   it('should use Date.now when now is not provided', () => {
     const card: CardState = {};
     applySm2(card, 3);

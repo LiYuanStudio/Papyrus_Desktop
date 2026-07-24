@@ -157,6 +157,25 @@ describe('MCPServer', () => {
     expect(res.status).toBe(404);
   });
 
+  it('should drain a POST body before returning 404 for an unknown path', async () => {
+    server = new MCPServer({ port: 0, authToken: 'test' });
+    await server.start();
+    const port = server.getActualPort();
+    const body = JSON.stringify({ tool: 'ignored', payload: 'x'.repeat(64 * 1024) });
+
+    const res = await makeRequest(port, '/unknown', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+      body,
+    });
+
+    expect(res.status).toBe(404);
+    expect((res.body as Record<string, unknown>).error).toBe('未知路径');
+  });
+
   it('should reject invalid JSON body', async () => {
     server = new MCPServer({ port: 0, authToken: 'secret' });
     await server.start();
