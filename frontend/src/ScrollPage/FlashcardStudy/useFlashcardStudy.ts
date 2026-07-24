@@ -23,7 +23,7 @@ interface UseFlashcardStudyReturn {
   lastResult: LastResult | null;
   loadRealCard: () => Promise<void>;
   submitRating: (grade: RatingGrade) => Promise<void>;
-  undoRating: () => void;
+  undoRating: () => Promise<void>;
   revealAnswer: () => void;
   resetStudy: () => void;
 }
@@ -131,7 +131,7 @@ export function useFlashcardStudy({
         forgotten: grade === 1 ? prev.forgotten + 1 : prev.forgotten,
       }));
 
-      setLastResult({ grade, card: ratedCard });
+      setLastResult({ grade, card: ratedCard, reviewId: res.review_id });
 
       if (res.next) {
         setDueCount(res.next.due_count);
@@ -155,20 +155,32 @@ export function useFlashcardStudy({
     }
   }, [currentCard, studyState, loadRealCard, filterTag]);
 
-  const undoRating = useCallback(() => {
+  // 通过 reviewId 请求服务端回滚评分，成功后再恢复卡片和本地统计。
+  // 原因：先改 React 状态会让界面声称已撤销，但数据库仍保留评分结果。
+  // 未乐观更新：撤销可能因重复请求或后续评分冲突失败，等待响应可避免二次损坏。
+  const undoRating = useCallback(async () => {
     if (!lastResult) return;
 
-    setCurrentCard(lastResult.card);
-    setStudyState('answer');
-
-    setStats((prev) => ({
-      studied: Math.max(0, prev.studied - 1),
-      mastered: lastResult.grade === 3 ? Math.max(0, prev.mastered - 1) : prev.mastered,
-      forgotten: lastResult.grade === 1 ? Math.max(0, prev.forgotten - 1) : prev.forgotten,
-    }));
-
-    setLastResult(null);
-  }, [lastResult]);
+    setStudyState('submitting');
+    try {
+      const result = await api.undoCardRating(lastResult.card.id, lastResult.reviewId, filterTag);
+      setCurrentCard(result.card);
+      setDueCount(result.due_count);
+      setTotalCount(result.total_count);
+      setStudyState('answer');
+      setStats((prev) => ({
+        studied: Math.max(0, prev.studied - 1),
+        mastered: lastResult.grade === 3 ? Math.max(0, prev.mastered - 1) : prev.mastered,
+        forgotten: lastResult.grade === 1 ? Math.max(0, prev.forgotten - 1) : prev.forgotten,
+      }));
+      setLastResult(null);
+    } catch (err) {
+      console.error('撤销评分失败:', err);
+      const msg = err instanceof Error ? err.message : i18n.t('flashcardStudy.rateFailed');
+      Message.error(msg);
+      setStudyState('question');
+    }
+  }, [filterTag, lastResult]);
 
   useEffect(() => {
     if (studyState === 'empty' && stats.studied > 0) {

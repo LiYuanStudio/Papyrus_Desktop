@@ -21,6 +21,7 @@ function getDb(): DatabaseSync {
       db.exec('PRAGMA busy_timeout = 5000;');
       protectPrivateFile(dbPath);
       initSchema(db);
+      migrateLegacyCardsOnStartup(db);
     } catch (err) {
       const message = `Failed to open database at "${dbPath}": ${err instanceof Error ? err.message : String(err)}`;
       console.error(message);
@@ -311,6 +312,32 @@ function initSchema(database: DatabaseSync): void {
       notes_created INTEGER DEFAULT 0,
       study_minutes INTEGER DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS app_migrations (
+      name TEXT PRIMARY KEY,
+      source_path TEXT NOT NULL DEFAULT '',
+      imported_count INTEGER NOT NULL DEFAULT 0,
+      completed_at REAL NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS card_review_actions (
+      id TEXT PRIMARY KEY,
+      card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      previous_next_review REAL NOT NULL,
+      previous_interval REAL NOT NULL,
+      previous_ef REAL NOT NULL,
+      previous_repetitions INTEGER NOT NULL,
+      rated_next_review REAL NOT NULL,
+      rated_interval REAL NOT NULL,
+      rated_ef REAL NOT NULL,
+      rated_repetitions INTEGER NOT NULL,
+      review_date TEXT NOT NULL,
+      undone INTEGER NOT NULL DEFAULT 0,
+      created_at REAL NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_card_review_actions_card_created
+      ON card_review_actions(card_id, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS knowledge_branches (
       id TEXT PRIMARY KEY,
@@ -619,6 +646,85 @@ export function getCardCount(): number {
   const stmt = database.prepare('SELECT COUNT(*) as count FROM cards');
   const row = stmt.get() as { count: number };
   return row.count;
+}
+
+// 表示一次可撤销评分在数据库中保存的前后调度状态，供核心层验证撤销顺序并恢复卡片。
+// 原因：撤销必须跨 React 生命周期持久化，且需要同时回滚 SM-2 字段和每日复习计数。
+// 未保存整张卡片 JSON：问答与标签不受评分影响，结构化列更易校验且避免反序列化不可信内容。
+export interface CardReviewActionRecord {
+  id: string;
+  card_id: string;
+  previous_next_review: number;
+  previous_interval: number;
+  previous_ef: number;
+  previous_repetitions: number;
+  rated_next_review: number;
+  rated_interval: number;
+  rated_ef: number;
+  rated_repetitions: number;
+  review_date: string;
+  undone: number;
+  created_at: number;
+}
+
+// 写入一次评分的可撤销快照，输入为评分前后调度字段，输出为空。
+// 原因：评分成功后必须拥有稳定的服务端操作 ID，前端不能仅依赖易丢失的本地状态。
+// 未使用内存 Map：应用或后端重启会丢失 Map，无法满足持久化撤销语义。
+export function insertCardReviewAction(action: CardReviewActionRecord): void {
+  const database = getDb();
+  database.prepare(`
+    INSERT INTO card_review_actions (
+      id, card_id,
+      previous_next_review, previous_interval, previous_ef, previous_repetitions,
+      rated_next_review, rated_interval, rated_ef, rated_repetitions,
+      review_date, undone, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    action.id,
+    action.card_id,
+    action.previous_next_review,
+    action.previous_interval,
+    action.previous_ef,
+    action.previous_repetitions,
+    action.rated_next_review,
+    action.rated_interval,
+    action.rated_ef,
+    action.rated_repetitions,
+    action.review_date,
+    action.undone,
+    action.created_at,
+  );
+}
+
+// 按操作 ID 和卡片 ID 读取未撤销评分，输入两个标识，输出记录或 null。
+// 原因：同时约束卡片 ID 可防止客户端把一个合法操作 ID 用到另一张卡片。
+// 未只按最新记录查询：显式操作 ID 能让并发请求和重试保持确定性。
+export function getPendingCardReviewAction(
+  actionId: string,
+  cardId: string,
+): CardReviewActionRecord | null {
+  const database = getDb();
+  const row = database.prepare(`
+    SELECT *
+    FROM card_review_actions
+    WHERE id = ? AND card_id = ? AND undone = 0
+  `).get(actionId, cardId);
+  if (row === undefined) return null;
+
+  // node:sqlite 对查询结果提供无原型行对象；SQL schema 已固定每列类型，因此在此边界收窄。
+  // 未在调用方重复断言：集中于数据库适配层可让核心业务保持完整静态类型。
+  return row as unknown as CardReviewActionRecord;
+}
+
+// 将评分操作标为已撤销，输入操作 ID，输出是否真正更新了一行。
+// 原因：条件更新保证重复点击只能成功一次，避免每日计数被多次扣减。
+// 未删除记录：保留 tombstone 能区分未发生与已经撤销，并支持审计。
+export function markCardReviewActionUndone(actionId: string): boolean {
+  const database = getDb();
+  const result = database.prepare(
+    'UPDATE card_review_actions SET undone = 1 WHERE id = ? AND undone = 0',
+  ).run(actionId);
+  return Number(result.changes) === 1;
 }
 
 // ==================== Notes ====================
@@ -1470,14 +1576,162 @@ export function updateFile(file: Partial<FileRecord> & { id: string }, logger?: 
 
 // ==================== Migration ====================
 
+const LEGACY_CARDS_MIGRATION = 'legacy-papyrusdata-json-v1';
+
+// 把未知值收窄为有限数字，输入原始字段和默认值，输出可安全写入 SQLite 的 number。
+// 原因：旧版 JSON 可能缺少 SM-2 字段或包含 null，迁移必须为升级用户补齐稳定默认值。
+// 未直接使用 Number(value)：字符串等意外类型会被静默强制转换，可能掩盖损坏数据。
+function legacyNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+// 规范化一条旧版卡片，输入未知 JSON 对象和已占用 ID，输出完整 CardRecord 或 null。
+// 原因：Python 旧版允许没有 id、ef、repetitions 和 tags，新数据库列则要求完整状态。
+// 未依赖类型断言：Reflect.get 配合逐字段检查可在运行时安全处理不受信任的用户文件。
+function normalizeLegacyCard(value: unknown, usedIds: Set<string>): CardRecord | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const question = Reflect.get(value, 'q');
+  const answer = Reflect.get(value, 'a');
+  if (typeof question !== 'string' || typeof answer !== 'string') return null;
+
+  const rawId = Reflect.get(value, 'id');
+  let id = typeof rawId === 'string' && rawId.length > 0
+    ? rawId
+    : randomUUID().replaceAll('-', '');
+  while (usedIds.has(id)) {
+    id = randomUUID().replaceAll('-', '');
+  }
+  usedIds.add(id);
+
+  const rawTags = Reflect.get(value, 'tags');
+  const tags = Array.isArray(rawTags)
+    ? rawTags.filter((tag): tag is string => typeof tag === 'string')
+    : [];
+
+  return {
+    id,
+    q: question,
+    a: answer,
+    next_review: legacyNumber(Reflect.get(value, 'next_review'), 0),
+    interval: legacyNumber(Reflect.get(value, 'interval'), 0),
+    ef: legacyNumber(Reflect.get(value, 'ef'), 2.5),
+    repetitions: Math.max(0, Math.floor(legacyNumber(Reflect.get(value, 'repetitions'), 0))),
+    tags,
+  };
+}
+
+// 规范化旧版卡片数组，输入解析后的 JSON 与已存在 ID，输出有效卡片及跳过数量。
+// 原因：单条损坏记录不应阻止其余有效卡片迁移，同时日志需要明确提示数据质量问题。
+// 未使用 zod 整体 parse：整体失败会让一个坏条目阻断所有可恢复数据。
+function normalizeLegacyCards(
+  parsed: unknown,
+  existingIds: Iterable<string> = [],
+): { cards: CardRecord[]; skipped: number } {
+  if (!Array.isArray(parsed)) {
+    throw new Error('Legacy cards file must contain a JSON array');
+  }
+
+  const usedIds = new Set(existingIds);
+  const cards: CardRecord[] = [];
+  let skipped = 0;
+  for (const value of parsed) {
+    const card = normalizeLegacyCard(value, usedIds);
+    if (card === null) {
+      skipped += 1;
+    } else {
+      cards.push(card);
+    }
+  }
+  return { cards, skipped };
+}
+
+// 返回旧版 data/Papyrusdata.json 的候选绝对路径，输入来自环境与运行位置，输出去重数组。
+// 原因：开发态旧数据位于仓库 data 目录，打包态则位于旧可执行文件旁，Electron 会优先显式传入。
+// 未只依赖 process.cwd()：桌面快捷方式启动时工作目录不稳定，可能指向系统目录。
+function getLegacyCardsFileCandidates(): string[] {
+  const explicitPath = process.env.PAPYRUS_LEGACY_CARDS_FILE;
+  const candidates = [
+    explicitPath ? path.resolve(explicitPath) : null,
+    path.resolve(process.cwd(), '..', 'data', 'Papyrusdata.json'),
+    path.join(path.dirname(process.execPath), 'data', 'Papyrusdata.json'),
+  ].filter((candidate): candidate is string => candidate !== null);
+  return [...new Set(candidates)];
+}
+
+// 在数据库首次打开时合并一次旧版卡片，输入已初始化数据库，输出为空。
+// 原因：仅定义手动迁移函数不会保护真实升级路径；事务和迁移标记确保崩溃重试且不重复导入。
+// 未覆盖现有 cards 表：升级过程中用户可能已创建新卡，合并比全量替换更安全。
+function migrateLegacyCardsOnStartup(database: DatabaseSync): void {
+  const completed = database.prepare(
+    'SELECT 1 FROM app_migrations WHERE name = ?',
+  ).get(LEGACY_CARDS_MIGRATION);
+  if (completed !== undefined) return;
+
+  const cardsFile = getLegacyCardsFileCandidates().find(candidate => fs.existsSync(candidate));
+  if (cardsFile === undefined) return;
+
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(cardsFile, 'utf8'));
+    // node:sqlite 返回的行对象由固定 SELECT id 投影保证结构，边界处收窄后仅用于构建 ID 集合。
+    // 未把断言扩散到规范化函数：迁移的其余 JSON 内容仍通过逐字段运行时检查。
+    const existingRows = database.prepare('SELECT id FROM cards').all() as Array<{ id: string }>;
+    const { cards, skipped } = normalizeLegacyCards(parsed, existingRows.map(row => row.id));
+    if (cards.length === 0 && Array.isArray(parsed) && parsed.length > 0) {
+      throw new Error('Legacy cards file contains no valid cards');
+    }
+
+    database.exec('BEGIN TRANSACTION;');
+    try {
+      const insert = database.prepare(`
+        INSERT INTO cards (id, q, a, next_review, interval, ef, repetitions, tags)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const card of cards) {
+        insert.run(
+          card.id,
+          card.q,
+          card.a,
+          card.next_review,
+          card.interval,
+          card.ef,
+          card.repetitions,
+          tagsToJson(card.tags),
+        );
+      }
+      database.prepare(`
+        INSERT INTO app_migrations (name, source_path, imported_count, completed_at)
+        VALUES (?, ?, ?, ?)
+      `).run(LEGACY_CARDS_MIGRATION, cardsFile, cards.length, Date.now() / 1000);
+      database.exec('COMMIT;');
+    } catch (error) {
+      database.exec('ROLLBACK;');
+      throw error;
+    }
+
+    console.info(`已从 ${cardsFile} 迁移 ${cards.length} 张旧版卡片`);
+    if (skipped > 0) {
+      console.warn(`旧版卡片迁移跳过 ${skipped} 条无效记录`);
+    }
+  } catch (error) {
+    console.error(`启动时迁移旧版卡片失败: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// 手动迁移指定卡片和笔记 JSON，输入两个可选文件及日志器，输出为空。
+// 原因：测试、CLI 或恢复流程仍需要显式迁移入口，并与启动迁移共享旧卡片规范化逻辑。
+// 未让手动入口写 app_migrations：调用者指定的任意文件不应关闭真实升级路径的一次性检测。
 export function migrateFromJson(cardsFile?: string, notesFile?: string, logger?: PapyrusLogger): void {
   if (cardsFile && fs.existsSync(cardsFile)) {
     try {
-      const data = fs.readFileSync(cardsFile, 'utf8');
-      const cards = JSON.parse(data) as CardRecord[];
-      if (Array.isArray(cards) && cards.length > 0) {
+      const parsed: unknown = JSON.parse(fs.readFileSync(cardsFile, 'utf8'));
+      const { cards, skipped } = normalizeLegacyCards(parsed);
+      if (cards.length > 0) {
         saveAllCards(cards, logger);
         logger?.info(`已迁移 ${cards.length} 张卡片从 JSON 到数据库`);
+      }
+      if (skipped > 0) {
+        logger?.warning(`迁移卡片时跳过 ${skipped} 条无效记录`);
       }
     } catch (e) {
       logger?.error(`迁移卡片失败: ${e}`);

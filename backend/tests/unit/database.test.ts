@@ -480,12 +480,61 @@ describe('Database', () => {
   });
 
   describe('Migration', () => {
+    it('should migrate the legacy Papyrusdata.json once on database startup', () => {
+      const legacyFile = path.join(testDir, 'Papyrusdata.json');
+      fs.writeFileSync(legacyFile, JSON.stringify([
+        { q: 'Legacy question', a: 'Legacy answer', next_review: 123 },
+      ]));
+
+      closeDb();
+      if (fs.existsSync(dbPath)) fs.rmSync(dbPath);
+      process.env.PAPYRUS_LEGACY_CARDS_FILE = legacyFile;
+      try {
+        getDb();
+        const firstLoad = loadAllCards();
+        expect(firstLoad).toHaveLength(1);
+        expect(firstLoad[0]).toMatchObject({
+          q: 'Legacy question',
+          a: 'Legacy answer',
+          next_review: 123,
+          interval: 0,
+          ef: 2.5,
+          repetitions: 0,
+          tags: [],
+        });
+
+        closeDb();
+        getDb();
+        expect(loadAllCards()).toHaveLength(1);
+      } finally {
+        delete process.env.PAPYRUS_LEGACY_CARDS_FILE;
+      }
+    });
+
     it('should migrate cards from JSON file', () => {
       const cardsFile = path.join(testDir, 'cards.json');
       fs.writeFileSync(cardsFile, JSON.stringify([makeCard({ q: 'Migrated' })]));
       migrateFromJson(cardsFile);
       const loaded = loadAllCards();
       expect(loaded.some(c => c.q === 'Migrated')).toBe(true);
+    });
+
+    it('should normalize missing SM-2 fields during manual JSON migration', () => {
+      const cardsFile = path.join(testDir, 'legacy-cards.json');
+      fs.writeFileSync(cardsFile, JSON.stringify([{ q: 'Legacy', a: 'Answer' }]));
+      migrateFromJson(cardsFile);
+
+      expect(loadAllCards()).toEqual([
+        expect.objectContaining({
+          q: 'Legacy',
+          a: 'Answer',
+          next_review: 0,
+          interval: 0,
+          ef: 2.5,
+          repetitions: 0,
+          tags: [],
+        }),
+      ]);
     });
 
     it('should migrate notes from JSON file', () => {

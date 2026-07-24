@@ -33,14 +33,23 @@ export default async function progressRoutes(fastify: FastifyInstance): Promise<
 
       let longestStreak = 0;
       let tempStreak = 0;
+      let previousReviewedDate: string | null = null;
       const sortedRows = [...rows].sort((a, b) => a.date.localeCompare(b.date));
       for (const row of sortedRows) {
-        if (row.cards_reviewed > 0) {
-          tempStreak++;
-          longestStreak = Math.max(longestStreak, tempStreak);
-        } else {
-          tempStreak = 0;
-        }
+        if (row.cards_reviewed <= 0) continue;
+
+        // 仅当两条有复习记录的日期在 UTC 日历上相邻时延续 streak。
+        // 原因：daily_progress 通常不会为空白日期建行，只按已有行累加会跨过缺失日期。
+        // 未依赖本地时区 setDate：ISO 日期按 UTC 毫秒比较可避免夏令时导致的 23/25 小时日期。
+        const currentTime = Date.parse(`${row.date}T00:00:00Z`);
+        const previousTime = previousReviewedDate === null
+          ? Number.NaN
+          : Date.parse(`${previousReviewedDate}T00:00:00Z`);
+        tempStreak = Number.isFinite(previousTime) && currentTime - previousTime === 86_400_000
+          ? tempStreak + 1
+          : 1;
+        longestStreak = Math.max(longestStreak, tempStreak);
+        previousReviewedDate = row.date;
       }
 
       const dailyTarget = 20;

@@ -31,11 +31,11 @@ describe('API Integration Tests', () => {
   beforeEach(async () => {
     const { getDb } = await import('../../src/db/database.js');
     const db = getDb();
-    db.exec(`DELETE FROM files; DELETE FROM cards; DELETE FROM notes;
+    db.exec(`DELETE FROM files; DELETE FROM card_review_actions; DELETE FROM cards; DELETE FROM notes;
              DELETE FROM card_versions; DELETE FROM note_versions;
              DELETE FROM relations;
              DELETE FROM provider_models; DELETE FROM api_keys; DELETE FROM providers;
-             DELETE FROM ui_settings;`);
+             DELETE FROM daily_progress; DELETE FROM ui_settings;`);
 
     const { paths } = await import('../../src/utils/paths.js');
     fs.rmSync(paths.vaultDir, { recursive: true, force: true });
@@ -226,6 +226,14 @@ describe('API Integration Tests', () => {
     const body = JSON.parse(response.body);
     expect(body.success).toBe(true);
     expect(body.note.title).toBe('Test Note');
+
+    const { getDb } = await import('../../src/db/database.js');
+    // 固定 SELECT 投影保证测试行只含 number；node:sqlite 的通用行类型无法从 SQL 字符串推导该字段。
+    // 未在生产代码放宽类型：断言仅位于验证数据库副作用的测试边界。
+    const progress = getDb().prepare(
+      'SELECT notes_created FROM daily_progress WHERE notes_created > 0',
+    ).get() as { notes_created: number } | undefined;
+    expect(progress?.notes_created).toBe(1);
   });
 
   it('GET /api/search should search notes and cards', async () => {
@@ -401,6 +409,82 @@ describe('API Integration Tests', () => {
     expect(body.card === null || typeof body.card === 'object').toBe(true);
   });
 
+  it('should keep collection review cards and statistics scoped to the requested tag', async () => {
+    const alphaResponse = await app.inject({
+      method: 'POST',
+      url: '/api/cards',
+      payload: { q: 'Alpha', a: 'A', tags: ['alpha'] },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/cards',
+      payload: { q: 'Beta', a: 'B', tags: ['beta'] },
+    });
+    const alphaCard = JSON.parse(alphaResponse.body).card;
+
+    const nextResponse = await app.inject({
+      method: 'GET',
+      url: '/api/review/next?tag=alpha',
+    });
+    const nextBody = JSON.parse(nextResponse.body);
+    expect(nextBody.card.id).toBe(alphaCard.id);
+    expect(nextBody.due_count).toBe(1);
+    expect(nextBody.total_count).toBe(1);
+
+    const rateResponse = await app.inject({
+      method: 'POST',
+      url: `/api/review/${alphaCard.id}/rate?tag=alpha`,
+      payload: { grade: 3 },
+    });
+    const rateBody = JSON.parse(rateResponse.body);
+    expect(rateBody.next.card).toBeNull();
+    expect(rateBody.next.due_count).toBe(0);
+    expect(rateBody.next.total_count).toBe(1);
+  });
+
+  it('should persistently undo a rating and its daily progress exactly once', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/cards',
+      payload: { q: 'Undo', a: 'Me' },
+    });
+    const originalCard = JSON.parse(createResponse.body).card;
+
+    const rateResponse = await app.inject({
+      method: 'POST',
+      url: `/api/review/${originalCard.id}/rate`,
+      payload: { grade: 3 },
+    });
+    const rated = JSON.parse(rateResponse.body);
+    expect(typeof rated.review_id).toBe('string');
+
+    const undoResponse = await app.inject({
+      method: 'POST',
+      url: `/api/review/${originalCard.id}/undo`,
+      payload: { review_id: rated.review_id },
+    });
+    expect(undoResponse.statusCode).toBe(200);
+    const undone = JSON.parse(undoResponse.body);
+    expect(undone.card).toMatchObject({
+      id: originalCard.id,
+      next_review: originalCard.next_review,
+      interval: originalCard.interval,
+    });
+
+    const { getDb } = await import('../../src/db/database.js');
+    const progress = getDb().prepare(
+      'SELECT cards_reviewed FROM daily_progress WHERE cards_reviewed > 0',
+    ).get();
+    expect(progress).toBeUndefined();
+
+    const repeatedUndo = await app.inject({
+      method: 'POST',
+      url: `/api/review/${originalCard.id}/undo`,
+      payload: { review_id: rated.review_id },
+    });
+    expect(repeatedUndo.statusCode).toBe(409);
+  });
+
   it('GET /api/progress/streak should return streak data', async () => {
     await app.inject({
       method: 'POST',
@@ -417,6 +501,24 @@ describe('API Integration Tests', () => {
     const body = JSON.parse(response.body);
     expect(body.success).toBe(true);
     expect(typeof body.current_streak).toBe('number');
+  });
+
+  it('GET /api/progress/streak should reset the longest streak across missing dates', async () => {
+    const { getDb } = await import('../../src/db/database.js');
+    const db = getDb();
+    db.prepare(
+      'INSERT INTO daily_progress (date, cards_reviewed) VALUES (?, ?)',
+    ).run('2026-01-01', 2);
+    db.prepare(
+      'INSERT INTO daily_progress (date, cards_reviewed) VALUES (?, ?)',
+    ).run('2026-01-03', 3);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/progress/streak',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).longest_streak).toBe(1);
   });
 
   it('GET /api/progress/history should return history', async () => {

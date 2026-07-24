@@ -221,7 +221,26 @@ export type Card = {
 
 export type ListCardsRes = { success: boolean; cards: Card[]; count: number };
 export type NextDueRes = { success: boolean; card: Card | null; due_count: number; total_count: number };
-export type RateRes = { success: boolean; card: Card; interval_days: number; ef: number; next: NextDueRes | null };
+// 描述评分响应及其可撤销操作 ID，供学习 Hook 原子地衔接下一张卡片。
+// 原因：服务端 review_id 是恢复持久化 SM-2 状态的唯一可信凭据。
+// 未把旧卡片快照放入响应类型：撤销状态由后端数据库保存，避免客户端篡改。
+export type RateRes = {
+  success: boolean;
+  card: Card;
+  interval_days: number;
+  ef: number;
+  review_id: string;
+  next: NextDueRes;
+};
+// 描述撤销成功后的恢复卡片和集合内统计，供界面同步回到答案状态。
+// 原因：撤销会让到期数变化，不能继续使用评分后的本地计数。
+// 未复用 RateRes：撤销不产生新评分间隔或新的 review_id，独立类型更准确。
+export type UndoRateRes = {
+  success: boolean;
+  card: Card;
+  due_count: number;
+  total_count: number;
+};
 export type UpdateCardRes = { success: boolean; card: Card };
 export type StreakRes = {
   success: boolean;
@@ -633,6 +652,14 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ grade })
   }),
+  // 撤销服务端评分，输入卡片 ID、评分操作 ID 和可选集合标签，输出恢复后的卡片与统计。
+  // 原因：集合标签必须随撤销请求传递，确保回滚后的工具栏计数仍局限于当前集合。
+  // 未直接 PATCH 卡片：专用端点会原子恢复 SM-2 状态并扣回每日复习计数。
+  undoCardRating: (id: string, reviewId: string, tag?: string) =>
+    request<UndoRateRes>(tag ? `/review/${id}/undo?tag=${encodeURIComponent(tag)}` : `/review/${id}/undo`, {
+      method: 'POST',
+      body: JSON.stringify({ review_id: reviewId }),
+    }),
   streak: () => request<StreakRes>('/progress/streak'),
   importTxt: (content: string) => request<{ success: boolean; count: number }>('/cards/import/txt', {
     method: 'POST',

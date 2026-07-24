@@ -1,13 +1,13 @@
 import type { FastifyInstance } from 'fastify';
-import { getNextDueCard, rateCard, getCardStats } from '../../core/cards.js';
-import { recordCardReviewed } from '../../core/progress.js';
+import { getNextDueCard, rateCard, getCardStats, undoCardRating } from '../../core/cards.js';
 import { pushExtensionEvent } from '#/core/extension-events.js';
 
 export default async function reviewRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.get('/next', async (request, reply) => {
+  fastify.get<{ Querystring: { tag?: string } }>('/next', async (request, reply) => {
     try {
-      const card = getNextDueCard();
-      const stats = getCardStats();
+      const tag = request.query.tag;
+      const card = getNextDueCard(tag);
+      const stats = getCardStats(tag);
       if (!card) {
         reply.send({
           success: true,
@@ -31,11 +31,15 @@ export default async function reviewRoutes(fastify: FastifyInstance): Promise<vo
     }
   });
 
-  fastify.post('/:cardId/rate', async (request, reply) => {
+  fastify.post<{
+    Params: { cardId: string };
+    Body: { grade?: number };
+    Querystring: { tag?: string };
+  }>('/:cardId/rate', async (request, reply) => {
     try {
-      const { cardId } = request.params as { cardId: string };
-      const body = request.body as { grade?: number };
-      const grade = body.grade;
+      const { cardId } = request.params;
+      const { grade } = request.body;
+      const tag = request.query.tag;
 
       if (grade !== 1 && grade !== 2 && grade !== 3) {
         reply.status(400).send({ success: false, error: 'Grade must be 1, 2, or 3' });
@@ -47,7 +51,6 @@ export default async function reviewRoutes(fastify: FastifyInstance): Promise<vo
         reply.status(404).send({ success: false, error: 'Card not found' });
         return;
       }
-      recordCardReviewed();
       pushExtensionEvent('card.review.completed', {
         card_id: cardId,
         grade,
@@ -55,19 +58,57 @@ export default async function reviewRoutes(fastify: FastifyInstance): Promise<vo
         ef: result.ef,
       });
 
-      const next = getNextDueCard();
-      const stats = getCardStats();
+      const next = getNextDueCard(tag);
+      const stats = getCardStats(tag);
       reply.send({
         success: true,
         card: result.card,
         interval_days: result.intervalDays,
         ef: result.ef,
-        next: next ? {
+        review_id: result.reviewId,
+        next: {
           success: true,
           card: next,
           due_count: stats.due,
           total_count: stats.total,
-        } : null,
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '服务器内部错误';
+      request.log.error({ err }, message);
+      reply.status(500).send({ success: false, error: message });
+    }
+  });
+
+  fastify.post<{
+    Params: { cardId: string };
+    Body: { review_id?: string };
+    Querystring: { tag?: string };
+  }>('/:cardId/undo', async (request, reply) => {
+    try {
+      const { cardId } = request.params;
+      const reviewId = request.body?.review_id;
+      if (typeof reviewId !== 'string' || reviewId.length === 0) {
+        reply.status(400).send({ success: false, error: 'review_id is required' });
+        return;
+      }
+
+      const result = await undoCardRating(cardId, reviewId);
+      if (result.status === 'unavailable') {
+        reply.status(409).send({ success: false, error: 'Review can no longer be undone' });
+        return;
+      }
+      if (result.status === 'conflict') {
+        reply.status(409).send({ success: false, error: 'Card was reviewed again after this action' });
+        return;
+      }
+
+      const stats = getCardStats(request.query.tag);
+      reply.send({
+        success: true,
+        card: result.card,
+        due_count: stats.due,
+        total_count: stats.total,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';

@@ -4,7 +4,6 @@ import path from 'node:path';
 import os from 'node:os';
 import { getAllNotes, createNote, updateNote, deleteNote, deleteNotes, getNoteById } from '../../core/notes.js';
 import { importObsidianVault } from '../../core/notes.js';
-import { recordNoteCreated } from '../../core/progress.js';
 import { pushExtensionEvent } from '#/core/extension-events.js';
 import { isPathInsideDirectory } from '../../utils/security.js';
 
@@ -22,7 +21,6 @@ export default async function notesRoutes(fastify: FastifyInstance): Promise<voi
         return;
       }
       const note = createNote(body.title, body.content ?? '', body.folder, body.tags ?? []);
-      recordNoteCreated();
       reply.send({ success: true, note });
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';

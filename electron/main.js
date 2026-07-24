@@ -220,9 +220,19 @@ async function startBackend() {
   log(`Starting backend: ${command} ${args.join(' ')}`);
   log(`Backend cwd: ${cwd}`);
 
+  // 将旧版 Python 相对于应用根目录保存的 data/Papyrusdata.json 显式传给后端。
+  // 原因：打包后端 cwd 位于 resources/backend，无法仅靠相对路径找到旧安装目录的数据。
+  // 未复制旧文件到新目录：后端事务迁移成功前保留原件，失败时仍可恢复或重试。
+  const legacyCardsFile = process.env.PAPYRUS_LEGACY_CARDS_FILE || path.join(
+    isDevMode ? path.join(__dirname, '..') : path.dirname(process.execPath),
+    'data',
+    'Papyrusdata.json',
+  );
+
   const env = {
     ...process.env,
     PAPYRUS_DATA_DIR: app.getPath('userData'),
+    PAPYRUS_LEGACY_CARDS_FILE: legacyCardsFile,
     PAPYRUS_PORT: CONFIG.backendPort.toString(),
     PAPYRUS_AUTH_TOKEN: PAPYRUS_AUTH_TOKEN,
   };
