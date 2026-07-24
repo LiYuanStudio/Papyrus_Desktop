@@ -2,9 +2,9 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **日本語**
 
-> ⚠️ **プレビュー版 README** — 本バージョンは今後リリース予定の **`v2.0.0-beta.3`**(TypeScript / Fastify バックエンド)を説明しています。`main` 上のコードは依然として旧 Python 版です。本ファイルはバックエンド書き換えに先行して PR で取り込まれます —— 記載の機能やインストール手順は、バックエンド書き換えが `main` にマージされた後にのみ有効です。
+> Papyrus Desktop **v2.0.0-beta.12** — TypeScript / Fastify バックエンド、React 19 フロントエンド、Electron 41 デスクトップシェル。
 
-![Version](https://img.shields.io/badge/version-v2.0.0--beta.3-blue)
+![Version](https://img.shields.io/badge/version-v2.0.0--beta.12-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-24-339933)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000)
@@ -45,7 +45,7 @@
 | macOS | arm64 | DMG(`.dmg`)、ZIP(`.zip`) |
 | Linux | x64 | AppImage、DEB(`.deb`)、TAR.GZ |
 
-> ⚠️ `v2.0.0-beta.3` はベータ版です。データスキーマは安定していますが、UI と API は `v2.0.0` 正式版までに変更される可能性があります。
+> ⚠️ `v2.0.0-beta.12` はベータ版です。データスキーマは安定していますが、UI と API は `v2.0.0` 正式版までに変更される可能性があります。
 
 ---
 
@@ -165,8 +165,9 @@ Papyrus/
 │   └── src/
 │       ├── api/              # Fastify ルートとサーバーエントリ(server.ts)
 │       ├── core/             # カード、ノート、SM-2、バージョン管理、暗号化
-│       ├── db/               # JSON 永続化とマイグレーション
+│       ├── db/               # SQLite（node:sqlite、WAL）と schema 初期化
 │       ├── ai/               # プロバイダー抽象化、ツールマネージャー、LLM キャッシュ
+│       ├── cli/              # Desktop CLI 管理ヘルパー
 │       ├── mcp/              # MCP REST エンドポイント(ノート / Vault CRUD)
 │       ├── integrations/     # Obsidian インポート、ファイル監視(chokidar)
 │       └── utils/            # 共通ユーティリティ
@@ -175,8 +176,11 @@ Papyrus/
 │       ├── StartPage/        # ホーム(最近のノート、復習キュー、二十四節気テーマ)
 │       ├── ScrollPage/       # フラッシュカード学習(「巻物」)
 │       ├── NotesPage/        # ノート管理とグラフビュー
+│       ├── FilesPage/        # ファイルライブラリ
+│       ├── ExtensionsPage/   # 拡張機能管理
 │       ├── SettingsPage/     # 設定、AI、アクセシビリティ
-│       └── ChartsPage/       # 統計と進捗グラフ
+│       ├── ChartsPage/       # 統計と進捗グラフ
+│       └── ChatPanel/        # AI チャットパネル
 ├── electron/                 # メインプロセス + preload(Electron 41)
 ├── scripts/                  # build-electron.js、extract-changelog.js
 ├── e2e/                      # Playwright E2E テスト
@@ -189,7 +193,7 @@ Papyrus/
 - **フロントエンド** — React 19、TypeScript 5、Vite、Arco Design、Tailwind CSS
 - **デスクトップ** — Electron 41 + electron-builder
 - **アルゴリズム** — SM-2 間隔反復
-- **ストレージ** — ローカル JSON ファイル、内容ハッシュ付きバージョン
+- **ストレージ** — SQLite（`node:sqlite`、WAL）、内容ハッシュ付きバージョン
 - **CI/CD** — GitHub Actions マトリックス(Windows x64、macOS arm64、Linux x64)
 
 ---
@@ -242,10 +246,11 @@ git push origin main --tags
 
 デフォルトでは、ユーザーデータは `paths.dataDir`(初期値 `$HOME/PapyrusData`、`PAPYRUS_DATA_DIR` で上書き可)以下に保存されます:
 
-- `ai_config.json` — プロバイダー、モデル、暗号化された API キー
-- `Papyrusdata.json` — カードと SM-2 の復習状態
-- `notes.json` — ノート
-- `~/.papyrus/auth.token` — 書き込み API に必要な token(初回起動時に自動生成)
+- `papyrus.db` — SQLite データベース（WAL）：カード、ノート、プロバイダー、チャット、バージョン、ファイル、関係、拡張、進捗、UI 設定
+- `backups/` — `POST /api/backup` によるオンデマンドバックアップ
+- `logs/` — アプリケーションログ
+- レガシー JSON（`data.json`、`ai_config.json`）は互換用。AI 設定は起動時に DB へ移行
+- Electron モードの書き込み API は `PAPYRUS_AUTH_TOKEN` / ローカル生成 token を使用
 
 ---
 
@@ -255,7 +260,7 @@ git push origin main --tags
 2. **ローカルモデル** — Ollama は無料ですが、それなりのハードウェアが必要。
 3. **ネットワーク** — クラウドプロバイダーは安定した接続が必要。
 4. **プライバシー** — ローカルモデルはローカル完結。クラウドプロバイダーには送信内容が見えます。
-5. **同時実行** — JSON ファイルストレージは単一書き込み前提。同じデータディレクトリで複数インスタンスを動かさないでください。
+5. **同時実行** — 同一データディレクトリでは単一インスタンスを推奨。SQLite WAL は複数読取を許可しますが、複数プロセスからの同時書き込みはサポートしません。
 
 ---
 
@@ -279,8 +284,6 @@ git push origin main --tags
 
 ### AI 機能
 - [AI 概要](docs/AI_README.md)
-- [AI ツールデモ](docs/AI_TOOLS_DEMO.md)
-- [ツール呼び出し承認の設計](docs/tool_call_approval.md)
 
 ---
 

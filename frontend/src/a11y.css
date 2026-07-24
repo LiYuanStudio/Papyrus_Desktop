@@ -1,0 +1,448 @@
+/**
+ * Papyrus 无障碍样式
+ * WCAG 2.1 AA/AAA 级标准实现
+ * 
+ * 策略：
+ * - AA 级：基础样式，始终启用
+ * - AAA 级：通过 CSS 类选择性启用
+ */
+
+/* ========================================
+   0. CSS 变量定义
+   ======================================== */
+
+:root {
+  /* AA 级对比度调整 */
+  --a11y-focus-color: #206CCF;
+  --a11y-focus-outline: 2px solid var(--a11y-focus-color);
+  --a11y-focus-offset: 2px;
+  
+  /* 小文本对比度 ≥ 7:1 (AAA 级) */
+  --aaa-text-small: #414C5C;
+  /* 大文本对比度 ≥ 4.5:1 (AAA 级) */
+  --aaa-text-large: #595959;
+}
+
+/* ========================================
+   1. Skip Link（跳转到主内容）
+   AA 级：绕过重复内容块
+   ======================================== */
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #206CCF;
+  color: #FFFFFF;
+  padding: 8px 16px;
+  z-index: 9999;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: var(--font-weight-500);
+  border-radius: 0 0 4px 0;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 2px solid #FFFFFF;
+  outline-offset: 2px;
+}
+
+/* ========================================
+   2. 全局焦点样式（AA 级）
+   ======================================== */
+
+/* 基础焦点样式 */
+:focus-visible {
+  outline: var(--a11y-focus-outline);
+  outline-offset: var(--a11y-focus-offset);
+}
+
+/* 输入框除外 - 使用box-shadow替代outline */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* 鼠标点击时不显示焦点 */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 增强焦点样式（当焦点指示器启用时） */
+html.a11y-focus-indicator button:focus-visible,
+html.a11y-focus-indicator a:focus-visible,
+html.a11y-focus-indicator input:focus-visible,
+html.a11y-focus-indicator textarea:focus-visible,
+html.a11y-focus-indicator select:focus-visible,
+html.a11y-focus-indicator [tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 3px solid var(--a11y-focus-color);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(32, 108, 207, 0.15);
+}
+
+/* ========================================
+   3. 屏幕阅读器专用
+   ======================================== */
+
+/* 视觉隐藏但保持可访问 */
+.sr-only,
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 焦点时显示 */
+.sr-only:focus,
+.visually-hidden:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* ========================================
+   4. AAA 级：高对比度模式
+   普通文本 7:1，大文本 4.5:1
+   ======================================== */
+
+html.aaa-high-contrast {
+  /* 小文本颜色 - 7:1 对比度 */
+  --color-text-1: #000000;
+  --color-text-2: #1a1a1a;
+  --color-text-3: #333333;
+  --color-text-4: #4d4d4d;
+  
+  /* 边框增强 */
+  --color-border-1: #666666;
+  --color-border-2: #4d4d4d;
+  --color-border-3: #333333;
+  
+  /* 背景对比 */
+  --color-bg-1: #ffffff;
+  --color-bg-2: #f5f5f5;
+}
+
+/* 深色模式高对比度 */
+html.aaa-high-contrast body[arco-theme="dark"] {
+  --color-text-1: #ffffff;
+  --color-text-2: #e6e6e6;
+  --color-text-3: #cccccc;
+  --color-text-4: #b3b3b3;
+  
+  --color-border-1: #999999;
+  --color-border-2: #b3b3b3;
+  --color-border-3: #cccccc;
+  
+  --color-bg-1: #000000;
+  --color-bg-2: #1a1a1a;
+}
+
+/* 强制颜色模式支持（Windows 高对比度） */
+@media (forced-colors: active) {
+  :root {
+    --a11y-focus-color: Highlight;
+  }
+  
+  *:focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* ========================================
+   5. AAA 级：阅读增强模式
+   行距 1.5，段落距 2 倍，宽度 ≤80 字符
+   ======================================== */
+
+html.aaa-reading-mode {
+  /* 行距 1.5 倍 */
+  line-height: 1.5 !important;
+}
+
+html.aaa-reading-mode body {
+  line-height: 1.5 !important;
+}
+
+/* 段落间距 2 倍 */
+html.aaa-reading-mode p,
+html.aaa-reading-mode .arco-typography-paragraph,
+html.aaa-reading-mode .aaa-reading-paragraph {
+  margin-bottom: 2em !important;
+  line-height: 1.5 !important;
+}
+
+/* 文本宽度 ≤ 80 字符 */
+html.aaa-reading-mode main,
+html.aaa-reading-mode article,
+html.aaa-reading-mode .aaa-reading-container {
+  max-width: 80ch !important;
+}
+
+/* 非两端对齐 */
+html.aaa-reading-mode p,
+html.aaa-reading-mode .arco-typography-paragraph,
+html.aaa-reading-mode .aaa-reading-text {
+  text-align: left !important;
+  -webkit-hyphens: none !important;
+  hyphens: none !important;
+}
+
+/* 列表间距 */
+html.aaa-reading-mode li {
+  margin-bottom: 0.75em !important;
+}
+
+html.aaa-reading-mode li:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* ========================================
+   6. AAA 级：完全禁用动画
+   ======================================== */
+
+html.aaa-no-animation,
+html.aaa-no-animation *,
+html.aaa-no-animation *::before,
+html.aaa-no-animation *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* 保留必要的系统动画 */
+html.aaa-no-animation .arco-message-wrapper,
+html.aaa-no-animation .arco-notification-wrapper {
+  animation-duration: 0.1ms !important;
+}
+
+/* ========================================
+   7. 系统偏好：减少动画（AA 级）
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 当系统偏好减少动画时，但用户未手动禁用，给出提示 */
+@media (prefers-reduced-motion: reduce) {
+  html:not(.aaa-no-animation) {
+    /* 系统自动应用，无需额外处理 */
+  }
+}
+
+/* ========================================
+   8. AAA 级：节标题导航
+   ======================================== */
+
+/* 节标题导航面板 */
+.aaa-section-nav-panel {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border-2);
+  border-radius: 8px 0 0 8px;
+  padding: 16px;
+  max-width: 200px;
+  max-height: 60vh;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.aaa-section-nav-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.aaa-section-nav-panel li {
+  margin: 8px 0;
+}
+
+.aaa-section-nav-panel a {
+  color: var(--color-text-2);
+  text-decoration: none;
+  font-size: 13px;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.aaa-section-nav-panel a:hover,
+.aaa-section-nav-panel a:focus {
+  background-color: var(--color-fill-2);
+  color: var(--color-text-1);
+}
+
+/* 节标题样式 */
+html.aaa-section-nav section {
+  position: relative;
+}
+
+html.aaa-section-nav section:focus-within {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: -2px;
+}
+
+/* ========================================
+   9. ARIA 状态样式
+   ======================================== */
+
+/* 当前页面指示 */
+[aria-current="page"] {
+  font-weight: var(--font-weight-600);
+}
+
+/* 按下状态 */
+[aria-pressed="true"] {
+  position: relative;
+}
+
+/* 禁用状态 */
+[aria-disabled="true"],
+[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 无效输入 */
+[aria-invalid="true"] {
+  border-color: var(--color-danger) !important;
+}
+
+[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 2px var(--color-danger-light) !important;
+}
+
+/* 忙状态 */
+[aria-busy="true"] {
+  cursor: wait;
+}
+
+/* 隐藏状态 */
+[aria-hidden="true"] {
+  /* 确保不被屏幕阅读器读取 */
+}
+
+/* ========================================
+   10. 大光标样式（AA 级）
+   ======================================== */
+
+/* 使用单独的 class 来激活大光标，由 JS 动态添加 */
+html.a11y-large-cursor-active,
+html.a11y-large-cursor-active * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='white' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='black' stroke-width='1'/%3E%3Ccircle cx='16' cy='16' r='2' fill='black'/%3E%3C/svg%3E") 16 16, auto !important;
+}
+
+html.a11y-large-cursor-active a,
+html.a11y-large-cursor-active button,
+html.a11y-large-cursor-active [role="button"] {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='white' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='black' stroke-width='1'/%3E%3Ccircle cx='16' cy='16' r='2' fill='black'/%3E%3C/svg%3E") 16 16, pointer !important;
+}
+
+/* 兼容性：保留原有类 */
+html.a11y-large-cursor,
+html.a11y-large-cursor * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='white' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='black' stroke-width='1'/%3E%3Ccircle cx='16' cy='16' r='2' fill='black'/%3E%3C/svg%3E") 16 16, auto !important;
+}
+
+/* ========================================
+   11. 屏幕阅读器优化模式
+   ======================================== */
+
+html.a11y-screen-reader {
+  /* 隐藏装饰性元素 */
+}
+
+html.a11y-screen-reader .decorative {
+  display: none !important;
+}
+
+/* 增强语义 */
+html.a11y-screen-reader [role="button"] {
+  cursor: pointer;
+}
+
+/* ========================================
+   12. 焦点陷阱（Focus Trap）
+   用于模态框等
+   ======================================== */
+
+.focus-trap {
+  /* 模态框容器 */
+}
+
+.focus-trap:focus {
+  outline: none;
+}
+
+/* 焦点陷阱激活时，外部元素不可聚焦 */
+body.has-focus-trap {
+  /* 通过 JS 控制 tabindex */
+}
+
+/* ========================================
+   13. 打印优化
+   ======================================== */
+
+@media print {
+  .skip-link,
+  .aaa-section-nav-panel,
+  .sr-only {
+    display: none !important;
+  }
+  
+  * {
+    color: #000 !important;
+    background: #fff !important;
+  }
+}
+
+/* ========================================
+   14. 触摸目标最小尺寸
+   WCAG 2.5.5 Target Size (AAA 级)
+   ======================================== */
+
+@media (pointer: coarse) {
+  /* 触摸设备上增大点击区域 */
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* 但对于非交互元素保持正常 */
+  button span,
+  a span,
+  button svg,
+  a svg {
+    min-height: 0;
+    min-width: 0;
+  }
+}

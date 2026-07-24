@@ -1,0 +1,47 @@
+{
+  "name": "papyrus",
+  "version": "2.0.0-beta.11",
+  "description": "Papyrus Desktop - A modern note-taking and learning application",
+  "main": "electron/main.js",
+  "author": "PapyrusOR",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "dev": "concurrently -k -n BACKEND,FRONTEND -c cyan,magenta \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:electron": "node scripts/build-electron.js dev",
+    "dev:backend": "cd backend && npm run dev",
+    "electron:dev": "node scripts/build-electron.js dev",
+    "electron:build": "node scripts/build-electron.js build",
+    "electron:build:win": "node scripts/build-electron.js build:win",
+    "electron:build:mac": "node scripts/build-electron.js build:mac",
+    "electron:build:linux": "node scripts/build-electron.js build:linux",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "postinstall": "cd frontend && npm install && cd ../backend && npm install",
+    "sync-version": "node scripts/sync-version.js",
+    "bump:patch": "node scripts/bump-version.js patch",
+    "bump:minor": "node scripts/bump-version.js minor",
+    "bump:major": "node scripts/bump-version.js major",
+    "bump:beta": "node scripts/bump-version.js beta",
+    "bump:release": "node scripts/bump-version.js release",
+    "test:bump": "node --test scripts/__tests__/bump-version.test.js",
+    "build:installer": "npm run sync-version && npm run build:backend && npm run build:frontend && electron-builder --win nsis --x64 --publish=never --config .electron-builder.config.js",
+    "generate-icons": "node tools/generate-icons.js",
+    "generate-cert": "powershell -ExecutionPolicy Bypass -File build/create-cert.ps1",
+    "set-version": "node scripts/set-version.js"
+  },
+  "devDependencies": {
+    "@fiahfy/icns": "^0.0.7",
+    "@playwright/test": "^1.59.1",
+    "concurrently": "^8.2.2",
+    "electron": "^41.1.0",
+    "electron-builder": "^26.8.1",
+    "png-to-ico": "^3.0.1",
+    "semver": "^7.7.4",
+    "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "wait-on": "^9.0.5"
+  }
+}

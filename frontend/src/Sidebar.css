@@ -1,0 +1,413 @@
+/* ============================================
+   侧边栏样式 - 支持深色模式
+   ============================================ */
+
+.sidebar {
+  width: 48px;
+  height: 100%;
+  box-sizing: border-box;
+  background: var(--color-bg-1);
+  border-right: var(--width-border-structure) solid var(--color-border-structure);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  flex-shrink: 0;
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+}
+
+.sidebar-expanded {
+  width: 240px;
+}
+
+/* 侧边栏按钮基础样式 - 收起状态 */
+.sidebar-item {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text-2);
+  margin-bottom: 8px;
+  position: relative;
+  flex-shrink: 0;
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1), padding 0.3s cubic-bezier(0.4,0,0.2,1), background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  box-sizing: border-box;
+  background: none;
+  border: 2px solid transparent;
+  font-family: inherit;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* 展开状态下的按钮 */
+.sidebar-expanded .sidebar-item {
+  width: 224px;
+  padding: 0 6px 0 30px;
+  justify-content: flex-start;
+}
+
+/* 图标容器 - 始终固定距离按钮左侧7px */
+.sidebar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: none;
+}
+
+.sidebar-expanded .sidebar-icon {
+  width: 18px;
+  height: 18px;
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.sidebar-start-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+}
+
+.sidebar-chat-side-icon {
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+  transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+.sidebar-chat-side-icon-right {
+  /* 不翻转整个图标，仅通过竖条移动来表示左右侧切换 */
+  transform: none;
+}
+
+.sidebar-chat-side-icon-divider {
+  transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+.sidebar-chat-side-icon-right .sidebar-chat-side-icon-divider {
+  transform: translateX(10px);
+}
+
+/* 标签文字 - 收起时隐藏 */
+.sidebar-label {
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1);
+  pointer-events: none;
+  position: absolute;
+  left: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.sidebar-expanded .sidebar-label {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Focus visible for keyboard navigation */
+.sidebar-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.sidebar-item:hover {
+  background: transparent;
+  border-color: var(--color-border-hover);
+  color: var(--color-text-1);
+}
+
+.sidebar-item:focus {
+  outline: none;
+}
+
+/* 激活状态: 品牌色实心 + 同色柔光晕,替代干巴巴的纯平色块 */
+.sidebar-item-active {
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(32, 108, 207, 0.35);
+}
+
+.sidebar-item-active:hover {
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-color: var(--color-primary);
+}
+
+/* 历史对话占据导航与底部工具之间的剩余空间。 */
+.sidebar-chat-history-spacer {
+  flex: 1;
+}
+
+.sidebar-chat-history-trigger {
+  color: var(--color-text-2);
+}
+
+.sidebar-chat-history-trigger .sidebar-icon,
+.sidebar-chat-history-trigger .sidebar-icon > svg {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.sidebar-chat-history-menu {
+  width: 288px;
+  max-height: min(440px, calc(100vh - 32px));
+  padding: 8px;
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-2);
+  box-shadow: var(--shadow-3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-chat-history-menu-header {
+  min-height: 36px;
+  padding: 0 8px 8px;
+  border-bottom: 1px solid var(--color-border-2);
+  color: var(--color-text-1);
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.sidebar-chat-history-menu .sidebar-chat-history-list {
+  max-height: 380px;
+}
+
+.sidebar-chat-history {
+  width: 224px;
+  min-height: 0;
+  margin: 2px 8px 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-2);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-chat-history-header {
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-3);
+}
+
+.sidebar-chat-history-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.sidebar-chat-history-open:focus-visible,
+.sidebar-chat-history-action:not(.danger-confirm-pill):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.sidebar-chat-history-list {
+  min-height: 0;
+  padding: 4px 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.sidebar-chat-history-state {
+  min-height: 52px;
+  padding: 12px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-3);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.sidebar-chat-history-item {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 34px;
+  padding: 3px 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-2);
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+}
+
+.sidebar-chat-history-open {
+  min-width: 0;
+  min-height: 26px;
+  padding: 4px 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.sidebar-chat-history-title-input {
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-chat-history-actions {
+  width: 50px;
+  min-width: 50px;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.sidebar-chat-history-item:hover .sidebar-chat-history-actions,
+.sidebar-chat-history-item:focus-within .sidebar-chat-history-actions,
+.sidebar-chat-history-menu .sidebar-chat-history-actions,
+.sidebar-chat-history-actions-confirming {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sidebar-chat-history-action {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    width 0.16s ease,
+    border-color 0.16s ease,
+    border-radius 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.sidebar-chat-history-action:not(.danger-confirm-pill) {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-text-3);
+}
+
+.sidebar-chat-history-action:not(.danger-confirm-pill):hover {
+  background: var(--color-fill-3);
+  color: var(--color-text-1);
+}
+
+.sidebar-chat-history-action-danger:not(.danger-confirm-pill):hover {
+  background: var(--color-danger-light-1);
+  color: var(--color-danger);
+}
+
+.sidebar-chat-history-action-danger-confirming {
+  width: 50px;
+  padding: 0 8px;
+  border-radius: 999px;
+}
+
+.sidebar-chat-history-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.sidebar-chat-history-delete-label {
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.sidebar-chat-history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-chat-history-list::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--color-border-3);
+}
+
+.sidebar-chat-history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-chat-history-item:hover {
+  background: var(--color-fill-2);
+  color: var(--color-text-1);
+}
+
+.sidebar-chat-history-item-active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.sidebar-chat-history-item-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 减少动画 - 无障碍支持 */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-item,
+  .sidebar-label,
+  .sidebar-chat-side-icon,
+  .sidebar-chat-side-icon-divider,
+  .sidebar-chat-history-actions,
+  .sidebar-chat-history-action {
+    transition: none;
+  }
+}

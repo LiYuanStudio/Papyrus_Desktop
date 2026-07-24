@@ -1,0 +1,660 @@
+/* ============================================
+   设置页面样式 - 支持深色模式
+   遵循字节设计规范和 WCAG 无障碍标准
+   ============================================ */
+
+/* 设计 token 全部由全局 theme.css 提供（主色/功能色/圆角/阴影/动效/hairline/canvas），
+   本文件不再重复定义，避免两处色值漂移；仅保留设置页特有选择器。 */
+
+/* 设置页面容器 */
+.settings-page {
+  width: 100%;
+  height: 100%;
+  /* 画布底色：让 bg-1 卡片在微暖灰底上自然浮出 */
+  background: var(--color-bg-canvas);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+.settings-statistics-view {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg-canvas);
+}
+
+.settings-statistics-header {
+  min-height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.settings-statistics-back {
+  padding: 0 !important;
+}
+
+.settings-statistics-header-title {
+  color: var(--color-text-1);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.settings-statistics-content {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 滚动条样式 - 适配深色模式 */
+.settings-page ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-page ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-page ::-webkit-scrollbar-thumb {
+  background: var(--color-border-2);
+  border-radius: 4px;
+}
+
+.settings-page ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-3);
+}
+
+/* 主页面 */
+.settings-main {
+  padding: 48px 64px 64px;
+  min-height: 100%;
+}
+/* 分类网格 - 固定三列布局 */
+.settings-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+}
+
+/* 分类卡片 - 统一卡片语言：1px hairline 实边 + 静态投影，hover 抬升并加深投影
+   原因：inset 描边误用文字色显脏，换成发丝边框 + 柔和投影更接近纸面悬浮层级；
+   未保留 hover 浅蓝粗边：2px 边切换引发布局抖动，改用过渡更平滑的抬升 + 主色边。 */
+.settings-category-card {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 16px;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  background: var(--color-bg-1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+}
+
+.settings-category-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.settings-category-card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 分类图标 */
+.settings-category-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 分类内容 */
+.settings-category-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-category-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-600);
+  color: var(--color-text-1);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.settings-category-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-3);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* 详情页面 */
+.settings-detail {
+  padding: 64px 48px 64px;
+  min-height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 返回按钮行 */
+.settings-detail-header-row {
+  margin-bottom: 16px;
+}
+
+.settings-back-btn {
+  padding: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-2);
+}
+
+.settings-back-btn:hover {
+  color: var(--color-primary);
+}
+
+.settings-back-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 详情标题 */
+.settings-detail-title.arco-typography-h2 {
+  font-weight: var(--font-weight-400);
+  line-height: 1;
+  margin: 0 0 32px 0;
+  font-size: var(--font-size-display-lg);
+  color: var(--color-text-1);
+}
+
+/* 设置分区 */
+.settings-section {
+  margin-bottom: 40px;
+}
+
+.settings-section-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-600);
+  margin: 0 0 24px 0;
+  color: var(--color-text-1);
+}
+
+/* 设置项 */
+.settings-item {
+  padding: 20px 0;
+}
+
+.settings-item-content {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.settings-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-item-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-600);
+  color: var(--color-text-1);
+  display: block;
+  margin-bottom: 10px;
+}
+
+.settings-item-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-3);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.settings-item-control {
+  flex-shrink: 0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+/* 设置项分隔线 - 发丝边框
+   原因：原写法只设 border-color 没有 border-style，分隔线实际不可见；
+   补上 1px hairline 顶边，让分组边界可见且不抢眼。 */
+.settings-item-divider {
+  margin: 16px 0 0 0;
+  border-top: 1px solid var(--color-border-hairline);
+}
+
+/* 颜色选择器 */
+.settings-color-picker {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-color-option {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.settings-color-option:hover {
+  transform: scale(1.1);
+}
+
+.settings-color-option.active {
+  border-color: var(--color-text-1);
+  box-shadow: 0 0 0 2px var(--color-bg-1), 0 0 0 4px var(--color-text-1);
+}
+
+.settings-color-option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 表单行 */
+.settings-form-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.settings-form-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-600);
+  color: var(--color-text-1);
+  min-width: 120px;
+}
+
+/* 滑块控制 */
+.settings-slider-row {
+  margin-bottom: 24px;
+}
+
+.settings-slider-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+/* 数据卡片 - 与分类卡片同一语言：hairline 实边 + 静态投影，hover 抬升 */
+.settings-data-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  background: var(--color-bg-1);
+  box-shadow: var(--shadow-1);
+  margin-bottom: 16px;
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+}
+
+.settings-data-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.settings-data-card.danger {
+  border-color: var(--color-border-danger);
+}
+
+.settings-data-card.danger:hover {
+  border-color: var(--color-danger);
+}
+
+.settings-data-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.settings-data-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* MCP 卡片 - 与分类卡片同一语言 */
+.settings-mcp-card {
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  background: var(--color-bg-1);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+}
+
+.settings-mcp-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.settings-mcp-card-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-mcp-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.settings-mcp-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 快捷键输入 */
+.settings-shortcut-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-shortcut-value {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: var(--font-size-sm);
+  padding: 8px 16px;
+  background: var(--color-fill-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-2);
+  min-width: 100px;
+  text-align: center;
+}
+
+/* 提示信息 */
+.settings-tip,
+.settings-warning-tip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--color-primary-light);
+  border-radius: var(--radius-lg);
+  margin-top: 24px;
+}
+
+.settings-warning-tip {
+  background: var(--color-warning-light);
+  margin-bottom: 24px;
+}
+
+/* 输入框样式 - 适配深色模式 */
+.settings-page .arco-input-wrapper,
+.settings-page .arco-input-password {
+  border-radius: var(--radius-md);
+}
+
+/* 输入框焦点样式 - 外层wrapper不显示边框，只在内层显示 */
+.settings-page .arco-input-wrapper:focus-within,
+.settings-page .arco-input-password:focus-within {
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* 输入框焦点样式 - 使用全局 theme.css 定义的样式，保持一致 */
+
+.settings-page .arco-input-wrapper .arco-input:focus,
+.settings-page .arco-input-wrapper .arco-input:focus-visible,
+.settings-page .arco-input-password .arco-input:focus,
+.settings-page .arco-input-password .arco-input:focus-visible,
+.settings-page .arco-select-view .arco-input-tag-input:focus,
+.settings-page .arco-select-view .arco-input-tag-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Select/TextArea 焦点光晕不再局部覆盖：全局 theme.css 已统一为
+   主色描边 + 0.5px 光晕（含 a11y-focus-indicator 变体），此处重复且更粗，
+   删除后设置页与其余页面焦点观感一致，同时去掉硬编码 rgba(32,108,207,…)。 */
+
+/* TextArea焦点样式 - 外层wrapper不显示边框，只在内层显示 */
+.settings-page .arco-textarea-wrapper:focus-within {
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.settings-page .arco-textarea-wrapper .arco-textarea:focus,
+.settings-page .arco-textarea-wrapper .arco-textarea:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 选择器样式 */
+.settings-page .arco-select-view {
+  border-radius: var(--radius-md);
+}
+
+/* 按钮样式 - 使用 CSS 变量 */
+.settings-page .arco-btn-primary {
+  background: var(--color-primary);
+}
+
+.settings-page .arco-btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+/* 开关样式 */
+.settings-page .arco-switch-checked {
+  background: var(--color-primary);
+}
+
+/* 单选按钮组样式 */
+.settings-page .arco-radio-group-button {
+  background: var(--color-fill-2);
+  padding: 4px;
+  border-radius: var(--radius-md);
+}
+
+.settings-page .arco-radio-group-button .arco-radio-button {
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+
+.settings-page .arco-radio-group-button .arco-radio-checked {
+  background: var(--color-bg-1);
+  /* 选中项浮出效果改用统一阴影 token，深色模式下自动切换为深色投影 */
+  box-shadow: var(--shadow-1);
+}
+
+/* Arco Card 组件 - 统一卡片语言 */
+.settings-page .arco-card {
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-1);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+}
+
+.settings-page .arco-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+/* 分隔线样式 */
+.settings-page .arco-divider {
+  background: var(--color-border-2);
+}
+
+/* 设置页面次要侧边栏样式 */
+.settings-secondary-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-1);
+  border-right: 1px solid var(--color-border-2);
+}
+
+.settings-secondary-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-secondary-sidebar-menu {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.settings-secondary-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.settings-secondary-sidebar-item:hover {
+  background: var(--color-fill-2);
+}
+
+.settings-secondary-sidebar-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.settings-secondary-sidebar-item.active:hover {
+  background: var(--color-primary-light);
+}
+
+/* 焦点样式 - 无障碍支持 */
+.settings-secondary-sidebar-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 响应式适配 - 使用 8 的倍数 */
+@media (max-width: 768px) {
+  .settings-main,
+  .settings-detail {
+    padding: 24px 16px;
+  }
+
+  .settings-categories-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-detail-title.arco-typography-h2 {
+    font-size: var(--font-size-display-md);
+  }
+}
+
+/* 减少动画偏好 - 无障碍支持 */
+@media (prefers-reduced-motion: reduce) {
+  .settings-category-card,
+  .settings-data-card,
+  .settings-mcp-card,
+  .settings-color-option,
+  .settings-secondary-sidebar-item {
+    transition: none;
+  }
+
+  /* 卡片 hover 抬升属于位移动画，减少动画模式下同样禁用 */
+  .settings-category-card:hover,
+  .settings-data-card:hover,
+  .settings-mcp-card:hover,
+  .settings-page .arco-card:hover {
+    transform: none;
+  }
+}
+
+/* 高对比度模式 - 无障碍支持 */
+@media (prefers-contrast: high) {
+  .settings-category-card,
+  .settings-data-card,
+  .settings-mcp-card {
+    border-width: 3px;
+  }
+}
+
+.settings-main-scrollable {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.settings-category-icon-svg {
+  font-size: var(--font-size-display-lg);
+}
+
+.settings-animation-wrapper {
+  height: 100%;
+  overflow: hidden;
+}
+
+.settings-page-enter {
+  animation: settingsPageEnter 0.2s ease-out forwards;
+}
+
+.settings-page-exit {
+  animation: settingsPageExit 0.2s ease-out forwards;
+}
+
+@keyframes settingsPageEnter {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes settingsPageExit {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page-enter,
+  .settings-page-exit {
+    animation: none;
+  }
+}

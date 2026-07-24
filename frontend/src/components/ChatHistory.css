@@ -1,0 +1,229 @@
+/* ============================================
+   聊天历史会话样式 - 支持深色模式
+   ============================================ */
+
+.chat-history-drawer .arco-drawer-content {
+  padding: 0;
+  background: var(--color-bg-1);
+}
+
+.chat-history-drawer .arco-drawer-mask {
+  background: transparent;
+}
+
+.chat-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-2);
+  background: var(--color-bg-1);
+}
+
+.chat-history-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: var(--font-weight-600);
+  color: var(--color-text-1);
+}
+
+.chat-history-title-icon {
+  font-size: 18px;
+  color: var(--color-primary);
+}
+
+.chat-history-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.chat-history-new-btn:hover {
+  background: var(--color-primary-hover);
+  transform: scale(1.05);
+}
+
+.chat-history-new-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.chat-history-body {
+  padding: 8px 0;
+  height: calc(100% - 57px);
+  overflow-y: auto;
+  background: var(--color-bg-1);
+}
+
+.chat-history-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+/* 列表样式覆盖 */
+.chat-history-body .arco-list {
+  background: transparent;
+}
+
+.chat-history-body .arco-list-item {
+  padding: 0;
+  border-bottom: none;
+}
+
+.chat-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin: 0 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-standard);
+  border: 1px solid transparent;
+}
+
+.chat-history-item:hover {
+  background: var(--color-fill-2);
+}
+
+.chat-history-item:hover .chat-history-item-actions {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 选中项: 浅功能色底 + hairline 描边;标题文字另用主色,选中态依旧清晰 */
+.chat-history-item-active {
+  background: var(--color-primary-light);
+  border-color: var(--color-border-hairline);
+}
+
+.chat-history-item-active .chat-history-item-title {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-500);
+}
+
+.chat-history-item-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chat-history-item-title {
+  font-size: 14px;
+  color: var(--color-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.chat-history-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.chat-history-item-dot {
+  opacity: 0.5;
+}
+
+.chat-history-item-input {
+  width: 100%;
+}
+
+.chat-history-item-input input {
+  font-size: 14px;
+  padding: 4px 8px;
+}
+
+.chat-history-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s;
+  margin-left: 8px;
+}
+
+.chat-history-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-3);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.chat-history-action-btn:hover {
+  background: var(--color-fill-3);
+  color: var(--color-text-1);
+}
+
+.chat-history-action-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.chat-history-action-btn-danger:hover {
+  /* 统一用项目 danger-light token,深浅模式自适应(Arco 的 danger-light-1 在深色下偏亮) */
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+/* 深色适配覆盖已删除: 原规则引用了未定义的 --color-primary-rgb(rgba() 非法、声明恒被丢弃),
+   且 primary-light / hairline token 本身深浅自适应,无需额外覆盖。 */
+
+/* 滚动条样式 */
+.chat-history-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-history-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-history-body::-webkit-scrollbar-thumb {
+  background: var(--color-fill-3);
+  border-radius: 3px;
+}
+
+.chat-history-body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fill-4);
+}
+
+/* 减少动画 - 无障碍支持 */
+@media (prefers-reduced-motion: reduce) {
+  .chat-history-new-btn,
+  .chat-history-item,
+  .chat-history-item-actions,
+  .chat-history-action-btn {
+    transition: none;
+  }
+
+  .chat-history-new-btn:hover {
+    transform: none;
+  }
+}

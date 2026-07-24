@@ -1,0 +1,22 @@
+--- a/node_modules/@arco-design/web-react/es/_util/react-dom.js
++++ b/node_modules/@arco-design/web-react/es/_util/react-dom.js
+@@ -95,12 +95,13 @@ export var findDOMNode = function (element, instance) {
+ };
+ // 回调children的原始 ref ，适配函数 ref or ref.current 场景
+ export var callbackOriginRef = function (children, node) {
+-    if (children && children.ref) {
+-        if (isFunction(children.ref)) {
+-            children === null || children === void 0 ? void 0 : children.ref(node);
++    // In React 19, ref is in props.ref instead of element.ref
++    var childrenRef = children && (children.props?.ref || children.ref);
++    if (childrenRef) {
++        if (isFunction(childrenRef)) {
++            childrenRef(node);
+         }
+-        if ('current' in children.ref) {
+-            children.ref.current = node;
++        if ('current' in childrenRef) {
++            childrenRef.current = node;
+         }
+     }
+ };

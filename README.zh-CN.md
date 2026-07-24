@@ -2,9 +2,9 @@
 
 [English](README.md) · **简体中文** · [日本語](README.ja.md)
 
-> ⚠️ **预览版 README** — 本版本描述的是即将到来的 **`v2.0.0`**(TypeScript / Fastify 后端)。`main` 上的代码仍是旧的 Python 版本。本文件通过 PR 先于后端重写合并 —— 文中提到的特性与安装方式仅在后端重写合入 `main` 后才适用。
+> Papyrus Desktop **v2.0.0-beta.12** — TypeScript / Fastify 后端、React 19 前端、Electron 41 桌面壳。
 
-![Version](https://img.shields.io/badge/version-v2.0.0--beta.3-blue)
+![Version](https://img.shields.io/badge/version-v2.0.0--beta.12-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-24-339933)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000)
@@ -45,7 +45,7 @@
 | macOS | arm64 | DMG(`.dmg`)、ZIP(`.zip`) |
 | Linux | x64 | AppImage、DEB(`.deb`)、TAR.GZ |
 
-> ⚠️ `v2.0.0-beta.3` 是 beta 版本。数据结构已稳定,但 UI 与 API 在 `v2.0.0` 正式版前仍可能调整。
+> ⚠️ `v2.0.0-beta.12` 是 beta 版本。数据结构已稳定,但 UI 与 API 在 `v2.0.0` 正式版前仍可能调整。
 
 ---
 
@@ -165,8 +165,9 @@ Papyrus/
 │   └── src/
 │       ├── api/              # Fastify 路由与服务器入口(server.ts)
 │       ├── core/             # 卡片、笔记、SM-2、版本管理、加密
-│       ├── db/               # JSON 持久化与迁移
+│       ├── db/               # SQLite（node:sqlite，WAL）与 schema 初始化
 │       ├── ai/               # 提供商抽象、工具管理器、LLM 缓存
+│       ├── cli/              # Desktop CLI 管理辅助
 │       ├── mcp/              # MCP REST 接口(笔记/Vault CRUD)
 │       ├── integrations/     # Obsidian 导入、文件监听(chokidar)
 │       └── utils/            # 通用工具
@@ -175,8 +176,11 @@ Papyrus/
 │       ├── StartPage/        # 首页(最近笔记、复习队列、节气主题)
 │       ├── ScrollPage/       # 卷轴复习页
 │       ├── NotesPage/        # 笔记管理与关系图
+│       ├── FilesPage/        # 文件库
+│       ├── ExtensionsPage/   # 扩展管理
 │       ├── SettingsPage/     # 设置、AI 配置、无障碍
-│       └── ChartsPage/       # 统计与进度图表
+│       ├── ChartsPage/       # 统计与进度图表
+│       └── ChatPanel/        # AI 聊天面板
 ├── electron/                 # Electron 41 主进程 + preload
 ├── scripts/                  # build-electron.js、extract-changelog.js
 ├── e2e/                      # Playwright 端到端测试
@@ -189,7 +193,7 @@ Papyrus/
 - **前端** — React 19、TypeScript 5、Vite、Arco Design、Tailwind CSS
 - **桌面** — Electron 41 + electron-builder
 - **算法** — SM-2 间隔重复
-- **存储** — 本地 JSON 文件,内容哈希版本
+- **存储** — SQLite（`node:sqlite`，WAL），内容哈希版本
 - **CI/CD** — GitHub Actions 三平台矩阵(Windows x64、macOS arm64、Linux x64)
 
 ---
@@ -242,10 +246,11 @@ git push origin main --tags
 
 默认情况下,用户数据存放在 `paths.dataDir`(默认值 `$HOME/PapyrusData`,可用 `PAPYRUS_DATA_DIR` 覆盖):
 
-- `ai_config.json` — 提供商、模型、加密的 API Key
-- `Papyrusdata.json` — 卡片与 SM-2 复习状态
-- `notes.json` — 笔记
-- `~/.papyrus/auth.token` — 写接口所需的 token(首次运行自动生成)
+- `papyrus.db` — SQLite 数据库（WAL）：卡片、笔记、提供商、聊天、版本、文件、关系、扩展、进度、UI 设置
+- `backups/` — 通过 `POST /api/backup` 生成的按需备份
+- `logs/` — 应用日志
+- 遗留 JSON（`data.json`、`ai_config.json`）仅作兼容；AI 配置会在启动时迁入数据库
+- Electron 模式下写接口依赖 `PAPYRUS_AUTH_TOKEN` / 本地生成的 auth token
 
 ---
 
@@ -255,7 +260,7 @@ git push origin main --tags
 2. **本地模型** — Ollama 完全免费,但需要较好硬件。
 3. **网络** — 云端提供商需要稳定网络。
 4. **隐私** — 本地模型留在本地;云端提供商会看到你发出的内容。
-5. **并发** — JSON 文件存储为单写入者,不要在同一数据目录同时跑多个实例。
+5. **并发** — 同一数据目录建议只跑一个应用实例；SQLite WAL 允许多读，但不支持多进程并发写。
 
 ---
 
@@ -279,8 +284,6 @@ git push origin main --tags
 
 ### AI 功能
 - [AI 概述](docs/AI_README.md)
-- [AI 工具演示](docs/AI_TOOLS_DEMO.md)
-- [工具调用审批设计](docs/tool_call_approval.md)
 
 ---
 

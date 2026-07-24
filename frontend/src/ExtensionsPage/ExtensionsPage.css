@@ -1,0 +1,79 @@
+.extensions-tab-container {
+  position: relative;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.extensions-tab-content {
+  position: relative;
+}
+
+.extensions-tab-enter-left {
+  animation: tabEnterFromRight 0.2s ease-out forwards;
+}
+
+.extensions-tab-enter-right {
+  animation: tabEnterFromLeft 0.2s ease-out forwards;
+}
+
+.extensions-tab-exit-left {
+  animation: tabExitToLeft 0.2s ease-out forwards;
+}
+
+.extensions-tab-exit-right {
+  animation: tabExitToRight 0.2s ease-out forwards;
+}
+
+@keyframes tabEnterFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes tabEnterFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes tabExitToLeft {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+}
+
+@keyframes tabExitToRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .extensions-tab-content,
+  .extensions-tab-enter-left,
+  .extensions-tab-enter-right,
+  .extensions-tab-exit-left,
+  .extensions-tab-exit-right {
+    animation: none;
+  }
+}

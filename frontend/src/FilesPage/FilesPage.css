@@ -1,0 +1,424 @@
+/* ============================================
+   FilesPage 样式 - 迁移自内联样式
+   ============================================ */
+
+/* 文件夹导航动画 */
+@keyframes files-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes files-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.files-content-enter {
+  animation-duration: 0.25s;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.files-content-enter-forward {
+  animation-name: files-slide-in-right;
+}
+
+.files-content-enter-backward {
+  animation-name: files-slide-in-left;
+}
+
+/* 网格文件卡片 —— 统一卡片语言: 发丝边框 + 浅阴影 + bg-1 底, hover 抬升并描主色边。
+   未沿用 2px text-3 粗边: 文字色当边框在深浅主题下都显脏, 且 2px 描边视觉过重。 */
+.files-grid-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  background: var(--color-bg-1);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+  cursor: pointer;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.files-grid-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.files-grid-card-thumbnail-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-fill-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.files-grid-card-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.files-grid-card-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.files-grid-card-name-wrapper {
+  width: 100%;
+}
+
+.files-grid-card-name {
+  font-size: 14px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-grid-card-meta {
+  font-size: 12px;
+}
+
+/* 列表文件行 —— hover 用主色浅底 + 主色细边表达可点, 替代硬编码浅蓝描边 */
+.files-list-row {
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.files-list-row:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.files-list-name-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.files-list-name {
+  font-size: 14px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-1);
+}
+
+/* hover 文件名用主色, 替代硬编码亮蓝 #57A9FB(深色下与链接色一致, 不刺眼) */
+.files-list-row:hover .files-list-name {
+  color: var(--color-primary);
+}
+
+.files-list-size {
+  font-size: 13px;
+  width: 100px;
+}
+
+.files-list-date {
+  font-size: 13px;
+  width: 80px;
+}
+
+.files-list-actions {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.files-list-row:hover .files-list-actions {
+  opacity: 1;
+}
+
+.files-list-action-icon {
+  font-size: 16px;
+  color: var(--color-text-3);
+  cursor: pointer;
+}
+
+/* 统计栏(遗留类, PageLayout 已接管统计条; 边框统一为发丝边框, 避免文字色当边框显脏) */
+.files-stats-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  margin-bottom: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  background: var(--color-fill-2);
+}
+
+.files-stats-bar {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  margin-bottom: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-hairline);
+  overflow: hidden;
+}
+
+.files-stats-content {
+  display: flex;
+  gap: 64px;
+}
+
+.files-stats-number {
+  font-size: 28px;
+  font-weight: var(--font-weight-600);
+}
+
+.files-stats-label {
+  font-size: 13px;
+  display: block;
+  margin-top: 4px;
+}
+
+.files-stats-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.files-stats-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.files-stats-content-wrapper {
+  position: relative;
+  z-index: 1;
+}
+
+.files-stats-controls {
+  position: relative;
+  z-index: 1;
+}
+
+/* 页面布局(遗留类; 工作区底色改用画布色, 让 bg-1 卡片自然浮出) */
+.files-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 48px 64px 64px;
+  background: var(--color-bg-canvas);
+}
+
+.files-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.files-page-title {
+  font-weight: var(--font-weight-600);
+  line-height: 1;
+  margin: 0;
+  font-size: 40px;
+}
+
+.files-page-subtitle {
+  font-size: 14px;
+  margin-top: 8px;
+  display: block;
+}
+
+.files-page-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.files-breadcrumb-wrapper {
+  margin-bottom: 16px;
+}
+
+.files-filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+/* 列表视图容器 —— 按卡片语言收敛: 发丝边框 + 大圆角 + 静态浅阴影 */
+.files-list-table {
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  background: var(--color-bg-1);
+}
+
+.files-list-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-2);
+  background: var(--color-fill-2);
+  font-size: 13px;
+  color: var(--color-text-3);
+  font-weight: var(--font-weight-500);
+}
+
+.files-list-header-icon {
+  width: 32px;
+  margin-right: 16px;
+}
+
+.files-list-header-name {
+  flex: 1;
+}
+
+.files-list-header-size {
+  width: 100px;
+}
+
+.files-list-header-date {
+  width: 80px;
+}
+
+.files-list-header-actions {
+  width: 60px;
+}
+
+.files-empty-spacing {
+  height: 32px;
+}
+
+.files-empty-padded {
+  padding: 64px 0;
+}
+
+/* 模态框 */
+.files-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.files-modal-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.files-select-full {
+  width: 100%;
+}
+
+.files-card-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.files-card-select-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.files-card-select-item:hover {
+  background: var(--color-fill-2);
+}
+
+.files-card-select-item-checkbox {
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.files-card-select-item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-card-select-item-meta {
+  font-size: 12px;
+}
+
+/* 新建卷帙 */
+.files-collection-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.files-collection-card-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.files-collection-card-item:hover {
+  background: var(--color-fill-2);
+}
+
+.files-collection-card-item-checkbox {
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.files-collection-card-item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-collection-card-item-meta {
+  font-size: 12px;
+}

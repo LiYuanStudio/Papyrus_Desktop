@@ -1,0 +1,197 @@
+/* ============================================
+   思考链组件样式 - 支持深色模式
+   ============================================ */
+
+.reasoning-chain {
+  margin: 8px 0;
+  /* 卡片语言: lg 圆角 + hairline 描边 + shadow-1,替代 border-2 的粗灰边 */
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border-hairline);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Collapse 覆盖 */
+.reasoning-collapse {
+  background: transparent !important;
+}
+
+.reasoning-collapse > .arco-collapse-item {
+  border-bottom: none !important;
+}
+
+.reasoning-collapse > .arco-collapse-item > .arco-collapse-item-header {
+  padding: 10px 12px;
+  background: transparent;
+  border-bottom: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  min-width: 0;
+}
+
+.reasoning-collapse > .arco-collapse-item > .arco-collapse-item-header:hover {
+  background: var(--color-fill-2);
+}
+
+.reasoning-collapse > .arco-collapse-item > .arco-collapse-item-content {
+  background: transparent;
+}
+
+.reasoning-collapse > .arco-collapse-item > .arco-collapse-item-content-box {
+  padding: 0 16px 16px;
+}
+
+/* 隐藏 Arco Collapse 默认展开图标，使用自定义右侧箭头 */
+.reasoning-collapse .arco-collapse-item-icon-hover,
+.reasoning-collapse .arco-collapse-item-header-icon,
+.reasoning-collapse .arco-collapse-item-icon-left,
+.reasoning-collapse .arco-collapse-item-icon-right {
+  display: none !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.reasoning-collapse .arco-collapse-item-header-left {
+  padding-left: 12px !important;
+}
+
+/* 头部样式 */
+.reasoning-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.reasoning-title-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.reasoning-icon {
+  font-size: 16px;
+  color: var(--color-text-3);
+  flex-shrink: 0;
+}
+
+.reasoning-title {
+  font-size: 13px;
+  font-weight: var(--font-weight-400);
+  color: var(--color-text-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 展开/折叠指示器 */
+.reasoning-expand-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--color-text-3);
+  transition: color 0.2s;
+}
+
+.reasoning-expand-indicator:hover {
+  color: var(--color-text-1);
+}
+
+/* 内容区域 */
+.reasoning-content {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-2);
+  padding-left: 12px;
+  min-width: 0;
+}
+
+.reasoning-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 代码块样式 */
+.reasoning-code-block {
+  margin: 12px 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-hairline);
+  overflow: hidden;
+}
+
+.reasoning-code-language {
+  font-size: 12px;
+  color: var(--color-text-3);
+  padding: 6px 12px;
+  background: var(--color-fill-2);
+  border-bottom: 1px solid var(--color-border-hairline);
+  text-transform: uppercase;
+}
+
+.reasoning-code-pre {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.reasoning-code-pre code {
+  color: var(--color-text-1);
+  background: transparent;
+}
+
+/* 深色模式代码块: 用 canvas token 替代写死的 #1a1a1a,保持比卡片更暗的内嵌感且随主题联动 */
+body[arco-theme='dark'] .reasoning-code-block {
+  background: var(--color-bg-canvas);
+}
+
+body[arco-theme='dark'] .reasoning-code-pre {
+  background: var(--color-bg-canvas);
+}
+
+/* 减少动画 - 无障碍支持 */
+@media (prefers-reduced-motion: reduce) {
+  .reasoning-expand-indicator,
+  .reasoning-collapse > .arco-collapse-item > .arco-collapse-item-header {
+    transition: none;
+  }
+}
+
+/* 高对比度模式 - 无障碍支持 */
+@media (prefers-contrast: high) {
+  .reasoning-chain {
+    border-width: 2px;
+  }
+  
+  .reasoning-code-block {
+    border-width: 2px;
+  }
+}
+
+/* 窄聊天面板内紧凑折叠头 */
+@container chat-panel (max-width: 360px) {
+  .reasoning-collapse > .arco-collapse-item > .arco-collapse-item-header {
+    padding: 8px 10px;
+  }
+
+  .reasoning-title {
+    font-size: 12px;
+  }
+}

@@ -1,0 +1,3 @@
+import { PRIMARY_COLOR, SECONDARY_COLOR, SUCCESS_COLOR } from '../theme-constants';
+
+export { PRIMARY_COLOR, SECONDARY_COLOR, SUCCESS_COLOR };

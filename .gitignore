@@ -1,49 +1,163 @@
-# --- Python ---
-__pycache__/
-*.py[codz]
-*$py.class
-*.so
-.Python
-build/
-dist/
-*.egg-info/
-*.egg
-*.manifest
-pip-log.txt
-pip-delete-this-directory.txt
+# ============================================================================
+# Papyrus Project - Git Ignore Configuration
+# ============================================================================
 
-# Testing & Coverage
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-.pytest_cache/
-coverage.xml
-
-# Environments
-.env
-.env.local
-.venv/
-venv/
-env/
-
-# Logs
-*.log
-logs/
-
-# --- Node.js / Frontend ---
+# ----------------------------------------------------------------------------
+# Dependencies
+# ----------------------------------------------------------------------------
 node_modules/
-frontend/dist/
-.eslintcache
+frontend/node_modules/
+# 注意：package-lock.json 需要提交到仓库，用于 CI/CD 构建
+# yarn.lock 和 pnpm-lock.yaml 如有使用也需提交
+yarn.lock
+frontend/yarn.lock
+pnpm-lock.yaml
+frontend/pnpm-lock.yaml
 
-# --- IDE / OS ---
+# ----------------------------------------------------------------------------
+# Build Outputs
+# ----------------------------------------------------------------------------
+# Build config files that SHOULD be tracked:
+# - build/installer.nsh (NSIS installer script)
+# - build/entitlements.mac.plist (macOS entitlements)
+# - build/create-cert.ps1 (Certificate creation script)
+# Note: signing certificates moved to ~/.papyrus-certs/ (outside project)
+build/*.log
+build/*.pfx
+build/*.p12
+build/*.pem
+build/*.key
+build/*.cert
+build/*.cer
+
+# Frontend build
+dist/
+frontend/dist/
+
+# Electron build
+dist-*/
+electron.zip
+
+# Local build script
+scripts/build-local.ps1
+
+# Electron download - 所有内容都不提交（自行下载）
+electron-download/
+
+# Test files (Electron v41 适配测试)
+test-*.js
+test-*.mjs
+test-*.html
+test-*.ps1
+test-*.bat
+
+# ----------------------------------------------------------------------------
+# TypeScript/JavaScript
+# ----------------------------------------------------------------------------
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# ----------------------------------------------------------------------------
+# IDE & Editors
+# ----------------------------------------------------------------------------
 .vscode/
 .idea/
-.DS_Store
-Thumbs.db
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.code-workspace
 
-# --- Papyrus specific ---
+# ----------------------------------------------------------------------------
+# Logs
+# ----------------------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ----------------------------------------------------------------------------
+# Data & User Files (DO NOT COMMIT)
+# ----------------------------------------------------------------------------
+# 用户数据
 data/
 backup/
+*.bak
+*.tmp
+*.temp
+
+# 应用生成的数据文件
+Papyrusdata.json.bak
+notes_data.json
+scrolls.json
+*.db
+*.sqlite
+*.sqlite3
+
+# ----------------------------------------------------------------------------
+# OS Generated
+# ----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ----------------------------------------------------------------------------
+# Tools
+# ----------------------------------------------------------------------------
+tools/code_backups/
+
+# Claude Code local session/settings
+.claude/
+
+# ----------------------------------------------------------------------------
+# Environment & Secrets (DO NOT COMMIT)
+# ----------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+.secret
+secrets/
+*.pem
+*.key
+
+# Security audit files
+SECURITY_AUDIT_REPORT*.md
+security-scan-report*.md
+security_scan_report*.md
+
+# ----------------------------------------------------------------------------
+# Test & Coverage
+# ----------------------------------------------------------------------------
+coverage/
+coverage*.txt
+nyc_output/
+.nyc_output/
+test-results/
+
+# ----------------------------------------------------------------------------
+# Temporary Files
+# ----------------------------------------------------------------------------
+tmp/
+temp/
+*.tmp
+*.temp
+*.pid
+*.seed
+*.pid.lock

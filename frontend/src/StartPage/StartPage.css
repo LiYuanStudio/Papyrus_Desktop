@@ -1,0 +1,317 @@
+/* ============================================================
+   StartPage 样式
+   - 静态布局/外观规则
+   - 状态相关使用 [data-hovered] / [data-highlighted] 切换
+   ============================================================ */
+
+/* ---- 页面根容器 ---- */
+.start-page-root {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  /* 画布底色：页面工作区用 canvas，与卡片 bg-1 拉开层次，深色模式由 token 自适应 */
+  background: var(--color-bg-canvas);
+}
+
+.start-study-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.start-hero {
+  position: relative;
+  height: 61.8vh;
+  padding: 48px 0 0 64px;
+}
+.start-shelves {
+  padding: 48px 64px 64px;
+}
+
+.start-shelves-title.arco-typography-h2 {
+  font-weight: var(--font-weight-400);
+  line-height: 1;
+  margin: 0 0 16px 0;
+  padding: 0;
+  font-size: var(--font-size-display-lg);
+}
+
+.start-bottom-spacer {
+  height: 64px;
+}
+
+/* ---- 书架区块 ---- */
+.start-shelf-section {
+  margin-bottom: 40px;
+}
+
+.start-shelf-section-title.arco-typography-h3 {
+  font-weight: 200;
+  line-height: 1;
+  margin: 0 0 24px 0;
+  padding: 0;
+  font-size: var(--font-size-display-sm);
+  color: var(--color-text-3);
+}
+
+.start-shelf-measure {
+  position: absolute;
+  height: calc(61.8vh - 48px - var(--font-size-display-xl));
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.start-shelf-row {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+}
+
+/* ---- LatticeBackground SVG ---- */
+.start-lattice-svg {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- 卡片外框（PendingCard / DoneCard 共用） ---- */
+.start-card-frame {
+  position: absolute;
+  /* 标题下方 24px：padding-top + 标题字号 + 间距 */
+  top: calc(48px + var(--font-size-display-xl) + 24px);
+  /* 与卷轴页窗景 / 书架区同宽：左右各 64px */
+  left: 64px;
+  right: 64px;
+  height: calc(61.8vh - 48px - var(--font-size-display-xl));
+  /* hero 窗景卡按卡片语言升级：发丝边框替代误用的 text-3，
+     radius-xl + shadow-2 是因为它是页面视觉焦点（比普通卡片更强调） */
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.start-card-frame--pending,
+.start-card-frame--done,
+.start-card-frame--scenery {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  /* 卡片底色统一 bg-1（canvas 之上），深浅色由 token 自适应 */
+  background: var(--color-bg-1);
+}
+
+.start-card-top {
+  position: relative;
+  z-index: 1;
+  padding: 24px;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.start-card-frame--scenery[data-hovered="true"] .start-card-top {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.arco-typography.start-card-headline {
+  margin: 0 0 8px;
+  font-size: var(--font-size-display-xxl);
+  font-weight: var(--font-weight-600);
+}
+
+.start-card-subline {
+  font-size: var(--font-size-display-md);
+}
+
+.start-card-bottom {
+  position: relative;
+  z-index: 1;
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.start-card-greeting {
+  font-size: var(--font-size-display-md);
+  font-weight: var(--font-weight-600);
+  opacity: 1;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.start-card-frame--scenery[data-hovered="true"] .start-card-greeting {
+  opacity: 0;
+}
+
+/* ---- CTA Button ---- */
+.start-cta-button.start-cta-button {
+  position: relative;
+  overflow: hidden;
+  min-width: 120px;
+  height: 48px;
+  padding: 0 32px;
+  font-size: var(--font-size-md);
+  flex-shrink: 0;
+}
+
+.start-cta-button.start-cta-button[data-highlighted="true"] {
+  /* 品牌色走 token（替代硬编码 #206CCF），深色模式自动适配 */
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.start-cta-button-label {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- ripple 动画 ---- */
+@keyframes ripple-effect {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+}
+
+.start-btn-ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  /* 涟漪色与 CTA 品牌色一致，走 token */
+  background: var(--color-primary);
+  pointer-events: none;
+  z-index: 0;
+  animation: ripple-effect 0.6s ease-out forwards;
+}
+
+/* ---- DoneCard 完成态文本/诗句 ---- */
+.scenery-sub-text {
+  color: var(--color-text-3);
+}
+
+.start-done-greeting {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  padding: 24px;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.start-done-greeting[data-hovered="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.start-poem-container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38.2%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.start-poem-container[data-hovered="true"] {
+  opacity: 1;
+}
+
+.start-poem-inner {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  gap: 12px;
+  height: 90%;
+  max-height: 90%;
+  overflow: hidden;
+}
+
+.start-poem-text {
+  writing-mode: vertical-rl;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", serif;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-400);
+  letter-spacing: 0.3em;
+  color: var(--color-text-1);
+  line-height: 1.6;
+  height: 100%;
+  overflow: hidden;
+}
+
+.start-poem-source {
+  writing-mode: vertical-rl;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", serif;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-400);
+  letter-spacing: 0.15em;
+  color: var(--color-text-3);
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+/* ---- 窗景图片：mask 不透明窗口收缩动画 ---- */
+@property --scenery-mask-stop {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 61.8%;
+}
+
+.start-scenery-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  --scenery-mask-stop: 61.8%;
+  -webkit-mask-image: linear-gradient(to right, transparent, black var(--scenery-mask-stop));
+  mask-image: linear-gradient(to right, transparent, black var(--scenery-mask-stop));
+  transition: --scenery-mask-stop 600ms cubic-bezier(0.83, 0, 0.17, 1);
+}
+
+.start-scenery-image[data-hovered="true"] {
+  --scenery-mask-stop: 38.2%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start-scenery-image {
+    transition: none;
+  }
+}
+
+/* ---- DoneCard 完成态顶部光晕 ---- */
+/* 用 token 化的浅绿渐变替代硬编码 rgba(232,255,234,0.45)，深色模式自动变通透 */
+.start-done-glow {
+  background: linear-gradient(to bottom, var(--color-success-light), transparent);
+}
+
+/* ---- 窗景深色模式适配 ---- */
+/* 卡片底色/边框已统一为自适应 token（bg-1 / hairline），无需再单独覆盖深色；
+   仅保留窗景图片的亮度适配，避免深色下过亮 */
+body[arco-theme="dark"] .start-scenery-image {
+  filter: brightness(0.85) contrast(1.1);
+}

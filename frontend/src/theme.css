@@ -1,0 +1,529 @@
+/* ============================================
+   全局主题样式 - 深色模式支持
+   遵循字节设计规范和 WCAG 无障碍标准
+   ============================================ */
+
+/* 浅色模式默认值 */
+:root {
+  /* 基础字号 */
+  --font-size-base: 15px;
+
+  /* 主色调 */
+  --color-primary: #206CCF;
+  --color-primary-light: rgba(32, 108, 207, 0.08);
+  --color-primary-hover: #1654a8;
+
+  /* 成功/危险/警告色 */
+  --color-success: #00B42A;
+  --color-success-light: rgba(0, 180, 42, 0.08);
+  --color-danger: #F53F3F;
+  --color-danger-light: rgba(245, 63, 63, 0.08);
+  --color-warning: #FF7D00;
+  --color-warning-light: rgba(255, 125, 0, 0.08);
+
+  /* 边框悬停色 */
+ --color-border-hover: #9FD4FD;
+ --color-border-danger: rgba(245, 63, 63, 0.5);
+
+  /* 字重 —— 与 UI_TOKENS.md 对齐 */
+  --font-weight-400: 400;
+  --font-weight-500: 500;
+  --font-weight-600: 600;
+
+  /* 圆角阶梯 —— 全站统一的容器圆角,替代此前 4–24px 各自为政的写法 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* 阴影阶梯 —— 用"贴身 + 环境"双层柔和投影替代硬描边,营造悬浮于纸面的层级。
+     未用单层大阴影: 单层阴影边缘生硬,双层更接近真实光照,深色模式下也更好调。 */
+  --shadow-1: 0 1px 2px rgba(31, 35, 41, 0.05), 0 2px 8px rgba(31, 35, 41, 0.04);
+  --shadow-2: 0 2px 6px rgba(31, 35, 41, 0.07), 0 10px 28px rgba(31, 35, 41, 0.09);
+  --shadow-3: 0 6px 16px rgba(31, 35, 41, 0.09), 0 20px 56px rgba(31, 35, 41, 0.14);
+
+  /* 动效 —— 统一缓动与时长;缓出曲线起步快、收尾柔,比线性/ease 更显精致 */
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 0.15s;
+  --duration-normal: 0.25s;
+
+  /* 发丝边框 —— 替代误用 var(--color-text-3) 的卡片描边(文字色当边框显脏) */
+  --color-border-hairline: rgba(31, 35, 41, 0.08);
+
+  /* 主结构分割线 —— 用于顶栏、侧栏、聊天栏和状态栏之间的应用骨架边界。
+     采用 2px 低对比线而不是提高 1px 黑度：更容易辨认区域层级，同时不会形成生硬黑框。 */
+  --color-border-structure: rgba(31, 35, 41, 0.12);
+  --width-border-structure: 2px;
+
+  /* 画布底色 —— 微暖纸感灰,让使用 bg-1 的白色卡片自然浮出,无需改动任何布局 */
+  --color-bg-canvas: #f7f7f5;
+
+  /* 窗景遮罩 RGB 分量 —— PageLayout 运行时以 rgba(var(--scenery-overlay-rgb), 透明度) 拼色,
+     深色模式翻转为黑色分量,修复深色下遮罩错误发白的 bug */
+  --scenery-overlay-rgb: 255, 255, 255;
+}
+
+body {
+  --font-size-xs: calc(var(--font-size-base) - 3px);
+  --font-size-sm: calc(var(--font-size-base) - 2px);
+  --font-size-md: calc(var(--font-size-base) + 1px);
+  --font-size-lg: calc(var(--font-size-base) + 3px);
+  --font-size-xl: calc(var(--font-size-base) + 5px);
+  --font-size-xxl: calc(var(--font-size-base) + 9px);
+  --font-size-display-sm: calc(var(--font-size-base) + 1px);
+  --font-size-display-md: calc(var(--font-size-base) + 9px);
+  --font-size-display-lg: calc(var(--font-size-base) + 13px);
+  --font-size-display-xl: calc(var(--font-size-base) + 25px);
+  --font-size-display-xxl: calc(var(--font-size-base) + 33px);
+  font-size: var(--font-size-base);
+  /* 字体渲染优化 —— 抗锯齿让细字重更干净;tabular-nums 让统计数字/计时器等宽对齐。
+     未引入自定义字体文件: 保持 Arco 系统字体栈约定,零加载成本。 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-font-size="small"] {
+  --font-size-base: 14px;
+}
+
+body[data-font-size="medium"] {
+  --font-size-base: 15px;
+}
+
+body[data-font-size="large"] {
+  --font-size-base: 16px;
+}
+
+/* Arco Design 深色模式变量覆盖 */
+body[arco-theme='dark'] {
+  /* 背景色 —— 整体加深并拉开阶梯,让卡片/弹层在深色下仍有"海拔"层次。
+     未沿用原 #2a2a2b 起的高灰度底色: 各层太接近,投影与圆角无法体现层级。 */
+  --color-bg-1: #1e1e22;
+  --color-bg-2: #242428;
+  --color-bg-3: #2b2b30;
+  --color-bg-4: #333338;
+  --color-bg-5: #3b3b41;
+  --color-bg-white: #1e1e22;
+
+  /* 文字色 */
+  --color-text-1: rgba(255, 255, 255, 0.9);
+  --color-text-2: rgba(255, 255, 255, 0.7);
+  --color-text-3: rgba(255, 255, 255, 0.5);
+  --color-text-4: rgba(255, 255, 255, 0.3);
+
+  /* 填充色 */
+  --color-fill-1: rgba(255, 255, 255, 0.04);
+  --color-fill-2: rgba(255, 255, 255, 0.08);
+  --color-fill-3: rgba(255, 255, 255, 0.12);
+  --color-fill-4: rgba(255, 255, 255, 0.16);
+
+  /* 边框色 */
+  --color-border-1: rgba(255, 255, 255, 0.08);
+  --color-border-2: rgba(255, 255, 255, 0.12);
+  --color-border-3: rgba(255, 255, 255, 0.16);
+  --color-border-4: rgba(255, 255, 255, 0.24);
+
+  /* 主色调 */
+  --color-primary: #206CCF;
+  --color-primary-light: rgba(32, 108, 207, 0.2);
+  --color-primary-hover: #4c8fe0;
+
+  /* 其他颜色 */
+  --color-success: #00B42A;
+  --color-success-light: rgba(0, 180, 42, 0.2);
+  --color-danger: #F53F3F;
+  --color-danger-light: rgba(245, 63, 63, 0.2);
+  --color-warning: #FF7D00;
+  --color-warning-light: rgba(255, 125, 0, 0.2);
+
+  /* 链接色 */
+  --color-link: #206CCF;
+  --color-link-hover: #4c8fe0;
+  --color-link-active: #1654a8;
+
+  /* 遮罩 */
+  --color-mask-bg: rgba(0, 0, 0, 0.6);
+
+  /* 深色下的阴影/hairline/画布/窗景遮罩覆盖 —— 阴影更深更软,画布比 bg-1 再暗一档 */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.22);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.36), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-3: 0 6px 16px rgba(0, 0, 0, 0.44), 0 20px 56px rgba(0, 0, 0, 0.52);
+  --color-border-hairline: rgba(255, 255, 255, 0.09);
+  --color-border-structure: rgba(255, 255, 255, 0.14);
+  --color-bg-canvas: #141416;
+  --scenery-overlay-rgb: 0, 0, 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font-size: inherit;
+}
+
+/* 通用危险操作二次确认胶囊：用低饱和危险色表面、细描边和柔和投影建立“已进入确认态”的层级，
+   悬停时仅轻微加深，避免小尺寸控件出现过强的警报感。
+   未绑定固定宽高：不同业务入口可复用同一视觉语义，同时自行决定布局尺寸。 */
+.danger-confirm-pill {
+  border: 1px solid color-mix(in srgb, var(--color-danger) 20%, var(--color-border-2));
+  background: color-mix(in srgb, var(--color-danger) 4%, var(--color-bg-1));
+  color: color-mix(in srgb, var(--color-danger) 60%, var(--color-text-2));
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--color-text-1) 7%, transparent),
+    0 3px 9px color-mix(in srgb, var(--color-danger) 6%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-bg-1) 75%, transparent);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.danger-confirm-pill:hover {
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border-2));
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg-1));
+  color: color-mix(in srgb, var(--color-danger) 75%, var(--color-text-1));
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--color-text-1) 8%, transparent),
+    0 5px 12px color-mix(in srgb, var(--color-danger) 9%, transparent);
+  transform: translateY(-1px);
+}
+
+.danger-confirm-pill:active:not(:disabled) {
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-danger) 10%, transparent);
+  transform: translateY(0);
+}
+
+.danger-confirm-pill:focus-visible,
+html.a11y-focus-indicator button.danger-confirm-pill:focus-visible {
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--color-border-2));
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--color-text-1) 8%, transparent),
+    0 5px 12px color-mix(in srgb, var(--color-text-1) 5%, transparent);
+}
+
+.danger-confirm-pill:disabled {
+  box-shadow: none;
+  transform: none;
+}
+
+/* 全局过渡动画 - 可选
+   用 :where() 把选择器特异性强制降为 (0,0,0)，作为"默认值"提供颜色过渡。
+   组件自定义的 transition 能直接覆盖。
+   限定在常用 UI 元素上，避免影响 transform/opacity 动画。 */
+@media (prefers-reduced-motion: no-preference) {
+  :where(html:not(.aaa-no-animation) body),
+  :where(html:not(.aaa-no-animation) body div),
+  :where(html:not(.aaa-no-animation) body span),
+  :where(html:not(.aaa-no-animation) body button),
+  :where(html:not(.aaa-no-animation) body a),
+  :where(html:not(.aaa-no-animation) body input),
+  :where(html:not(.aaa-no-animation) body textarea),
+  :where(html:not(.aaa-no-animation) body section),
+  :where(html:not(.aaa-no-animation) body article),
+  :where(html:not(.aaa-no-animation) body aside),
+  :where(html:not(.aaa-no-animation) body nav),
+  :where(html:not(.aaa-no-animation) body header),
+  :where(html:not(.aaa-no-animation) body footer),
+  :where(html:not(.aaa-no-animation) body main),
+  :where(html:not(.aaa-no-animation) body ul),
+  :where(html:not(.aaa-no-animation) body ol),
+  :where(html:not(.aaa-no-animation) body li),
+  :where(html:not(.aaa-no-animation) body p),
+  :where(html:not(.aaa-no-animation) body h1),
+  :where(html:not(.aaa-no-animation) body h2),
+  :where(html:not(.aaa-no-animation) body h3),
+  :where(html:not(.aaa-no-animation) body h4),
+  :where(html:not(.aaa-no-animation) body h5),
+  :where(html:not(.aaa-no-animation) body h6) {
+    transition: background-color 0.2s var(--ease-standard), color 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .danger-confirm-pill {
+    transition: none;
+  }
+
+  .danger-confirm-pill:hover {
+    transform: none;
+  }
+}
+
+/* 焦点样式 - 无障碍支持 */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 按钮焦点 */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 链接焦点 */
+a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 输入框焦点 - 使用box-shadow替代outline，避免与组件自身border形成双线 */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15);
+  border-color: var(--color-primary) !important;
+}
+
+/* Arco Input组件焦点处理 - 外层wrapper不显示边框，只在内层显示 */
+.arco-input-wrapper:focus-within,
+.arco-input-password:focus-within,
+.arco-textarea-wrapper:focus-within {
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* Arco Select组件焦点处理 - 外层div显示光晕和描边 */
+.arco-select-view:focus-within,
+.arco-select-view.arco-select-view-focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15) !important;
+}
+
+.arco-input-inner-wrapper:focus-within,
+.arco-textarea-inner-wrapper:focus-within {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15) !important;
+}
+
+.arco-input-wrapper .arco-input:focus,
+.arco-input-wrapper .arco-input:focus-visible,
+.arco-input-password .arco-input:focus,
+.arco-input-password .arco-input:focus-visible,
+.arco-textarea-wrapper .arco-textarea:focus,
+.arco-textarea-wrapper .arco-textarea:focus-visible,
+.arco-select-view .arco-input-tag-input:focus,
+.arco-select-view .arco-input-tag-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 无边框输入框和文本域 - 无聚焦光晕 */
+/* 处理直接在 input/textarea 元素上的 no-border-input/no-border-textarea 类 */
+input.no-border-input,
+textarea.no-border-textarea {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+input.no-border-input:focus,
+input.no-border-input:focus-visible,
+textarea.no-border-textarea:focus,
+textarea.no-border-textarea:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* 处理父容器上有 no-border-input/no-border-textarea 类的情况 */
+.no-border-input .arco-input-inner-wrapper:focus-within,
+.no-border-textarea .arco-textarea-inner-wrapper:focus-within,
+.no-border-input .arco-input-inner-wrapper.arco-input-inner-wrapper-focus,
+.no-border-textarea .arco-textarea-inner-wrapper.arco-textarea-inner-wrapper-focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.no-border-input .arco-input-wrapper:focus-within,
+.no-border-textarea .arco-textarea-wrapper:focus-within,
+.no-border-input .arco-input-wrapper.arco-input-wrapper-focus,
+.no-border-textarea .arco-textarea-wrapper.arco-textarea-wrapper-focus {
+  box-shadow: none !important;
+  border-color: transparent !important;
+  outline: none !important;
+}
+
+.no-border-input .arco-input:focus,
+.no-border-input .arco-input:focus-visible,
+.no-border-textarea .arco-textarea:focus,
+.no-border-textarea .arco-textarea:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* a11y-focus-indicator 模式下也要禁用无框输入框的光晕 */
+html.a11y-focus-indicator input.no-border-input:focus-visible,
+html.a11y-focus-indicator textarea.no-border-textarea:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html.a11y-focus-indicator .no-border-input .arco-input-inner-wrapper:focus-within,
+html.a11y-focus-indicator .no-border-textarea .arco-textarea-inner-wrapper:focus-within {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Modal内部输入框样式 */
+[class*="arco-modal"] input:focus-visible,
+[class*="arco-modal"] textarea:focus-visible,
+[class*="arco-modal"] select:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15) !important;
+  border-color: var(--color-primary) !important;
+}
+
+[class*="arco-modal"] .arco-input-wrapper:focus-within,
+[class*="arco-modal"] .arco-input-password:focus-within,
+[class*="arco-modal"] .arco-textarea-wrapper:focus-within {
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+[class*="arco-modal"] .arco-input-inner-wrapper:focus-within,
+[class*="arco-modal"] .arco-textarea-inner-wrapper:focus-within {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15) !important;
+}
+
+[class*="arco-modal"] .arco-select-view:focus-within,
+[class*="arco-modal"] .arco-select-view.arco-select-view-focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15) !important;
+}
+
+/* 笔记详情页元信息区输入框 - 与搜索框一致的光晕效果 */
+.notes-meta-input .arco-input-inner-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px rgba(32, 108, 207, 0.25) !important;
+}
+
+.notes-meta-input .arco-input:focus,
+.notes-meta-input .arco-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* a11y-focus-indicator 模式下 notes-meta-input 输入框的光晕也要统一为 1px */
+html.a11y-focus-indicator .notes-meta-input input:focus-visible {
+  box-shadow: 0 0 0 1px rgba(32, 108, 207, 0.25) !important;
+}
+
+html.a11y-focus-indicator .notes-meta-input .arco-input-inner-wrapper:focus-within {
+  box-shadow: 0 0 0 1px rgba(32, 108, 207, 0.25) !important;
+}
+
+/* a11y-focus-indicator 模式下普通输入框的光晕覆盖（修复设置页等输入框光晕过粗问题） */
+html.a11y-focus-indicator input:focus-visible,
+html.a11y-focus-indicator textarea:focus-visible,
+html.a11y-focus-indicator select:focus-visible {
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15) !important;
+  outline: none !important;
+}
+
+html.a11y-focus-indicator .arco-input-inner-wrapper:focus-within,
+html.a11y-focus-indicator .arco-textarea-inner-wrapper:focus-within {
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15) !important;
+}
+
+html.a11y-focus-indicator .arco-select-view:focus-within,
+html.a11y-focus-indicator .arco-select-view.arco-select-view-focus {
+  box-shadow: 0 0 0 0.5px rgba(32, 108, 207, 0.15) !important;
+}
+
+/* 减少动画 - 无障碍支持 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 高对比度模式 - 无障碍支持 */
+@media (prefers-contrast: high) {
+  :root {
+    --color-text-1: #000000;
+    --color-text-2: #1a1a1a;
+    --color-text-3: #333333;
+    --color-border-2: #666666;
+  }
+
+  body[arco-theme='dark'] {
+    --color-text-1: #ffffff;
+    --color-text-2: #e6e6e6;
+    --color-text-3: #cccccc;
+    --color-border-2: #999999;
+  }
+}
+
+/* Skip Link - 无障碍导航 */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-primary);
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 10000;
+ border-radius: 0 0 8px 0;
+ font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-500);
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* 屏幕阅读器专用 - 无障碍 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 禁用态样式 */
+[aria-disabled="true"],
+[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 页面切换动画已迁移至 tailwind.config.js — 通过 motion-safe:tw-animate-page-up/down 使用 */
+
+/* 骨架屏加载动画 */
+@keyframes skeleton-loading {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+.skeleton-pulse {
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}

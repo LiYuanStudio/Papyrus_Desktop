@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:* https:; img-src 'self' file: data: http://127.0.0.1:* http://localhost:* https: blob:; media-src 'self' http://127.0.0.1:* http://localhost:* blob:; font-src 'self' data:; frame-src 'self';">
+    <title>Papyrus Desktop</title>
+    <style>
+      /* 防止滚动条 */
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      /* 自定义背景色 */
+      :root {
+        --color-bg-2: #FFFFFF;
+      }
+      /* 深色模式适配 */
+      body[arco-theme="dark"] {
+        --color-bg-2: #2A2A2B;
+      }
+
+      /* 启动加载页样式 */
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+      .splash-screen {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        background: #ffffff;
+        color: #1d2129;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        transition: opacity 0.3s ease;
+      }
+      .splash-screen .logo {
+        font-size: 32px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        margin-bottom: 24px;
+      }
+      .splash-screen .spinner {
+        width: 36px;
+        height: 36px;
+        border: 3px solid rgba(60, 60, 60, 0.15);
+        border-top-color: #165dff;
+        border-radius: 50%;
+        animation: splash-spin 1s linear infinite;
+      }
+      .splash-screen .hint {
+        margin-top: 16px;
+        font-size: 13px;
+        color: #86909c;
+      }
+      @keyframes splash-spin {
+        to { transform: rotate(360deg); }
+      }
+      /* 深色模式下的启动页 */
+      @media (prefers-color-scheme: dark) {
+        .splash-screen {
+          background: #2a2a2b;
+          color: #ffffff;
+        }
+        .splash-screen .spinner {
+          border-color: rgba(255, 255, 255, 0.12);
+          border-top-color: #3c7eff;
+        }
+        .splash-screen .hint {
+          color: #a1a1a1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="splash-screen">
+        <div class="logo">Papyrus Desktop</div>
+        <div class="spinner"></div>
+        <div class="hint">正在启动，请稍候…</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

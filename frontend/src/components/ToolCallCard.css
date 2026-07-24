@@ -1,0 +1,329 @@
+/* ============================================
+   工具调用卡片组件样式 - 支持深色模式
+   ============================================ */
+
+.tool-call-card {
+  margin: 8px 0;
+  border-radius: var(--radius-md);
+  border: 1px solid;
+  overflow: hidden;
+  transition: border-color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 状态小卡统一语言: hairline 描边 + 浅功能色底;状态色改由图标/状态标签承载,不再用彩色描边。
+   深色专用覆盖删除: 各 *-light token 深浅模式自适应,无需硬编码 rgba。 */
+
+/* 状态样式 - Pending */
+.tool-call-pending {
+  background: var(--color-warning-light);
+  border-color: var(--color-border-hairline);
+}
+
+/* 状态样式 - Executing */
+.tool-call-executing {
+  background: var(--color-primary-light);
+  border-color: var(--color-border-hairline);
+}
+
+/* 状态样式 - Success */
+.tool-call-success {
+  background: var(--color-success-light);
+  border-color: var(--color-border-hairline);
+}
+
+/* 状态样式 - Failed */
+.tool-call-failed {
+  background: var(--color-danger-light);
+  border-color: var(--color-border-hairline);
+}
+
+/* Collapse 覆盖 */
+.tool-call-collapse {
+  background: transparent !important;
+}
+
+.tool-call-collapse > .arco-collapse-item {
+  border-bottom: none !important;
+}
+
+.tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header {
+  padding: 8px 12px;
+  background: transparent;
+  border-bottom: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  min-width: 0;
+}
+
+@container chat-panel (max-width: 360px) {
+  .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header {
+    padding: 6px 8px;
+  }
+
+  .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-content-box {
+    padding: 0 8px 10px;
+  }
+}
+
+.tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header:hover {
+  /* hover 底用 fill token 替代硬编码 rgba,深浅自适应,与 ReasoningChain 折叠头 hover 一致 */
+  background: var(--color-fill-2);
+}
+
+.tool-call-collapse > .arco-collapse-item > .arco-collapse-item-content {
+  background: transparent;
+}
+
+.tool-call-collapse > .arco-collapse-item > .arco-collapse-item-content-box {
+  padding: 0 16px 16px;
+}
+
+/* 头部样式 */
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.tool-call-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-call-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 16px;
+  color: var(--color-text-2);
+  flex-shrink: 0;
+}
+
+.tool-call-pending .tool-call-icon {
+  color: var(--color-warning);
+}
+
+.tool-call-executing .tool-call-icon {
+  color: var(--color-primary);
+}
+
+.tool-call-success .tool-call-icon {
+  color: var(--color-success);
+}
+
+.tool-call-failed .tool-call-icon {
+  color: var(--color-danger);
+}
+
+.tool-call-name {
+  font-size: 14px;
+  font-weight: var(--font-weight-500);
+  color: var(--color-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.tool-call-status-tag {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.tool-call-status-with-spin {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 操作按钮 */
+.tool-call-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.tool-call-btn {
+  font-size: 12px;
+}
+
+/* 展开图标 */
+.tool-call-expand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-3);
+  transition: transform 0.2s, color 0.2s;
+}
+
+.tool-call-expand-icon:hover {
+  color: var(--color-text-1);
+}
+
+/* 内容区域 */
+.tool-call-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tool-call-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-call-section-title {
+  font-size: 12px;
+  font-weight: var(--font-weight-500);
+  color: var(--color-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tool-call-section-body {
+  background: var(--color-bg-1);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-hairline);
+  overflow: hidden;
+}
+
+/* 参数样式 */
+.tool-call-params {
+  padding: 8px 12px;
+}
+
+.tool-call-params .arco-descriptions-item {
+  padding: 4px 0;
+}
+
+.tool-call-params .arco-descriptions-item-label {
+  font-size: 12px;
+  color: var(--color-text-3);
+  font-weight: var(--font-weight-500);
+}
+
+.tool-call-params .arco-descriptions-item-value {
+  font-size: 13px;
+  color: var(--color-text-1);
+  word-break: break-all;
+  font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+/* 结果样式 */
+.tool-call-result {
+  margin: 0;
+  padding: 12px;
+  background: var(--color-bg-2);
+  font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tool-call-result code {
+  color: var(--color-text-1);
+  background: transparent;
+}
+
+/* 错误样式 */
+.tool-call-error {
+  padding: 12px;
+  background: var(--color-danger-light);
+  border-radius: var(--radius-sm);
+}
+
+.tool-call-error-message {
+  font-size: 13px;
+  color: var(--color-danger);
+  line-height: 1.6;
+  font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+/* 参数预览 */
+.tool-call-param-preview {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-3);
+  font-size: 13px;
+}
+
+/* 服务器前缀 */
+.tool-call-server-prefix {
+  color: var(--color-text-3);
+  font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 12px;
+}
+
+/* 空状态 */
+.tool-call-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-3);
+  font-style: italic;
+}
+
+/* 旋转动画 */
+.tool-call-spin {
+  animation: tool-call-spin 1s linear infinite;
+}
+
+@keyframes tool-call-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 减少动画 - 无障碍支持 */
+@media (prefers-reduced-motion: reduce) {
+  .tool-call-card,
+  .tool-call-expand-icon,
+  .tool-call-collapse > .arco-collapse-item > .arco-collapse-item-header {
+    transition: none;
+  }
+  
+  .tool-call-spin {
+    animation: none;
+  }
+}
+
+/* 高对比度模式 - 无障碍支持 */
+@media (prefers-contrast: high) {
+  .tool-call-card {
+    border-width: 2px;
+  }
+
+  .tool-call-section-body {
+    border-width: 2px;
+  }
+}
+
+.tool-call-header {
+  row-gap: 6px;
+}

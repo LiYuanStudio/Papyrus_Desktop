@@ -1,0 +1,35 @@
+/**
+ * Tailwind CSS 入口文件
+ * 
+ * 所有 Tailwind 类名都带有 'tw-' 前缀，例如：
+ * - tw-flex, tw-hidden
+ * - tw-bg-primary, tw-text-arco-text-1
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  /* 主题过渡动画 - 与 Arco 保持一致 */
+  .tw-transition-theme {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+
+  html.aaa-no-animation .tw-transition-theme {
+    transition: none !important;
+  }
+
+  /* 焦点样式 - 与 Arco 保持一致 */
+  .tw-focus-arco:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* 减少动画 - 无障碍支持 */
+  @media (prefers-reduced-motion: reduce) {
+    .tw-transition-theme {
+      transition: none;
+    }
+  }
+}

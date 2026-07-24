@@ -1,94 +1,183 @@
 # Papyrus 版本信息
 
-## 当前版本：v1.2.2
+## 当前版本：v2.0.0-beta.12
 
 ### 🎉 主要更新
 
-#### v1.2.2 更新内容
-- **修复 API Key 编码错误**：解决 'latin-1' codec 无法编码中文字符的问题
-- **配置验证机制**：在保存前检查 API Key 和 Base URL，阻止包含非法字符的配置
-- **三层防护**：配置验证层、UI 提示层、请求兜底层
-- **改进错误提示**：明确指出哪个提供商的哪个字段包含非法字符
+#### v2.0.0-beta.12 更新内容
+- **设置**: 新增翻译模型选择
+- **聊天**: 优化窄面板布局并丰富消息操作
+- **安全**: 加固 API 认证、SSRF 防护与密钥暴露面
+- **存储**: 主数据为 SQLite（`node:sqlite`，WAL）
 
-#### v1.2.1-beta+macOS.arm64 更新内容
-- **修复构建工作流**：解决跨平台路径问题
-- **优化打包配置**：支持 Windows 和 macOS 自动构建
-- **改进 CI/CD**：自动化发布流程
+#### v2.0.0-beta.11 更新内容
+- **前端重构**: 更新图标资源并重构前端代码结构
+- **笔记优化**: 优化笔记页面布局和功能，改进 Markdown 渲染
+- **UI 改进**: 优化输入框和选择框焦点样式
+- **构建优化**: 修改 Electron 构建配置，优化 CI 工作流
+- **Bug 修复**: 修复 16 项 bug，优化国际化支持
+- **清理**: 清理大量废弃测试文件与临时文档
 
-#### v1.2.1-beta 更新内容
-- **修复 AI 设置保存问题**：切换提供商时自动验证并调整模型兼容性
-- **改进错误提示**：保存失败时显示具体原因
-- **增强稳定性**：防止提供商和模型不匹配导致的问题
+#### v2.0.0-beta.10 更新内容
+- **代理改善**: 改善代理弹性，统一品牌为 Papyrus Desktop
+- **聊天增强**: 重新生成按钮可覆盖当前回答
 
+#### v2.0.0-beta.7~beta.9 更新内容
+- **品牌统一**: 统一应用品牌为 Papyrus Desktop
+- **系统代理**: 添加系统代理自动检测
+- **Bump 工具**: 自动化版本提升工具
 
-### 📦 安装说明
+#### v2.0.0-beta.5~beta.6 更新内容
+- **CI 强化**: 强化后端依赖验证，修复 asarUnpack 配置
+- **Release**: 启用分支推送时自动 draft release
 
-#### 基础功能（无需额外依赖）
+#### v2.0.0-beta.4 更新内容
+- **聊天修复**: 修复聊天框模型同步与前后端 API 协议对齐
+- **AI 配置**: 修复 AIConfig 解析和 SSE 格式对齐
+
+---
+
+## 📦 安装说明
+
+### 环境要求
+
+| 组件 | 版本 |
+|------|------|
+| Node.js | 24+ |
+| npm | 11+ |
+
+### 基础功能
 - SM-2 算法
 - 卡片学习
 - 数据管理
 
-#### AI 功能（需要安装依赖）
+### AI 功能
+无需额外依赖，在应用中配置 API Key 即可使用。
+
+---
+
+## 🚀 快速开始
+
+### 1. 安装依赖
+
 ```bash
-pip install requests
+npm install
 ```
 
-### 🚀 快速开始
+postinstall 会自动级联安装 frontend/ 和 backend/ 的依赖。
 
-#### 1. 启动程序
+### 2. 启动程序
+
+**开发模式（推荐）**
 ```bash
-python src/Papyrus.pyw
+npm run dev
 ```
 
-#### 2. 配置 AI（可选）
-1. 点击右侧 AI 助手的 "⚙" 按钮
-2. 在 "API配置" 标签页输入 API Key
+这会并发启动后端 (Fastify, tsx watch) 和前端 (Vite)。
+
+**或通过 Electron 启动**
+```bash
+npm run electron:dev
+```
+
+访问 http://localhost:5173 查看应用。
+
+### 3. 配置 AI（可选）
+1. 访问设置页面
+2. 在 "AI 配置" 标签页输入 API Key
 3. 在 "模型管理" 标签页选择模型
 4. 保存设置
 
-#### 3. 使用 AI 对话
+### 4. 使用 AI 对话
 直接在输入框输入问题：
 - "帮我解释这道题"
 - "创建一张关于递归的卡片"
 - "搜索所有 Python 相关的题"
 
-### 📊 数据格式变更
+---
 
-新版本卡片数据新增字段（向后兼容）：
+## 📊 数据格式
+
+### 卡片数据
 ```json
 {
+  "id": "uuid-string",
   "q": "题目",
   "a": "答案",
-  "next_review": 0,
+  "next_review": 1234567890,
   "interval": 0,
-  "ef": 2.5,           // 新增：难度系数
-  "repetitions": 0     // 新增：连续正确次数
+  "ef": 2.5,
+  "repetitions": 0,
+  "tags": ["tag1"]
 }
 ```
 
-旧数据会自动适配，无需手动迁移。
+### 笔记数据
+```json
+{
+  "id": "uuid-string",
+  "title": "笔记标题",
+  "folder": "文件夹",
+  "content": "笔记内容",
+  "tags": ["tag1", "tag2"],
+  "created_at": 1234567890,
+  "updated_at": 1234567890
+}
+```
 
-### 🔧 技术架构
+---
+
+## 🔧 技术架构
 
 ```
 Papyrus/
-├── src/
-│   ├── Papyrus.pyw          # 主程序（集成 SM-2 + AI）
-│   └── ai/                  # AI 模块
-│       ├── config.py        # 配置管理
-│       ├── provider.py      # AI 提供商接口
-│       ├── sidebar_v3.py    # AI 侧边栏 UI
-│       └── tools.py         # 工具调用系统
-├── data/
-│   ├── Papyrusdata.json     # 学习数据
-│   └── ai_config.json       # AI 配置
-├── backup/                  # 自动备份
-├── requirements.txt         # Python 依赖
-├── CHANGELOG.md            # 详细更新日志
-└── README.md               # 项目说明
+├── backend/                 # Node.js + Fastify 后端
+│   ├── src/
+│   │   ├── api/             # Fastify 路由
+│   │   ├── core/            # 核心业务逻辑
+│   │   ├── ai/              # AI 功能模块
+│   │   ├── db/              # SQLite（node:sqlite，WAL）
+│   │   ├── cli/             # Desktop CLI 管理
+│   │   └── utils/           # 工具函数
+│   └── package.json
+├── frontend/                # React + TypeScript 前端
+│   ├── src/
+│   │   ├── StartPage/       # 开始页面
+│   │   ├── ScrollPage/      # 卷轴复习
+│   │   ├── NotesPage/       # 笔记管理
+│   │   ├── SettingsPage/    # 设置
+│   │   ├── ChatPanel/       # AI 聊天
+│   │   └── ...
+│   └── package.json
+└── electron/                # Electron 主进程
 ```
 
-### 🐛 已知问题
+### 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 后端 | Node.js 24, TypeScript 5, Fastify 5 |
+| 前端 | React 19, TypeScript 5, Arco Design, Vite 8, Tailwind CSS |
+| 桌面 | Electron 41, electron-builder |
+| 算法 | SM-2 间隔重复 |
+| 存储 | SQLite（`node:sqlite`，WAL），`$HOME/PapyrusData/papyrus.db` |
+
+---
+
+## 🌐 API 服务
+
+### 启动后端
+```bash
+cd backend && npm run dev
+```
+
+### 端点
+- Health: http://127.0.0.1:8000/api/health
+- API: http://127.0.0.1:8000/api/*
+
+---
+
+## ⚠️ 已知问题
 
 1. **Windows 控制台编码警告**
    - 不影响使用
@@ -98,30 +187,37 @@ Papyrus/
    - 待完善
    - 可手动添加模型名称
 
-### 🔮 未来计划
+---
+
+## 🔮 未来计划
 
 - [ ] 语音输入/输出（TTS/STT）
 - [ ] 图片识别（拍照题目）
-- [ ] 知识图谱可视化
+- [ ] 知识图谱可视化增强
 - [ ] 学习进度统计面板
 - [ ] 社区卡片分享
 - [ ] 移动端支持
+- [ ] 多用户协作
 
-### 📝 更新日志
+---
 
-详细的版本历史请查看 [CHANGELOG.md](CHANGELOG.md)
+## 📝 更新日志
 
-### 💬 反馈与支持
+详细的版本历史请查看 [CHANGELOG.md](../../CHANGELOG.md)
 
-- 问题反馈：[GitHub Issues](https://github.com/Alpaca233114514/Papyrus/issues)
+---
+
+## 💬 反馈与支持
+
+- 问题反馈：[GitHub Issues](https://github.com/PapyrusOR/Papyrus_Desktop/issues)
 - 功能建议：欢迎提交 Pull Request
 
-### 📄 开源协议
+---
+
+## 📄 开源协议
 
 MIT License
 
 ---
 
-**Papyrus v1.2.2** - 让学习更智能，让记忆更科学。
-
-
+**Papyrus v2.0.0-beta.12** - 让学习更智能，让记忆更科学。
