@@ -76,10 +76,44 @@ function validateOpenFolderPath(folderPath, allowedDirectories) {
   return { ok: true, path: resolved };
 }
 
+// Install top-level navigation guards and route approved external destinations to the OS browser.
+// Reason: a renderer-controlled link must never replace the privileged Electron document, because
+// the preload bridge remains available to the replacement page.
+// Not relying only on setWindowOpenHandler: same-window navigations and redirects do not create a
+// new window, so they bypass that callback unless both events are explicitly intercepted.
+function installNavigationGuard(webContents, openExternal, options = {}) {
+  const allowedOrigins = new Set(options.allowedOrigins || []);
+  const handleNavigation = (event, url) => {
+    let isTrustedOrigin = false;
+    try {
+      isTrustedOrigin = allowedOrigins.has(new URL(url).origin);
+    } catch {
+      // Invalid URLs remain blocked and are not passed to an external handler.
+    }
+    if (isTrustedOrigin) {
+      return;
+    }
+
+    event.preventDefault();
+    const validation = validateExternalUrl(url);
+    if (validation.ok) {
+      openExternal(validation.url);
+    }
+  };
+
+  webContents.on('will-navigate', handleNavigation);
+  webContents.on('will-redirect', handleNavigation);
+  return () => {
+    webContents.removeListener('will-navigate', handleNavigation);
+    webContents.removeListener('will-redirect', handleNavigation);
+  };
+}
+
 module.exports = {
   EXTERNAL_DOMAINS,
   EXTERNAL_PROTOCOLS,
   isInsideDirectory,
+  installNavigationGuard,
   validateExternalUrl,
   validateOpenFolderPath,
 };

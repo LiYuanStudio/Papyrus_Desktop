@@ -15,6 +15,11 @@ describe('provider-security', () => {
     expect(validateProviderBaseUrl('http://169.254.169.254/', 'deepseek')).toMatch(/SSRF/);
   });
 
+  it('requires HTTPS before sending API keys to remote providers', () => {
+    expect(validateProviderBaseUrl('http://203.0.113.10/v1', 'openai')).toMatch(/HTTPS/);
+    expect(validateProviderBaseUrl('https://203.0.113.10/v1', 'openai')).toBeNull();
+  });
+
   it('blocks non-local hosts for keyless providers', () => {
     expect(validateProviderBaseUrl('http://192.168.1.1:11434', 'ollama')).toMatch(/localhost/);
   });

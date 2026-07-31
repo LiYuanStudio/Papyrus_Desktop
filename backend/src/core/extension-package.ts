@@ -50,7 +50,20 @@ function findEndOfCentralDirectory(buffer: Buffer): number {
   return -1;
 }
 
-function readZipEntry(buffer: Buffer, localHeaderOffset: number, compressedSize: number, compressionMethod: number): Buffer {
+// Read and bound the manifest member before handing its bytes to JSON parsing.
+// Reason: compressed archive members can expand far beyond the uploaded ZIP size and exhaust memory.
+// Not trusting only the central-directory size: malformed archives can forge metadata, so zlib also
+// enforces a hard output limit while inflating the deflated bytes.
+function readZipEntry(
+  buffer: Buffer,
+  localHeaderOffset: number,
+  compressedSize: number,
+  uncompressedSize: number,
+  compressionMethod: number,
+): Buffer {
+  if (uncompressedSize > MAX_MANIFEST_SIZE) {
+    throw new Error('manifest 文件过大');
+  }
   if (readUInt32(buffer, localHeaderOffset) !== 0x04034b50) {
     throw new Error('manifest 本地文件头无效');
   }
@@ -61,7 +74,24 @@ function readZipEntry(buffer: Buffer, localHeaderOffset: number, compressedSize:
     throw new Error('manifest 数据越界');
   }
   const compressed = buffer.subarray(dataStart, dataStart + compressedSize);
-  const result = compressionMethod === 0 ? compressed : compressionMethod === 8 ? inflateRawSync(compressed) : null;
+  let result: Buffer | null;
+  if (compressionMethod === 0) {
+    result = compressed;
+  } else if (compressionMethod === 8) {
+    try {
+      result = inflateRawSync(compressed, { maxOutputLength: MAX_MANIFEST_SIZE });
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
+        ? error.code
+        : '';
+      if (code === 'ERR_BUFFER_TOO_LARGE') {
+        throw new Error('manifest 文件过大');
+      }
+      throw error;
+    }
+  } else {
+    result = null;
+  }
   if (result === null) {
     throw new Error(`不支持的 zip 压缩方式: ${compressionMethod}`);
   }
@@ -97,6 +127,7 @@ export function parseExtensionManifestFromZip(zipBuffer: Buffer): ExtensionManif
     }
     const compressionMethod = readUInt16(zipBuffer, offset + 10);
     const compressedSize = readUInt32(zipBuffer, offset + 20);
+    const uncompressedSize = readUInt32(zipBuffer, offset + 24);
     const filenameLength = readUInt16(zipBuffer, offset + 28);
     const extraLength = readUInt16(zipBuffer, offset + 30);
     const commentLength = readUInt16(zipBuffer, offset + 32);
@@ -107,7 +138,7 @@ export function parseExtensionManifestFromZip(zipBuffer: Buffer): ExtensionManif
     }
 
     if (filename === 'manifest.json' || filename.endsWith('/manifest.json')) {
-      const raw = readZipEntry(zipBuffer, localHeaderOffset, compressedSize, compressionMethod).toString('utf8');
+      const raw = readZipEntry(zipBuffer, localHeaderOffset, compressedSize, uncompressedSize, compressionMethod).toString('utf8');
       const parsedJson: unknown = JSON.parse(raw);
       const parsedManifest = ManifestSchema.safeParse(parsedJson);
       if (!parsedManifest.success) {

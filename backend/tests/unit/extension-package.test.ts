@@ -199,6 +199,32 @@ describe('extension package manifest parser', () => {
       expect(() => parseExtensionManifestFromZip(zip)).toThrow(/manifest 文件过大/);
     });
 
+    it('should reject a compressed manifest before unbounded inflation', () => {
+      const hugeManifest = JSON.stringify({
+        id: 'compressed-huge',
+        name: 'Compressed Huge',
+        version: '1.0.0',
+        type: 'agent',
+        description: 'x'.repeat(2 * 1024 * 1024),
+      });
+      const zip = createZip([{ name: 'manifest.json', content: hugeManifest }]);
+      expect(() => parseExtensionManifestFromZip(zip)).toThrow(/manifest 文件过大/);
+    });
+
+    it('should enforce the decompressed limit even when ZIP metadata is forged', () => {
+      const hugeManifest = JSON.stringify({
+        id: 'forged-size',
+        name: 'Forged Size',
+        version: '1.0.0',
+        type: 'agent',
+        description: 'x'.repeat(2 * 1024 * 1024),
+      });
+      const zip = Buffer.from(createZip([{ name: 'manifest.json', content: hugeManifest }]));
+      const centralOffset = zip.readUInt32LE(zip.length - 22 + 16);
+      zip.writeUInt32LE(1, centralOffset + 24);
+      expect(() => parseExtensionManifestFromZip(zip)).toThrow(/manifest 文件过大/);
+    });
+
     it('should reject central directory offsets outside the buffer', () => {
       const zip = Buffer.from(createZip([{
         name: 'manifest.json',

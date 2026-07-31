@@ -34,6 +34,13 @@ export function validateProviderBaseUrl(baseUrl: string, providerType: string): 
     return 'SSRF: 禁止配置私有网络地址';
   }
 
+  // Remote providers receive the stored API key in an Authorization header.
+  // Reason: HTTPS is the minimum transport guarantee that prevents network observers from reading that key.
+  // Not relying on individual callers: ai-config and completion share this validator, so the rule cannot drift.
+  if (parsed.protocol !== 'https:') {
+    return '远程 Provider 必须使用 HTTPS 以保护 API Key 传输安全';
+  }
+
   return null;
 }
 

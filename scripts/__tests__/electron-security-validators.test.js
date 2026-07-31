@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const {
+  installNavigationGuard,
   validateExternalUrl,
   validateOpenFolderPath,
 } = require('../../electron/security-validators');
@@ -18,6 +19,43 @@ test('validateExternalUrl rejects dangerous protocols and untrusted domains', ()
   assert.equal(validateExternalUrl('file:///C:/Windows/System32/calc.exe').ok, false);
   assert.equal(validateExternalUrl('javascript:alert(1)').ok, false);
   assert.equal(validateExternalUrl('https://evil.example/release').ok, false);
+});
+
+test('installNavigationGuard blocks same-window navigation and redirects', () => {
+  const handlers = new Map();
+  const webContents = {
+    on(eventName, handler) {
+      handlers.set(eventName, handler);
+    },
+    removeListener(eventName) {
+      handlers.delete(eventName);
+    },
+  };
+  const opened = [];
+  const dispose = installNavigationGuard(webContents, url => opened.push(url), {
+    allowedOrigins: ['http://localhost:5173'],
+  });
+
+  for (const eventName of ['will-navigate', 'will-redirect']) {
+    let prevented = false;
+    handlers.get(eventName)({ preventDefault: () => { prevented = true; } }, 'https://github.com/PapyrusOR/Papyrus_Desktop');
+    assert.equal(prevented, true);
+  }
+  assert.deepEqual(opened, [
+    'https://github.com/PapyrusOR/Papyrus_Desktop',
+    'https://github.com/PapyrusOR/Papyrus_Desktop',
+  ]);
+
+  let trustedPrevented = false;
+  handlers.get('will-navigate')({ preventDefault: () => { trustedPrevented = true; } }, 'http://localhost:5173/notes');
+  assert.equal(trustedPrevented, false);
+
+  let evilPrevented = false;
+  handlers.get('will-navigate')({ preventDefault: () => { evilPrevented = true; } }, 'https://evil.example/steal');
+  assert.equal(evilPrevented, true);
+  assert.equal(opened.length, 2);
+  dispose();
+  assert.equal(handlers.size, 0);
 });
 
 test('validateOpenFolderPath allows paths inside configured directories', () => {

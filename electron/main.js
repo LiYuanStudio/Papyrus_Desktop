@@ -28,7 +28,11 @@ const { spawn, exec, execSync } = require('child_process');
 const os = require('os');
 const crypto = require('crypto');
 const { createDiagnosticWindow } = require('./diagnostic-window');
-const { validateExternalUrl, validateOpenFolderPath } = require('./security-validators');
+const {
+  installNavigationGuard,
+  validateExternalUrl,
+  validateOpenFolderPath,
+} = require('./security-validators');
 const {
   MACOS_VIBRANCY,
   getBackendLaunchInfo,
@@ -436,6 +440,11 @@ function createWindow() {
     },
     ...getWindowAppearance(process.platform, systemAppearance),
   });
+
+  const trustedOrigins = isDevMode ? [new URL(CONFIG.frontendDevUrl).origin] : [];
+  installNavigationGuard(mainWindow.webContents, (url) => {
+    void shell.openExternal(url);
+  }, { allowedOrigins: trustedOrigins });
 
   // Set Content Security Policy to mitigate XSS risks
   // unsafe-inline is needed for React/CSS-in-JS; connect-src allows AI API calls
