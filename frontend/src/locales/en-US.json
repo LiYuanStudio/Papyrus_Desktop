@@ -209,6 +209,7 @@
     "saveFailed": "Save failed",
     "noProviderSelected": "Please enable at least one provider",
     "providerNotFound": "Selected provider not found, please refresh and try again",
+    "modelNameEmpty": "Model name cannot be empty",
     "modelIdEmpty": "Model ID cannot be empty",
     "modelAlreadyExists": "This model already exists in current provider",
     "defaultProviderSet": "Default provider set",

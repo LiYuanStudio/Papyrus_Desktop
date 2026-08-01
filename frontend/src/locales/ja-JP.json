@@ -209,6 +209,7 @@
     "saveFailed": "保存に失敗しました",
     "noProviderSelected": "少なくとも1つのプロバイダーを有効にしてください",
     "providerNotFound": "選択したプロバイダーが見つかりません。ページを更新して再試行してください",
+    "modelNameEmpty": "モデル名は空にできません",
     "modelIdEmpty": "モデルIDは空にできません",
     "modelAlreadyExists": "このモデルは現在のプロバイダーに既に存在します",
     "defaultProviderSet": "デフォルトプロバイダーを設定しました",
