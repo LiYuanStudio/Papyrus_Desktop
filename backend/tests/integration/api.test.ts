@@ -810,14 +810,14 @@ describe('API Integration Tests', () => {
         method: 'GET',
         url: '/api/update/check',
         headers: {
-          'x-papyrus-app-version': '2.0.0-beta.15',
+          'x-papyrus-app-version': '2.0.0-beta.16',
         },
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.success).toBe(true);
-      expect(body.data.current_version).toBe('2.0.0-beta.15');
+      expect(body.data.current_version).toBe('2.0.0-beta.16');
       expect(body.data.latest_version).toBe('v2.0.0-beta.13');
       expect(body.data.has_update).toBe(false);
       expect(requestedUrls[0]).toContain('/releases?per_page=30');
