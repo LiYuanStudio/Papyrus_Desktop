@@ -1,4 +1,10 @@
-# 📜 Papyrus Desktop
+<p align="center">
+  <img src="assets/icon.png" alt="Papyrus Desktop" width="180" />
+</p>
+
+<h1 align="center">Papyrus Desktop</h1>
+
+---
 
 **English** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
