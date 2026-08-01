@@ -174,6 +174,11 @@ const ScrollPage = ({ initialTag, initialCardId, onInitialTagUsed, onInitialCard
     gap: '16px',
     overflowX: 'auto' as const,
     overflowY: 'hidden' as const,
+    // 为卡片 hover 上移和 shadow-2 的顶部扩散预留空间，避免圆角描边与阴影被容器裁切。
+    // 使用负外边距抵消新增内边距，保持标题到卡片、卡片到后续区块的原有视觉间距。
+    // 未改为 overflowY: visible，因为它与 overflowX: auto 组合时会计算为 auto，可能产生纵向滚动条。
+    paddingTop: '8px',
+    marginTop: '-8px',
     paddingBottom: '8px',
   };
 

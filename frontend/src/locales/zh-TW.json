@@ -209,6 +209,7 @@
     "saveFailed": "保存失敗",
     "noProviderSelected": "請先啟用至少一個供應商",
     "providerNotFound": "所選供應商不存在，請刷新頁面後重試",
+    "modelNameEmpty": "模型名稱不能為空",
     "modelIdEmpty": "模型 ID 不能為空",
     "modelAlreadyExists": "該模型已存在於當前供應商",
     "defaultProviderSet": "默認供應商已設置",
