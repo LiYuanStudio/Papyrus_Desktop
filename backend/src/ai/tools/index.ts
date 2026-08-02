@@ -25,11 +25,29 @@ export class PapyrusTools {
     this.logger?.logEvent(eventType, data, level);
   }
 
-  getToolsForOpenAI(): OpenAIToolDef[] {
-    return TOOL_LIST.map(d => d.openai);
+  /**
+   * 返回 OpenAI 工具定义，可按显式名称白名单过滤。
+   * 原因：无人值守自动化只能向模型暴露用户授权的工具。
+   * 未在调用后再过滤：模型看见未授权工具会产生无意义且危险的调用尝试。
+   */
+  getToolsForOpenAI(toolNames?: ReadonlySet<string>): OpenAIToolDef[] {
+    return TOOL_LIST
+      .filter((descriptor) => toolNames === undefined || toolNames.has(descriptor.name))
+      .map((descriptor) => descriptor.openai);
   }
 
-  getToolsDefinition(): string {
+  /**
+   * 生成文本模型使用的工具提示，可按相同白名单过滤。
+   * 原因：Ollama 的文本提示必须与原生 tools 参数保持一致。
+   * 未继续拼接分类总提示：分类提示可能包含未授权工具。
+   */
+  getToolsDefinition(toolNames?: ReadonlySet<string>): string {
+    if (toolNames !== undefined) {
+      const allowed = TOOL_LIST.filter((descriptor) => toolNames.has(descriptor.name));
+      return `你只能使用以下工具：\n${allowed.map((descriptor) => (
+        `- ${descriptor.name}: ${descriptor.openai.function.description}`
+      )).join('\n')}\n\n不得调用列表之外的工具。`;
+    }
     const sections: string[] = [];
     for (const [, hint] of Object.entries(PROMPT_HINTS)) {
       sections.push(hint);
@@ -95,5 +113,4 @@ ${sections.join('\n\n')}
     return AIResponseParser.parseToolCall(aiResponse);
   }
 }
-
 

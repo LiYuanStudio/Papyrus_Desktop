@@ -34,6 +34,7 @@ describe('API Integration Tests', () => {
     db.exec(`DELETE FROM files; DELETE FROM card_review_actions; DELETE FROM cards; DELETE FROM notes;
              DELETE FROM card_versions; DELETE FROM note_versions;
              DELETE FROM relations;
+             DELETE FROM automation_runs; DELETE FROM automations;
              DELETE FROM provider_models; DELETE FROM api_keys; DELETE FROM providers;
              DELETE FROM daily_progress; DELETE FROM ui_settings;`);
 
@@ -187,6 +188,114 @@ describe('API Integration Tests', () => {
       success: true,
       settings: { chatPanelSide: 'left' },
     });
+  });
+
+  it('should create, update, list, and delete an automation', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Daily review',
+        prompt: 'Summarize due cards',
+        schedule: { kind: 'daily', hour: 9, minute: 0 },
+        enabled: true,
+        allowedTools: ['read_data_stats'],
+        modelOverride: null,
+        reasoningOverride: null,
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const created = JSON.parse(createResponse.body).automation as {
+      id: string;
+      enabled: boolean;
+      modelOverride: string | null;
+    };
+    expect(created.enabled).toBe(true);
+    expect(created.modelOverride).toBeNull();
+
+    const listResponse = await app.inject({ method: 'GET', url: '/api/automations' });
+    expect(listResponse.statusCode).toBe(200);
+    expect(JSON.parse(listResponse.body).automations).toHaveLength(1);
+
+    const updateResponse = await app.inject({
+      method: 'PATCH',
+      url: `/api/automations/${created.id}`,
+      payload: { enabled: false, modelOverride: 'automation-test-model' },
+    });
+    expect(updateResponse.statusCode).toBe(200);
+    const updated = JSON.parse(updateResponse.body).automation;
+    expect(updated.nextRunAt).toBeNull();
+    expect(updated.modelOverride).toBe('automation-test-model');
+
+    const {
+      claimAutomationRun,
+      createAutomationRun,
+      finishAutomationRun,
+      getAutomationRun,
+    } = await import('../../src/core/automations.js');
+    const completedRun = createAutomationRun(created.id, 'manual', null);
+    expect(claimAutomationRun(completedRun.id)).toBe(true);
+    finishAutomationRun({
+      runId: completedRun.id,
+      status: 'succeeded',
+      output: 'done',
+      reasoning: '',
+      toolCalls: [],
+      error: null,
+      model: 'automation-test-model',
+      provider: 'test-provider',
+    });
+
+    const deleteResponse = await app.inject({ method: 'DELETE', url: `/api/automations/${created.id}` });
+    expect(deleteResponse.statusCode).toBe(200);
+    expect(getAutomationRun(completedRun.id)).toBeNull();
+  });
+
+  it('should reject an automation with an unknown tool', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Unsafe task',
+        prompt: 'Run an unknown tool',
+        schedule: { kind: 'hourly', intervalHours: 1, minute: 0 },
+        allowedTools: ['not_registered'],
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error).toContain('未知工具');
+  });
+
+  it('should reject an invalid schedule and an overlapping manual run', async () => {
+    const invalidResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Invalid schedule',
+        prompt: 'Never run',
+        schedule: { kind: 'weekly', daysOfWeek: [], hour: 9, minute: 0 },
+      },
+    });
+    expect(invalidResponse.statusCode).toBe(400);
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Concurrency guard',
+        prompt: 'Read stats',
+        schedule: { kind: 'hourly', intervalHours: 2, minute: 0 },
+      },
+    });
+    const automationId = (JSON.parse(createResponse.body).automation as { id: string }).id;
+    const { createAutomationRun } = await import('../../src/core/automations.js');
+    createAutomationRun(automationId, 'manual', null);
+
+    const conflictResponse = await app.inject({
+      method: 'POST',
+      url: `/api/automations/${automationId}/run`,
+    });
+    expect(conflictResponse.statusCode).toBe(409);
   });
 
   it('POST /api/cards should create a card', async () => {

@@ -20,6 +20,7 @@ import ScrollPage from './ScrollPage/ScrollPage';
 import NotesPage from './NotesPage/NotesPage';
 import FilesPage from './FilesPage/FilesPage';
 import SettingsPage from './SettingsPage/SettingsPage';
+import AutomationsPage from './AutomationsPage/AutomationsPage';
 import SectionNavigation from './components/SectionNavigation';
 import { api, getAuthToken, type ChatPanelSide, type ChatSession, type SearchResult } from './api';
 import { addRecentItem } from './utils/recentFiles';
@@ -27,7 +28,7 @@ import { clampChatWidth } from './utils/appLayout';
 import { appPlatform } from './utils/platform';
 import type { NativeMenuAction } from './types/electron';
 
-const PAGE_ORDER = ['start', 'scroll', 'notes', 'files', 'settings'];
+const PAGE_ORDER = ['start', 'scroll', 'notes', 'files', 'automations', 'settings'];
 
 const CHAT_WIDTH_STORAGE_KEY = 'papyrus_chat_width';
 const CHAT_DEFAULT_WIDTH = appPlatform === 'macos' ? 420 : 500;
@@ -485,6 +486,7 @@ const App = () => {
     scroll: t('app.pageTitles.scroll'),
     notes: t('app.pageTitles.notes'),
     files: t('app.pageTitles.files'),
+    automations: t('app.pageTitles.automations'),
     settings: t('app.pageTitles.settings'),
   };
 
@@ -507,6 +509,7 @@ const App = () => {
       ),
       notes: <NotesPage initialNoteId={initialNoteId} onInitialNoteIdUsed={() => setInitialNoteId(undefined)} />,
       files: <FilesPage initialFileId={initialFileId} onInitialFileIdUsed={() => setInitialFileId(undefined)} />,
+      automations: <AutomationsPage />,
       settings: <SettingsPage />,
     };
 

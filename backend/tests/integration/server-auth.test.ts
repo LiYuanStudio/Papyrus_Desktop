@@ -86,8 +86,8 @@ describe('Server Auth Hook', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it('should reject GET /api/providers and /api/export without token', async () => {
-    for (const url of ['/api/providers', '/api/export']) {
+  it('should reject protected data and automation endpoints without token', async () => {
+    for (const url of ['/api/providers', '/api/export', '/api/automations']) {
       const response = await (app as { inject: (opts: unknown) => Promise<{ statusCode: number }> }).inject({
         method: 'GET',
         url,
