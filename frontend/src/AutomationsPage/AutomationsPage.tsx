@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import {
   Alert,
   Button,
@@ -182,6 +183,17 @@ const AutomationsPage = () => {
     setEditingId(null);
     setEditor(createDefaultEditor(readToolNames));
     setEditorVisible(true);
+  };
+
+  /**
+   * 显式处理主操作按钮的 Enter 与 Space 激活。
+   * 原因：部分 Electron/辅助输入注入只派发键盘事件，不会补发原生 button click。
+   * 未替换原生 Button：继续保留浏览器语义、焦点顺序和鼠标/触控行为。
+   */
+  const openCreateFromKeyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openCreate();
   };
 
   const openEdit = (automation: Automation) => {
@@ -391,7 +403,15 @@ const AutomationsPage = () => {
       actions={(
         <>
           <Button icon={<IconRefresh />} onClick={() => void loadData(true)}>{t('automations.refresh')}</Button>
-          <Button type="primary" icon={<IconPlus />} onClick={openCreate}>{t('automations.newAutomation')}</Button>
+          <Button
+            type="primary"
+            icon={<IconPlus />}
+            aria-keyshortcuts="Enter Space"
+            onClick={openCreate}
+            onKeyDown={openCreateFromKeyboard}
+          >
+            {t('automations.newAutomation')}
+          </Button>
         </>
       )}
     >

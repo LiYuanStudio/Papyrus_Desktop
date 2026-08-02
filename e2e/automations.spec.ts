@@ -80,6 +80,7 @@ test('automation can be created, paused, run, and reviewed', async ({ page }) =>
   const runDrawer = page.locator('.arco-drawer-wrapper:not(.arco-drawer-wrapper-hide)').filter({ hasText: '运行详情' });
   await expect(runDrawer.getByText('失败', { exact: true })).toBeVisible();
   await expect(runDrawer.locator('.arco-alert-error')).toBeVisible();
+  await expect(runDrawer.getByText('尚未配置 AI Provider，请先在设置中添加并启用一个提供商', { exact: true })).toBeVisible();
 });
 
 // 验证键盘入口、窄窗口布局、深色主题和减少动画偏好。
@@ -114,8 +115,9 @@ test('automation page honors accessibility and compact appearance settings', asy
 
   const newButton = page.getByRole('button', { name: '新建自动化' });
   await newButton.focus();
-  await page.keyboard.press('Enter');
+  await page.keyboard.down('Enter');
   await expect(page.locator('.arco-drawer-wrapper:not(.arco-drawer-wrapper-hide)').filter({ hasText: '新建自动化' })).toBeVisible();
+  await page.keyboard.up('Enter');
 
   await page.keyboard.press('Escape');
   await expect(page.locator('.automations-page-shell')).toBeVisible();

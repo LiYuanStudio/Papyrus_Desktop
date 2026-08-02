@@ -1063,6 +1063,9 @@ export class AIManager {
     signal?: AbortSignal;
   }): Promise<StandaloneAgentTurnResult> {
     const providerName = this.config.config.current_provider;
+    if (!providerName.trim()) {
+      throw new Error('尚未配置 AI Provider，请先在设置中添加并启用一个提供商');
+    }
     const providerConfig = getProviderConfigFromDB(providerName);
     if (!providerConfig) {
       throw new Error(`未知 provider: ${providerName}`);

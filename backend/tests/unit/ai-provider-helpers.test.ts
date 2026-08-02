@@ -48,6 +48,18 @@ describe('AI provider helpers and manager utilities', () => {
     return new AIManager(config);
   }
 
+  it('should explain how to recover when standalone Agent has no configured provider', async () => {
+    const config = new AIConfig(testDir);
+    config.config.current_provider = '';
+    config.config.current_model = '';
+    const manager = new AIManager(config);
+
+    await expect(manager.standaloneAgentTurn({
+      messages: [{ role: 'user', content: 'Run automation' }],
+      allowedToolNames: new Set(),
+    })).rejects.toThrow('尚未配置 AI Provider，请先在设置中添加并启用一个提供商');
+  });
+
   /**
    * 注册可由标题生成路径调用的本地 Ollama 模型。
    * 原因：测试需要覆盖真实的模型目标解析与流读取，但不能访问外部网络。
