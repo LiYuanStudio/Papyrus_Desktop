@@ -404,6 +404,7 @@ export interface Automation {
   timezone: string;
   enabled: boolean;
   allowedTools: string[];
+  providerOverride: string | null;
   modelOverride: string | null;
   reasoningOverride: boolean | null;
   nextRunAt: number | null;
@@ -435,6 +436,7 @@ export interface AutomationInput {
   schedule: AutomationSchedule;
   enabled: boolean;
   allowedTools: string[];
+  providerOverride: string | null;
   modelOverride: string | null;
   reasoningOverride: boolean | null;
 }

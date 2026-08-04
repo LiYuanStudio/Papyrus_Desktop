@@ -14,7 +14,7 @@ import {
   listDueAutomations,
   markAutomationMissed,
 } from './automations.js';
-import type { AutomationRun } from './automation-types.js';
+import type { Automation, AutomationRun } from './automation-types.js';
 
 const MAX_TIMER_DELAY_MS = 60_000;
 
@@ -23,14 +23,27 @@ const MAX_TIMER_DELAY_MS = 60_000;
  * 原因：单 Worker 可避免多个 Agent 同时修改卡片、笔记或文件。
  * 未为每个自动化创建 timer：单一可重排计时器更易处理编辑、暂停和系统时钟变化。
  */
+interface AutomationRunner {
+  run(automation: Automation): ReturnType<AutomationAgentRunner['run']>;
+}
+
+/**
+ * 调度器执行边界，只暴露运行单个自动化所需方法。
+ * 原因：测试需要替换不可控的外部模型，同时继续使用真实队列和 SQLite。
+ * 未注入整个仓储层：仓储正是调度器测试需要覆盖的生产实现。
+ */
 export class AutomationScheduler {
-  private readonly runner: AutomationAgentRunner;
+  private readonly runner: AutomationRunner;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private processing = false;
   private started = false;
 
-  constructor(aiManager: AIManager, private readonly logger?: PapyrusLogger) {
-    this.runner = new AutomationAgentRunner(aiManager);
+  constructor(
+    aiManager: Pick<AIManager, 'standaloneAgentTurn'>,
+    private readonly logger?: PapyrusLogger,
+    runner?: AutomationRunner,
+  ) {
+    this.runner = runner ?? new AutomationAgentRunner(aiManager);
   }
 
   /**
@@ -159,7 +172,7 @@ export class AutomationScheduler {
             toolCalls: [],
             error: message,
             model: automation.modelOverride ?? '',
-            provider: '',
+            provider: automation.providerOverride ?? '',
           });
           this.logger?.error(`自动化运行失败 (${automation.id}): ${message}`);
         }

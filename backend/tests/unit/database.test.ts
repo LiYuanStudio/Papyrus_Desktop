@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
 import type { CardRecord, Note, FileRecord } from '../../src/core/types.js';
 
 describe('Database', () => {
@@ -151,6 +152,43 @@ describe('Database', () => {
       closeDb();
       const d = getDb();
       expect(d).toBeDefined();
+    });
+
+    it('should add provider_override to an existing automation table without losing rows', () => {
+      closeDb();
+      if (fs.existsSync(dbPath)) fs.rmSync(dbPath);
+      const legacyDb = new DatabaseSync(dbPath);
+      legacyDb.exec([
+        'CREATE TABLE automations (',
+        'id TEXT PRIMARY KEY, name TEXT NOT NULL, prompt TEXT NOT NULL,',
+        'schedule_json TEXT NOT NULL, timezone TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,',
+        "allowed_tools TEXT NOT NULL DEFAULT '[]', model_override TEXT, reasoning_override INTEGER,",
+        'next_run_at REAL, last_run_at REAL, created_at REAL NOT NULL, updated_at REAL NOT NULL);',
+        'INSERT INTO automations (',
+        'id, name, prompt, schedule_json, timezone, enabled, allowed_tools,',
+        'model_override, reasoning_override, created_at, updated_at',
+        ") VALUES ('legacy-automation', 'Legacy', 'Keep this row',",
+        "'{\"kind\":\"daily\",\"hour\":9,\"minute\":0}', 'UTC', 1, '[]', NULL, NULL, 1, 1);",
+      ].join('\n'));
+      legacyDb.close();
+
+      getDb();
+      closeDb();
+      const inspectedDb = new DatabaseSync(dbPath);
+      const columns = inspectedDb.prepare(
+        "SELECT name FROM pragma_table_info('automations')"
+      ).all().map((row) => row.name);
+      const preserved = inspectedDb.prepare(
+        'SELECT name, prompt, provider_override FROM automations WHERE id = ?'
+      ).get('legacy-automation');
+      inspectedDb.close();
+
+      expect(columns).toContain('provider_override');
+      expect(preserved).toEqual(expect.objectContaining({
+        name: 'Legacy',
+        prompt: 'Keep this row',
+        provider_override: null,
+      }));
     });
   });
 

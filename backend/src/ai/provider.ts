@@ -1058,11 +1058,12 @@ export class AIManager {
   async standaloneAgentTurn(input: {
     messages: ProviderMessage[];
     allowedToolNames: ReadonlySet<string>;
+    overrideProvider?: string;
     overrideModel?: string;
     reasoning?: unknown;
     signal?: AbortSignal;
   }): Promise<StandaloneAgentTurnResult> {
-    const providerName = this.config.config.current_provider;
+    const providerName = input.overrideProvider || this.config.config.current_provider;
     if (!providerName.trim()) {
       throw new Error('尚未配置 AI Provider，请先在设置中添加并启用一个提供商');
     }

@@ -254,11 +254,12 @@ const ModelModal = ({ visible, onClose, onModelSaved, providers, editingModel, s
                     style={{ marginBottom: 0 }}
                     triggerPropName="checked"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                      <Checkbox />
-                      <IconComp style={{ color: 'var(--color-primary)', fontSize: 16 }} />
-                      <Text style={{ fontSize: 14 }}>{t(cap.labelKey)}</Text>
-                    </div>
+                    <Checkbox>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <IconComp style={{ color: 'var(--color-primary)', fontSize: 16 }} />
+                        <Text style={{ fontSize: 14 }}>{t(cap.labelKey)}</Text>
+                      </span>
+                    </Checkbox>
                   </FormItem>
                 );
               })}

@@ -11,6 +11,7 @@ const automation: Automation = {
   timezone: 'UTC',
   enabled: true,
   allowedTools: ['read_data_stats'],
+  providerOverride: null,
   modelOverride: null,
   reasoningOverride: null,
   nextRunAt: null,
@@ -54,6 +55,85 @@ describe('AutomationAgentRunner', () => {
     expect(result.toolCalls).toHaveLength(1);
     expect(tools.executeTool).toHaveBeenCalledWith('read_data_stats', {});
     expect(manager.standaloneAgentTurn).toHaveBeenCalledTimes(2);
+    const secondTurnInput = manager.standaloneAgentTurn.mock.calls[1]?.[0];
+    expect(secondTurnInput?.messages.at(-1)).toEqual({
+      role: 'tool',
+      content: JSON.stringify({ success: true, cards: 3 }),
+      tool_call_id: 'call-1',
+      name: 'read_data_stats',
+    });
+  });
+
+  it('passes the provider, model, and reasoning override as one target', async () => {
+    const manager = {
+      standaloneAgentTurn: jest.fn(async () => ({
+        content: 'Provider-specific result',
+        reasoning: '',
+        toolCalls: [],
+        model: 'qwen-test',
+        provider: 'ollama',
+      })),
+    };
+    const runner = new AutomationAgentRunner(manager, { executeTool: jest.fn() });
+
+    const result = await runner.run({
+      ...automation,
+      providerOverride: 'ollama',
+      modelOverride: 'qwen-test',
+      reasoningOverride: true,
+    });
+
+    expect(manager.standaloneAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
+      overrideProvider: 'ollama',
+      overrideModel: 'qwen-test',
+      reasoning: true,
+    }));
+    expect(result).toEqual(expect.objectContaining({
+      output: 'Provider-specific result',
+      model: 'qwen-test',
+      provider: 'ollama',
+    }));
+  });
+
+  it('returns a failed tool result to the model and preserves it for auditing', async () => {
+    let turn = 0;
+    const manager = {
+      standaloneAgentTurn: jest.fn(async () => {
+        turn += 1;
+        return turn === 1
+          ? {
+            content: '',
+            reasoning: '',
+            toolCalls: [{ id: 'failed-call', name: 'read_data_stats', params: {} }],
+            model: 'test-model',
+            provider: 'test-provider',
+          }
+          : {
+            content: 'Handled the tool failure',
+            reasoning: '',
+            toolCalls: [],
+            model: 'test-model',
+            provider: 'test-provider',
+          };
+      }),
+    };
+    const runner = new AutomationAgentRunner(manager, {
+      executeTool: jest.fn(() => ({ success: false, error: 'database unavailable' })),
+    });
+
+    const result = await runner.run(automation);
+
+    expect(result.output).toBe('Handled the tool failure');
+    expect(result.toolCalls).toEqual([{
+      name: 'read_data_stats',
+      params: {},
+      success: false,
+      error: 'database unavailable',
+    }]);
+    const secondTurnInput = manager.standaloneAgentTurn.mock.calls[1]?.[0];
+    expect(secondTurnInput?.messages.at(-1)?.content).toBe(
+      JSON.stringify({ success: false, error: 'database unavailable' }),
+    );
   });
 
   it('rejects an automation containing an unknown tool before contacting the model', async () => {

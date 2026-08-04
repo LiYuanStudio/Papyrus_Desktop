@@ -51,6 +51,7 @@ interface EditorState {
   enabled: boolean;
   schedule: AutomationSchedule;
   allowedTools: string[];
+  providerOverride: string | null;
   modelOverride: string | null;
   reasoningMode: 'inherit' | 'on' | 'off';
 }
@@ -68,6 +69,7 @@ function createDefaultEditor(readToolNames: string[]): EditorState {
     enabled: true,
     schedule: { kind: 'daily', hour: now.getHours(), minute: 0 },
     allowedTools: [...readToolNames],
+    providerOverride: null,
     modelOverride: null,
     reasoningMode: 'inherit',
   };
@@ -85,6 +87,7 @@ function editorFromAutomation(automation: Automation): EditorState {
     enabled: automation.enabled,
     schedule: automation.schedule,
     allowedTools: [...automation.allowedTools],
+    providerOverride: automation.providerOverride,
     modelOverride: automation.modelOverride,
     reasoningMode: automation.reasoningOverride === null
       ? 'inherit'
@@ -123,6 +126,25 @@ const AutomationsPage = () => {
   const readTools = useMemo(() => tools.filter((tool) => tool.side_effect === 'read'), [tools]);
   const writeTools = useMemo(() => tools.filter((tool) => tool.side_effect === 'write'), [tools]);
   const readToolNames = useMemo(() => readTools.map((tool) => tool.name), [readTools]);
+
+  // 先选择 Provider，再只展示其模型，并用稳定模型主键作为 Select 值。
+  // 原因：分离选择可避免不同 Provider 的同名模型串用，也规避嵌套 OptGroup 在 React 19 下的 portal 重挂载。
+  // 未把 providerType 与 modelId 拼成字符串：模型记录 ID 已稳定唯一，避免额外转义协议。
+  const providerOptions = useMemo(
+    () => [...new Map(models.map((model) => [model.providerType, model.providerName])).entries()],
+    [models],
+  );
+  const providerModels = useMemo(
+    () => models.filter((model) => model.providerType === editor.providerOverride),
+    [editor.providerOverride, models],
+  );
+  const selectedOverrideModelId = useMemo(
+    () => models.find((model) => (
+      model.providerType === editor.providerOverride
+      && model.modelId === editor.modelOverride
+    ))?.id ?? INHERIT_MODEL,
+    [editor.modelOverride, editor.providerOverride, models],
+  );
   const hasWritePermission = useMemo(
     () => writeTools.some((tool) => editor.allowedTools.includes(tool.name)),
     [editor.allowedTools, writeTools],
@@ -226,6 +248,7 @@ const AutomationsPage = () => {
       enabled: editor.enabled,
       schedule: editor.schedule,
       allowedTools: editor.allowedTools,
+      providerOverride: editor.providerOverride,
       modelOverride: editor.modelOverride,
       reasoningOverride: editor.reasoningMode === 'inherit' ? null : editor.reasoningMode === 'on',
     };
@@ -332,7 +355,14 @@ const AutomationsPage = () => {
             <div className="automation-meta-grid">
               <div><span>{t('automations.nextRun')}</span><strong>{formatTimestamp(automation.nextRunAt)}</strong></div>
               <div><span>{t('automations.lastRun')}</span><strong>{formatTimestamp(automation.lastRunAt)}</strong></div>
-              <div><span>{t('automations.model')}</span><strong>{automation.modelOverride || t('automations.inheritGlobal')}</strong></div>
+              <div>
+                <span>{t('automations.model')}</span>
+                <strong>
+                  {automation.providerOverride && automation.modelOverride
+                    ? automation.providerOverride + ' / ' + automation.modelOverride
+                    : t('automations.inheritGlobal')}
+                </strong>
+              </div>
               <div><span>{t('automations.permissions')}</span><strong>{t('automations.toolCount', { count: automation.allowedTools.length })}</strong></div>
             </div>
             <div className="automation-card-actions">
@@ -512,14 +542,38 @@ const AutomationsPage = () => {
           <Alert type="info" content={t('automations.localTimezoneHelp', { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' })} />
 
           <Typography.Title heading={4}>{t('automations.modelSection')}</Typography.Title>
-          <Form.Item label={t('automations.model')} extra={t('automations.modelHelp')}>
+          <Form.Item label={t('automations.provider')}>
             <Select
               loading={modelsLoading}
-              value={editor.modelOverride ?? INHERIT_MODEL}
-              onChange={(value) => setEditor((current) => ({ ...current, modelOverride: value === INHERIT_MODEL ? null : value }))}
+              value={editor.providerOverride ?? INHERIT_MODEL}
+              onChange={(providerOverride) => setEditor((current) => ({
+                ...current,
+                providerOverride: providerOverride === INHERIT_MODEL ? null : providerOverride,
+                modelOverride: null,
+              }))}
             >
               <Select.Option value={INHERIT_MODEL}>{t('automations.inheritGlobal')}</Select.Option>
-              {models.map((model) => <Select.Option key={model.id} value={model.modelId}>{model.name}</Select.Option>)}
+              {providerOptions.map(([providerType, providerName]) => (
+                <Select.Option key={providerType} value={providerType}>{providerName}</Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item label={t('automations.model')} extra={t('automations.modelHelp')}>
+            <Select
+              disabled={editor.providerOverride === null}
+              loading={modelsLoading}
+              value={selectedOverrideModelId === INHERIT_MODEL ? undefined : selectedOverrideModelId}
+              onChange={(value) => {
+                const selected = providerModels.find((model) => model.id === value);
+                setEditor((current) => ({
+                  ...current,
+                  modelOverride: selected?.modelId ?? null,
+                }));
+              }}
+            >
+              {providerModels.map((model) => (
+                <Select.Option key={model.id} value={model.id}>{model.name}</Select.Option>
+              ))}
             </Select>
           </Form.Item>
           <Form.Item label={t('automations.reasoning')}>

@@ -377,6 +377,7 @@ function initSchema(database: DatabaseSync): void {
       timezone TEXT NOT NULL,
       enabled INTEGER NOT NULL DEFAULT 1,
       allowed_tools TEXT NOT NULL DEFAULT '[]',
+      provider_override TEXT,
       model_override TEXT,
       reasoning_override INTEGER,
       next_run_at REAL,
@@ -414,6 +415,24 @@ function initSchema(database: DatabaseSync): void {
     VALUES
       ('main', 'main', NULL, 1, unixepoch(), unixepoch());
   `);
+
+  // 为 beta.16 之前创建的自动化表补充 Provider 覆盖列。
+  // 原因：CREATE TABLE IF NOT EXISTS 不会修改既有表，升级用户需要保留全部任务数据。
+  // 未重建整表：单列可空迁移可由 SQLite 原子完成，风险和锁定时间都更低。
+  try {
+    const automationColumns = database.prepare(
+      "SELECT name FROM pragma_table_info('automations')"
+    ).all() as Array<{ name: string }>;
+    if (!automationColumns.some((column) => column.name === 'provider_override')) {
+      database.exec('ALTER TABLE automations ADD COLUMN provider_override TEXT;');
+    }
+  } catch (error) {
+    console.error(
+      '迁移 automations.provider_override 失败:',
+      error instanceof Error ? error.message : String(error),
+    );
+    throw error;
+  }
 
   seedDefaults(database);
 

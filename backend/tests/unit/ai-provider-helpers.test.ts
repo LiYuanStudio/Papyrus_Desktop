@@ -60,6 +60,55 @@ describe('AI provider helpers and manager utilities', () => {
     })).rejects.toThrow('尚未配置 AI Provider，请先在设置中添加并启用一个提供商');
   });
 
+  it('should use a standalone Provider/model override instead of the invalid global target', async () => {
+    const config = new AIConfig(testDir);
+    const providerId = saveProvider({
+      id: 'automation-override-provider',
+      type: 'ollama',
+      name: 'Automation Override',
+      baseUrl: 'http://localhost:11434',
+      enabled: true,
+      isDefault: false,
+    });
+    saveModel(providerId, {
+      id: 'automation-override-model-row',
+      name: 'Automation Override Model',
+      modelId: 'automation-override-model',
+      enabled: true,
+    });
+    config.config.current_provider = 'missing-global-provider';
+    config.config.current_model = 'missing-global-model';
+    const manager = new AIManager(config);
+    let requestedUrl = '';
+    let requestedBody: unknown;
+    global.fetch = async (input, init) => {
+      requestedUrl = String(input);
+      requestedBody = typeof init?.body === 'string' ? JSON.parse(init.body) as unknown : null;
+      return new Response(
+        JSON.stringify({ message: { content: 'Override worked' }, done: false }) + '\n'
+        + JSON.stringify({ done: true }) + '\n',
+        { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } },
+      );
+    };
+
+    const result = await manager.standaloneAgentTurn({
+      messages: [{ role: 'user', content: 'Run the automation' }],
+      allowedToolNames: new Set(),
+      overrideProvider: 'ollama',
+      overrideModel: 'automation-override-model',
+    });
+
+    expect(requestedUrl).toContain('localhost:11434');
+    expect(requestedBody).toEqual(expect.objectContaining({
+      model: 'automation-override-model',
+    }));
+    expect(result).toEqual(expect.objectContaining({
+      content: 'Override worked',
+      provider: 'ollama',
+      model: 'automation-override-model',
+    }));
+  });
+
   /**
    * 注册可由标题生成路径调用的本地 Ollama 模型。
    * 原因：测试需要覆盖真实的模型目标解析与流读取，但不能访问外部网络。

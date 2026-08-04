@@ -66,6 +66,7 @@ export interface Automation {
   timezone: string;
   enabled: boolean;
   allowedTools: string[];
+  providerOverride: string | null;
   modelOverride: string | null;
   reasoningOverride: boolean | null;
   nextRunAt: number | null;
@@ -108,6 +109,7 @@ export interface CreateAutomationInput {
   timezone: string;
   enabled: boolean;
   allowedTools: string[];
+  providerOverride: string | null;
   modelOverride: string | null;
   reasoningOverride: boolean | null;
 }

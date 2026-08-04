@@ -14,9 +14,6 @@ export function calculateNextRun(schedule: AutomationSchedule, afterTimestamp: n
 
   if (schedule.kind === 'hourly') {
     candidate.setMinutes(schedule.minute, 0, 0);
-    const currentHour = candidate.getHours();
-    const alignedHour = Math.ceil(currentHour / schedule.intervalHours) * schedule.intervalHours;
-    candidate.setHours(alignedHour, schedule.minute, 0, 0);
     if (candidate.getTime() <= after.getTime()) {
       candidate.setHours(candidate.getHours() + schedule.intervalHours, schedule.minute, 0, 0);
     }

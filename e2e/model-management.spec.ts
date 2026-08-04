@@ -13,6 +13,8 @@ test.beforeEach(async ({ page, request }) => {
   await request.delete(`/api/providers/${KEYED_PROVIDER_ID}`);
   await request.delete(`/api/providers/${KEYLESS_PROVIDER_ID}`);
 
+  await request.delete('/api/providers/e2e-automation-provider');
+
   const keyedProviderResponse = await request.post('/api/providers', {
     data: {
       id: KEYED_PROVIDER_ID,
@@ -77,9 +79,12 @@ test('model modal keeps provider and API key state consistent across repeated us
   // 原因：只检查错误文案不能证明后台没有收到无效数据。
   // 未拦截或模拟请求：保留真实前后端链路，后续成功创建仍由响应断言验证。
   let modelCreateRequestCount = 0;
+  const modelCreateBodies: unknown[] = [];
   page.on('request', request => {
     if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/models')) {
       modelCreateRequestCount += 1;
+      const bodyText = request.postData();
+      modelCreateBodies.push(bodyText ? JSON.parse(bodyText) : null);
     }
   });
 
@@ -108,7 +113,9 @@ test('model modal keeps provider and API key state consistent across repeated us
 
   await modal.getByPlaceholder('如：GPT-4o', { exact: true }).fill('E2E First Model');
   await modal.getByPlaceholder('实际的 API ID，如：gpt-4o', { exact: true }).fill('e2e-first-model');
+  const toolsCheckbox = modal.getByRole('checkbox').first();
   await modal.locator('label.arco-checkbox').first().click();
+  await expect(toolsCheckbox).toBeChecked();
   await apiKeyField.locator('.arco-select-view').click();
   await page.locator('.arco-select-option').filter({ hasText: /^secondary$/ }).click();
 
@@ -123,6 +130,12 @@ test('model modal keeps provider and API key state consistent across repeated us
 
   const firstModelCard = page.locator('.arco-card').filter({ hasText: 'E2E First Model' });
   await expect(firstModelCard).toContainText('Key: secondary (已配置)');
+  expect(modelCreateBodies[0]).toEqual(expect.objectContaining({
+    name: 'E2E First Model',
+    modelId: 'e2e-first-model',
+    apiKeyId: SECONDARY_KEY_ID,
+    capabilities: ['tools'],
+  }));
 
   await page.getByRole('button', { name: '添加模型', exact: true }).click();
   modal = page.locator('.arco-modal').filter({ hasText: '添加模型' });
@@ -165,6 +178,13 @@ test('model modal keeps provider and API key state consistent across repeated us
 
   const keylessModelCard = page.locator('.arco-card').filter({ hasText: 'E2E Keyless Model' });
   await expect(keylessModelCard).toContainText('Key: default (未配置)');
+  expect(modelCreateBodies[2]).toEqual(expect.objectContaining({
+    name: 'E2E Keyless Model',
+    modelId: 'e2e-keyless-model',
+  }));
+  expect(modelCreateBodies[2]).not.toEqual(expect.objectContaining({
+    apiKeyId: expect.any(String),
+  }));
 
   await firstModelCard.getByTitle('编辑').click();
   const editModal = page.locator('.arco-modal').filter({ hasText: '编辑模型' });
@@ -175,4 +195,49 @@ test('model modal keeps provider and API key state consistent across repeated us
   await expect(editModal.getByRole('checkbox').first()).toBeChecked();
   expect(modelCreateRequestCount).toBe(3);
   await editModal.getByRole('button', { name: '取消' }).click();
+
+  await page.getByRole('button', { name: '添加模型', exact: true }).click();
+  const resetModal = page.locator('.arco-modal').filter({ hasText: '添加模型' });
+  await expect(resetModal.getByPlaceholder('如：GPT-4o', { exact: true })).toHaveValue('');
+  await expect(resetModal.getByPlaceholder('实际的 API ID，如：gpt-4o', { exact: true })).toHaveValue('');
+  const resetProviderField = resetModal.locator('.arco-form-item').filter({ hasText: '供应商' });
+  const resetApiKeyField = resetModal.locator('.arco-form-item').filter({ hasText: 'API Key 方案' });
+  await expect(resetProviderField.locator('.arco-select-view')).toContainText('E2E OpenAI');
+  await expect(resetApiKeyField.locator('.arco-select-view')).toContainText('primary');
+  await resetModal.getByRole('button', { name: '取消' }).click();
+
+  const providersResponse = await page.request.get('/api/providers');
+  expect(providersResponse.ok(), await providersResponse.text()).toBe(true);
+  const providersBody: {
+    providers: Array<{
+      id: string;
+      models: Array<{
+        name: string;
+        modelId: string;
+        apiKeyId?: string;
+        capabilities: string[];
+      }>;
+    }>;
+  } = await providersResponse.json();
+  const keyedProvider = providersBody.providers.find((provider) => provider.id === KEYED_PROVIDER_ID);
+  const keylessProvider = providersBody.providers.find((provider) => provider.id === KEYLESS_PROVIDER_ID);
+  expect(keyedProvider?.models).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      name: 'E2E First Model',
+      modelId: 'e2e-first-model',
+      apiKeyId: SECONDARY_KEY_ID,
+      capabilities: ['tools'],
+    }),
+    expect.objectContaining({
+      name: 'E2E Second Model',
+      modelId: 'e2e-second-model',
+      apiKeyId: SECONDARY_KEY_ID,
+    }),
+  ]));
+  expect(keylessProvider?.models).toEqual([
+    expect.objectContaining({
+      name: 'E2E Keyless Model',
+      modelId: 'e2e-keyless-model',
+    }),
+  ]);
 });

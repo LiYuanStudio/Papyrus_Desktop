@@ -20,6 +20,7 @@ interface AutomationRow {
   timezone: string;
   enabled: number;
   allowed_tools: string;
+  provider_override: string | null;
   model_override: string | null;
   reasoning_override: number | null;
   next_run_at: number | null;
@@ -73,6 +74,7 @@ function automationFromRow(row: AutomationRow): Automation {
     timezone: row.timezone,
     enabled: row.enabled === 1,
     allowedTools: parseStringArray(row.allowed_tools),
+    providerOverride: row.provider_override,
     modelOverride: row.model_override,
     reasoningOverride: row.reasoning_override === null ? null : row.reasoning_override === 1,
     nextRunAt: row.next_run_at,
@@ -160,8 +162,8 @@ export function createAutomation(input: CreateAutomationInput): Automation {
   getDb().prepare(`
     INSERT INTO automations
       (id, name, prompt, schedule_json, timezone, enabled, allowed_tools,
-       model_override, reasoning_override, next_run_at, last_run_at, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+       provider_override, model_override, reasoning_override, next_run_at, last_run_at, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
   `).run(
     id,
     input.name,
@@ -170,6 +172,7 @@ export function createAutomation(input: CreateAutomationInput): Automation {
     input.timezone,
     input.enabled ? 1 : 0,
     JSON.stringify(input.allowedTools),
+    input.providerOverride,
     input.modelOverride,
     input.reasoningOverride === null ? null : input.reasoningOverride ? 1 : 0,
     nextRunAt,
@@ -196,6 +199,7 @@ export function updateAutomation(id: string, patch: UpdateAutomationInput): Auto
     timezone: patch.timezone ?? current.timezone,
     enabled: patch.enabled ?? current.enabled,
     allowedTools: patch.allowedTools ?? current.allowedTools,
+    providerOverride: patch.providerOverride === undefined ? current.providerOverride : patch.providerOverride,
     modelOverride: patch.modelOverride === undefined ? current.modelOverride : patch.modelOverride,
     reasoningOverride: patch.reasoningOverride === undefined ? current.reasoningOverride : patch.reasoningOverride,
   };
@@ -207,7 +211,7 @@ export function updateAutomation(id: string, patch: UpdateAutomationInput): Auto
   getDb().prepare(`
     UPDATE automations
     SET name = ?, prompt = ?, schedule_json = ?, timezone = ?, enabled = ?, allowed_tools = ?,
-        model_override = ?, reasoning_override = ?, next_run_at = ?, updated_at = ?
+        provider_override = ?, model_override = ?, reasoning_override = ?, next_run_at = ?, updated_at = ?
     WHERE id = ?
   `).run(
     merged.name,
@@ -216,6 +220,7 @@ export function updateAutomation(id: string, patch: UpdateAutomationInput): Auto
     merged.timezone,
     merged.enabled ? 1 : 0,
     JSON.stringify(merged.allowedTools),
+    merged.providerOverride,
     merged.modelOverride,
     merged.reasoningOverride === null ? null : merged.reasoningOverride ? 1 : 0,
     nextRunAt,

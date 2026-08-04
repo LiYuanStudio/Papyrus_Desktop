@@ -71,6 +71,7 @@ export class AutomationAgentRunner {
         const result = await this.aiManager.standaloneAgentTurn({
           messages,
           allowedToolNames,
+          overrideProvider: automation.providerOverride ?? undefined,
           overrideModel: automation.modelOverride ?? undefined,
           reasoning: automation.reasoningOverride ?? undefined,
           signal: controller.signal,

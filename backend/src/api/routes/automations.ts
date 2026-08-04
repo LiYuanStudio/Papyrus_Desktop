@@ -40,21 +40,42 @@ const AutomationScheduleSchema = z.discriminatedUnion('kind', [
   WeeklyScheduleSchema,
 ]);
 
-const AutomationInputSchema = z.object({
+const AutomationInputBaseSchema = z.object({
   name: z.string().trim().min(1).max(100),
   prompt: z.string().trim().min(1).max(20_000),
   schedule: AutomationScheduleSchema,
   timezone: z.string().trim().min(1).max(100).optional(),
   enabled: z.boolean().default(true),
   allowedTools: z.array(z.string().min(1)).max(100).optional(),
+  providerOverride: z.string().trim().max(100).nullable().optional(),
   modelOverride: z.string().trim().max(200).nullable().optional(),
   reasoningOverride: z.boolean().nullable().optional(),
 });
 
-const AutomationPatchSchema = AutomationInputSchema.partial().refine(
-  (value) => Object.keys(value).length > 0,
-  { message: '至少提供一个更新字段' },
-);
+/**
+ * 校验 Provider 与模型覆盖必须作为一个完整目标同时保存或同时继承。
+ * 原因：模型 ID 只在所属 Provider 内有意义，拆开更新会制造不可执行配置。
+ * 未自动猜测 Provider：不同 Provider 可以拥有相同模型 ID，服务端不能安全推断。
+ */
+function validateAutomationTargetPair(
+  value: { providerOverride?: string | null; modelOverride?: string | null },
+  context: z.RefinementCtx,
+): void {
+  const provider = value.providerOverride?.trim() || null;
+  const model = value.modelOverride?.trim() || null;
+  if ((provider === null) !== (model === null)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['modelOverride'],
+      message: 'Provider 与模型覆盖必须同时设置或同时清空',
+    });
+  }
+}
+
+const AutomationInputSchema = AutomationInputBaseSchema.superRefine(validateAutomationTargetPair);
+const AutomationPatchSchema = AutomationInputBaseSchema.partial()
+  .refine((value) => Object.keys(value).length > 0, { message: '至少提供一个更新字段' })
+  .superRefine(validateAutomationTargetPair);
 
 /**
  * 返回当前后端系统时区。
@@ -140,6 +161,7 @@ export default async function automationRoutes(fastify: FastifyInstance): Promis
         ...parsed.data,
         timezone: getSystemTimezone(),
         allowedTools: normalizeAllowedTools(parsed.data.allowedTools),
+        providerOverride: parsed.data.providerOverride || null,
         modelOverride: parsed.data.modelOverride || null,
         reasoningOverride: parsed.data.reasoningOverride ?? null,
       });
@@ -161,11 +183,19 @@ export default async function automationRoutes(fastify: FastifyInstance): Promis
       const allowedTools = parsed.data.allowedTools === undefined
         ? undefined
         : normalizeAllowedTools(parsed.data.allowedTools);
+      const targetProvided = parsed.data.providerOverride !== undefined
+        || parsed.data.modelOverride !== undefined;
+      const targetPatch = targetProvided
+        ? {
+          providerOverride: parsed.data.providerOverride || null,
+          modelOverride: parsed.data.modelOverride || null,
+        }
+        : {};
       const automation = updateAutomation(id, {
         ...parsed.data,
         ...(allowedTools === undefined ? {} : { allowedTools }),
         ...(parsed.data.timezone === undefined ? {} : { timezone: getSystemTimezone() }),
-        ...(parsed.data.modelOverride === '' ? { modelOverride: null } : {}),
+        ...targetPatch,
       });
       if (!automation) {
         reply.status(404).send({ success: false, error: '自动化不存在' });
