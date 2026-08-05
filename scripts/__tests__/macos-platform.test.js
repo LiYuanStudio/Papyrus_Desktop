@@ -38,7 +38,15 @@ test('macOS window appearance preserves native controls and accessibility fallba
   assert.equal(reducedAppearance.vibrancy, undefined);
   assert.equal(reducedAppearance.backgroundColor, '#1e1e22');
   assert.equal(getWindowIconName('darwin'), 'icon.icns');
-  assert.equal(getTrayIconName('darwin'), 'icon.png');
+  assert.equal(getTrayIconName('darwin'), 'trayTemplate.png');
+  assert.equal(getTrayIconName('win32'), 'icon.ico');
+  assert.equal(getTrayIconName('linux'), 'icon.png');
+});
+
+test('macOS tray template includes standard and Retina assets', () => {
+  const assetsDir = path.join(__dirname, '..', '..', 'assets');
+  assert.equal(fs.existsSync(path.join(assetsDir, 'trayTemplate.png')), true);
+  assert.equal(fs.existsSync(path.join(assetsDir, 'trayTemplate@2x.png')), true);
 });
 
 test('packaged backend launch uses the app executable without a shell', () => {

@@ -24,6 +24,9 @@ function getWindowIconName(platform) {
  * 未复用窗口图标选择：直接把 `.icns` 交给 Tray 会在浅色/深色菜单栏中产生不一致的缩放与着色。
  */
 function getTrayIconName(platform) {
+  if (platform === 'darwin') {
+    return 'trayTemplate.png';
+  }
   return platform === 'win32' ? 'icon.ico' : 'icon.png';
 }
 
