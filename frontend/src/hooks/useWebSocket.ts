@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Message } from '@arco-design/web-react';
 import i18n from '../i18n';
+import { getAuthToken } from '../api';
 
 export interface FileChangeEvent {
   type: 'file_change';
@@ -17,6 +18,10 @@ interface PongMessage {
 type WebSocketMessage = FileChangeEvent | PongMessage | Record<string, unknown>;
 
 type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
+const DEFAULT_WEBSOCKET_URL = window.location.protocol === 'file:'
+  ? 'ws://127.0.0.1:8000/ws'
+  : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
 interface UseWebSocketOptions {
   /** WebSocket 地址 */
@@ -59,7 +64,7 @@ interface UseWebSocketReturn {
  */
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
   const {
-    url = `ws://127.0.0.1:8000/ws`,
+    url = DEFAULT_WEBSOCKET_URL,
     onConnect,
     onDisconnect,
     onMessage,
@@ -76,6 +81,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const shouldReconnectRef = useRef(true);
+  const connectionGenerationRef = useRef(0);
+  const callbacksRef = useRef({ onConnect, onDisconnect, onMessage, onFileChange });
+
+  useEffect(() => {
+    callbacksRef.current = { onConnect, onDisconnect, onMessage, onFileChange };
+  }, [onConnect, onDisconnect, onMessage, onFileChange]);
 
   const clearReconnectTimer = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -86,6 +97,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   const disconnect = useCallback(() => {
     shouldReconnectRef.current = false;
+    connectionGenerationRef.current += 1;
     clearReconnectTimer();
     
     if (wsRef.current) {
@@ -97,11 +109,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     if (showToast) {
       Message.info(i18n.t('webSocket.disconnected'));
     }
-    onDisconnect?.();
-  }, [clearReconnectTimer, onDisconnect, showToast]);
+    callbacksRef.current.onDisconnect?.();
+  }, [clearReconnectTimer, showToast]);
 
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+  const connect = useCallback(async () => {
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN
+      || wsRef.current?.readyState === WebSocket.CONNECTING
+    ) {
       return;
     }
 
@@ -113,18 +128,31 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
     shouldReconnectRef.current = true;
     setStatus('connecting');
+    const connectionGeneration = ++connectionGenerationRef.current;
 
     try {
-      const ws = new WebSocket(url);
+      const token = await getAuthToken();
+      if (
+        !shouldReconnectRef.current
+        || connectionGeneration !== connectionGenerationRef.current
+      ) {
+        return;
+      }
+      const authenticatedUrl = new URL(url);
+      if (token && window.location.protocol === 'file:') {
+        authenticatedUrl.searchParams.set('access_token', token);
+      }
+      const ws = new WebSocket(authenticatedUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (connectionGeneration !== connectionGenerationRef.current) return;
         reconnectAttemptsRef.current = 0;
         setStatus('connected');
         if (showToast) {
           Message.success(i18n.t('webSocket.connected'));
         }
-        onConnect?.();
+        callbacksRef.current.onConnect?.();
         
         // 发送心跳
         const pingInterval = window.setInterval(() => {
@@ -140,6 +168,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       };
 
       ws.onmessage = (event) => {
+        if (connectionGeneration !== connectionGenerationRef.current) return;
         try {
           const raw = JSON.parse(event.data);
           
@@ -152,16 +181,17 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
               timestamp: raw.timestamp,
             };
             setLastFileChange(fileEvent);
-            onFileChange?.(fileEvent);
+            callbacksRef.current.onFileChange?.(fileEvent);
           }
           
-          onMessage?.(raw as unknown as WebSocketMessage);
+          callbacksRef.current.onMessage?.(raw as unknown as WebSocketMessage);
         } catch (e) {
           console.error('WebSocket 消息解析失败:', e);
         }
       };
 
       ws.onerror = () => {
+        if (connectionGeneration !== connectionGenerationRef.current) return;
         setStatus('error');
         if (showToast) {
           Message.error(i18n.t('webSocket.connectionFailed'));
@@ -169,15 +199,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       };
 
       ws.onclose = () => {
+        if (connectionGeneration !== connectionGenerationRef.current) return;
         setStatus('disconnected');
-        wsRef.current = null;
+        if (wsRef.current === ws) {
+          wsRef.current = null;
+        }
 
         // 自动重连
         if (shouldReconnectRef.current && autoReconnect) {
           reconnectAttemptsRef.current += 1;
           if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
             console.warn(`[WebSocket] 已达到最大重连次数 (${maxReconnectAttempts})，停止重连`);
-            onDisconnect?.();
+            callbacksRef.current.onDisconnect?.();
             return;
           }
           clearReconnectTimer();
@@ -185,14 +218,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
             connect();
           }, reconnectInterval);
         } else {
-          onDisconnect?.();
+          callbacksRef.current.onDisconnect?.();
         }
       };
     } catch (e) {
+      if (connectionGeneration !== connectionGenerationRef.current) return;
       setStatus('error');
       console.error('WebSocket 连接失败:', e);
     }
-  }, [url, autoReconnect, reconnectInterval, showToast, onConnect, onDisconnect, onMessage, onFileChange, clearReconnectTimer]);
+  }, [url, autoReconnect, reconnectInterval, maxReconnectAttempts, showToast, clearReconnectTimer]);
 
   const send = useCallback((data: unknown) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

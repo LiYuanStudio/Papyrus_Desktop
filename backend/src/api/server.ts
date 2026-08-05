@@ -17,6 +17,10 @@ import {
   validateRequestToken,
 } from '../utils/auth.js';
 import { closeDb } from '../db/database.js';
+import {
+  broadcastFileChange,
+  registerRealtimeWebSocket,
+} from './realtime-websocket.js';
 
 const logger = new PapyrusLogger(
   paths.logDir,
@@ -139,6 +143,8 @@ export async function initApp(): Promise<void> {
     timeWindow: '1 minute',
   });
 
+  await registerRealtimeWebSocket(app);
+
   // Local API protection: require token on all /api routes except /api/health.
   if (isAuthEnabled()) {
     app.addHook('onRequest', async (request, reply) => {
@@ -227,6 +233,7 @@ export async function start(): Promise<void> {
 
     startFileWatching((eventType, filePath) => {
       logger.info(`文件${eventType}: ${filePath}`);
+      broadcastFileChange(eventType, filePath);
     });
     const { getAutomationScheduler } = await import('../core/automation-scheduler.js');
     getAutomationScheduler().start();

@@ -84,13 +84,13 @@ export const useNotes = (): UseNotesReturn => {
     }
   }, []);
 
-  useWebSocket({
-    onFileChange: (event) => {
-      if (event.path.includes('.db') || event.path.includes('sqlite')) {
-        refreshNotes();
-      }
-    },
-  });
+  const handleFileChange = useCallback((event: { path: string }) => {
+    if (event.path.includes('.db') || event.path.includes('sqlite')) {
+      refreshNotes();
+    }
+  }, [refreshNotes]);
+
+  useWebSocket({ onFileChange: handleFileChange });
 
   useEffect(() => {
     refreshNotes();

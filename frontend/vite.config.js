@@ -71,6 +71,19 @@ export default defineConfig({
          })
        },
      },
+     '/ws': {
+       target: backendUrl,
+       changeOrigin: true,
+       ws: true,
+       configure: (proxy) => {
+         proxy.on('proxyReqWs', (proxyReq) => {
+           const token = readDevAuthToken()
+           if (token) {
+             proxyReq.setHeader('x-papyrus-token', token)
+           }
+         })
+       },
+     },
    },
  },
   build: {
