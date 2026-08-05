@@ -7,10 +7,32 @@ import path from 'node:path';
 // 未直接使用原始字符串：字符串路径无法识别链接跳转，容易产生目录绕过。
 export function resolveRealPathForSecurity(targetPath: string): string {
   const resolved = path.resolve(targetPath);
-  try {
-    return fs.realpathSync(resolved);
-  } catch {
-    return resolved;
+  const missingSegments: string[] = [];
+  let existingAncestor = resolved;
+
+  // realpath 只能直接解析已存在的目标。写入新日志目录或版本快照时，目标本身通常尚未创建，
+  // 但它的祖先仍可能经过 macOS 的 /var -> /private/var 等符号链接。
+  // 逐级查找最近的已存在祖先并解析它，再拼回缺失部分，既保持真实路径比较，
+  // 也不会把合法的新建子目录误判为越界。
+  while (true) {
+    try {
+      const realAncestor = fs.realpathSync(existingAncestor);
+      return path.join(realAncestor, ...missingSegments);
+    } catch (error) {
+      const errorCode = typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : undefined;
+      if (errorCode !== 'ENOENT') {
+        return resolved;
+      }
+
+      const parent = path.dirname(existingAncestor);
+      if (parent === existingAncestor) {
+        return resolved;
+      }
+      missingSegments.unshift(path.basename(existingAncestor));
+      existingAncestor = parent;
+    }
   }
 }
 
