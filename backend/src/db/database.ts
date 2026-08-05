@@ -369,11 +369,70 @@ function initSchema(database: DatabaseSync): void {
       updated_at REAL NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS automations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      schedule_json TEXT NOT NULL,
+      timezone TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      allowed_tools TEXT NOT NULL DEFAULT '[]',
+      provider_override TEXT,
+      model_override TEXT,
+      reasoning_override INTEGER,
+      next_run_at REAL,
+      last_run_at REAL,
+      created_at REAL NOT NULL,
+      updated_at REAL NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS automation_runs (
+      id TEXT PRIMARY KEY,
+      automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+      trigger TEXT NOT NULL CHECK(trigger IN ('manual', 'scheduled', 'missed')),
+      status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'succeeded', 'failed', 'missed')),
+      scheduled_for REAL,
+      output TEXT NOT NULL DEFAULT '',
+      reasoning TEXT NOT NULL DEFAULT '',
+      tool_calls_json TEXT NOT NULL DEFAULT '[]',
+      error TEXT,
+      model TEXT NOT NULL DEFAULT '',
+      provider TEXT NOT NULL DEFAULT '',
+      started_at REAL,
+      finished_at REAL,
+      created_at REAL NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_automations_enabled_next
+      ON automations(enabled, next_run_at);
+    CREATE INDEX IF NOT EXISTS idx_automation_runs_automation_created
+      ON automation_runs(automation_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_automation_runs_status
+      ON automation_runs(status, created_at);
+
     INSERT OR IGNORE INTO knowledge_branches
       (id, name, head_version_id, is_active, created_at, updated_at)
     VALUES
       ('main', 'main', NULL, 1, unixepoch(), unixepoch());
   `);
+
+  // 为 beta.16 之前创建的自动化表补充 Provider 覆盖列。
+  // 原因：CREATE TABLE IF NOT EXISTS 不会修改既有表，升级用户需要保留全部任务数据。
+  // 未重建整表：单列可空迁移可由 SQLite 原子完成，风险和锁定时间都更低。
+  try {
+    const automationColumns = database.prepare(
+      "SELECT name FROM pragma_table_info('automations')"
+    ).all() as Array<{ name: string }>;
+    if (!automationColumns.some((column) => column.name === 'provider_override')) {
+      database.exec('ALTER TABLE automations ADD COLUMN provider_override TEXT;');
+    }
+  } catch (error) {
+    console.error(
+      '迁移 automations.provider_override 失败:',
+      error instanceof Error ? error.message : String(error),
+    );
+    throw error;
+  }
 
   seedDefaults(database);
 
@@ -1981,6 +2040,8 @@ export function clearAllData(): void {
     database.exec('DELETE FROM files;');
     database.exec('DELETE FROM chat_messages;');
     database.exec('DELETE FROM chat_sessions;');
+    database.exec('DELETE FROM automation_runs;');
+    database.exec('DELETE FROM automations;');
     database.exec('DELETE FROM provider_models;');
     database.exec('DELETE FROM api_keys;');
     database.exec('DELETE FROM providers;');

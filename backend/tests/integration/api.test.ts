@@ -8,10 +8,22 @@ import { patchAppInjectWithAuth } from '../test-auth.js';
 describe('API Integration Tests', () => {
   const testDir = path.join(os.tmpdir(), `papyrus-api-test-${Date.now()}`);
   const originalFetch = global.fetch;
+  const originalDisableSystemProxy = process.env.PAPYRUS_DISABLE_SYSTEM_PROXY;
+  const originalProxyEnvironment = {
+    HTTPS_PROXY: process.env.HTTPS_PROXY,
+    HTTP_PROXY: process.env.HTTP_PROXY,
+    https_proxy: process.env.https_proxy,
+    http_proxy: process.env.http_proxy,
+  };
 
   beforeAll(async () => {
     fs.mkdirSync(testDir, { recursive: true });
     process.env.PAPYRUS_DATA_DIR = testDir;
+    process.env.PAPYRUS_DISABLE_SYSTEM_PROXY = '1';
+    delete process.env.HTTPS_PROXY;
+    delete process.env.HTTP_PROXY;
+    delete process.env.https_proxy;
+    delete process.env.http_proxy;
     const { resetAIConfig } = await import('../../src/ai/config-instance.js');
     resetAIConfig(testDir);
     await initApp();
@@ -26,6 +38,15 @@ describe('API Integration Tests', () => {
     closeDb();
     fs.rmSync(testDir, { recursive: true, force: true });
     delete process.env.PAPYRUS_DATA_DIR;
+    if (originalDisableSystemProxy === undefined) {
+      delete process.env.PAPYRUS_DISABLE_SYSTEM_PROXY;
+    } else {
+      process.env.PAPYRUS_DISABLE_SYSTEM_PROXY = originalDisableSystemProxy;
+    }
+    for (const [key, value] of Object.entries(originalProxyEnvironment)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   });
 
   beforeEach(async () => {
@@ -34,6 +55,7 @@ describe('API Integration Tests', () => {
     db.exec(`DELETE FROM files; DELETE FROM card_review_actions; DELETE FROM cards; DELETE FROM notes;
              DELETE FROM card_versions; DELETE FROM note_versions;
              DELETE FROM relations;
+             DELETE FROM automation_runs; DELETE FROM automations;
              DELETE FROM provider_models; DELETE FROM api_keys; DELETE FROM providers;
              DELETE FROM daily_progress; DELETE FROM ui_settings;`);
 
@@ -187,6 +209,267 @@ describe('API Integration Tests', () => {
       success: true,
       settings: { chatPanelSide: 'left' },
     });
+  });
+
+  it('should create, update, list, and delete an automation', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Daily review',
+        prompt: 'Summarize due cards',
+        schedule: { kind: 'daily', hour: 9, minute: 0 },
+        enabled: true,
+        allowedTools: ['read_data_stats'],
+        providerOverride: null,
+        modelOverride: null,
+        reasoningOverride: null,
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const created = JSON.parse(createResponse.body).automation as {
+      id: string;
+      enabled: boolean;
+      providerOverride: string | null;
+      modelOverride: string | null;
+    };
+    expect(created.enabled).toBe(true);
+    expect(created.providerOverride).toBeNull();
+    expect(created.modelOverride).toBeNull();
+
+    const listResponse = await app.inject({ method: 'GET', url: '/api/automations' });
+    expect(listResponse.statusCode).toBe(200);
+    expect(JSON.parse(listResponse.body).automations).toHaveLength(1);
+
+    const updateResponse = await app.inject({
+      method: 'PATCH',
+      url: `/api/automations/${created.id}`,
+      payload: {
+        enabled: false,
+        providerOverride: 'ollama',
+        modelOverride: 'automation-test-model',
+      },
+    });
+    expect(updateResponse.statusCode).toBe(200);
+    const updated = JSON.parse(updateResponse.body).automation;
+    expect(updated.nextRunAt).toBeNull();
+    expect(updated.providerOverride).toBe('ollama');
+    expect(updated.modelOverride).toBe('automation-test-model');
+
+    const detailResponse = await app.inject({
+      method: 'GET',
+      url: '/api/automations/' + created.id,
+    });
+    expect(detailResponse.statusCode).toBe(200);
+    expect(JSON.parse(detailResponse.body).automation).toEqual(expect.objectContaining({
+      providerOverride: 'ollama',
+      modelOverride: 'automation-test-model',
+      enabled: false,
+    }));
+
+    const {
+      claimAutomationRun,
+      createAutomationRun,
+      finishAutomationRun,
+      getAutomationRun,
+    } = await import('../../src/core/automations.js');
+    const completedRun = createAutomationRun(created.id, 'manual', null);
+    expect(claimAutomationRun(completedRun.id)).toBe(true);
+    finishAutomationRun({
+      runId: completedRun.id,
+      status: 'succeeded',
+      output: 'done',
+      reasoning: '',
+      toolCalls: [],
+      error: null,
+      model: 'automation-test-model',
+      provider: 'test-provider',
+    });
+
+    const deleteResponse = await app.inject({ method: 'DELETE', url: `/api/automations/${created.id}` });
+    expect(deleteResponse.statusCode).toBe(200);
+    expect(getAutomationRun(completedRun.id)).toBeNull();
+  });
+
+  it('should reject an automation with an unknown tool', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Unsafe task',
+        prompt: 'Run an unknown tool',
+        schedule: { kind: 'hourly', intervalHours: 1, minute: 0 },
+        allowedTools: ['not_registered'],
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error).toContain('未知工具');
+  });
+
+  it('should reject an invalid schedule and an overlapping manual run', async () => {
+    const invalidResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Invalid schedule',
+        prompt: 'Never run',
+        schedule: { kind: 'weekly', daysOfWeek: [], hour: 9, minute: 0 },
+      },
+    });
+    expect(invalidResponse.statusCode).toBe(400);
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Concurrency guard',
+        prompt: 'Read stats',
+        schedule: { kind: 'hourly', intervalHours: 2, minute: 0 },
+      },
+    });
+    const automationId = (JSON.parse(createResponse.body).automation as { id: string }).id;
+    const { createAutomationRun } = await import('../../src/core/automations.js');
+    createAutomationRun(automationId, 'manual', null);
+
+    const conflictResponse = await app.inject({
+      method: 'POST',
+      url: `/api/automations/${automationId}/run`,
+    });
+    expect(conflictResponse.statusCode).toBe(409);
+
+    const deleteWhileActive = await app.inject({
+      method: 'DELETE',
+      url: '/api/automations/' + automationId,
+    });
+    expect(deleteWhileActive.statusCode).toBe(409);
+    expect(JSON.parse(deleteWhileActive.body).error).toContain('正在运行');
+  });
+
+  it('should normalize schedules and tools while defaulting to read-only permissions', async () => {
+    const normalizedResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Normalized automation',
+        prompt: 'Read data',
+        schedule: { kind: 'weekly', daysOfWeek: [5, 1, 5], hour: 9, minute: 0 },
+        timezone: 'Fake/Timezone',
+        allowedTools: ['read_data_stats', 'read_data_stats'],
+      },
+    });
+    expect(normalizedResponse.statusCode).toBe(201);
+    const normalized = JSON.parse(normalizedResponse.body).automation as {
+      schedule: { daysOfWeek: number[] };
+      timezone: string;
+      allowedTools: string[];
+    };
+    expect(normalized.schedule.daysOfWeek).toEqual([1, 5]);
+    expect(normalized.timezone).not.toBe('Fake/Timezone');
+    expect(normalized.allowedTools).toEqual(['read_data_stats']);
+
+    const defaultResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Default permissions',
+        prompt: 'Use safe defaults',
+        schedule: { kind: 'daily', hour: 9, minute: 0 },
+      },
+    });
+    expect(defaultResponse.statusCode).toBe(201);
+    const defaultTools = (JSON.parse(defaultResponse.body).automation as {
+      allowedTools: string[];
+    }).allowedTools;
+    expect(defaultTools).toContain('read_data_stats');
+    expect(defaultTools).not.toContain('create_card');
+    expect(new Set(defaultTools).size).toBe(defaultTools.length);
+  });
+
+  it('should reject incomplete targets and empty patches and return precise missing-resource statuses', async () => {
+    const incompleteCreate = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Incomplete target',
+        prompt: 'Cannot run safely',
+        schedule: { kind: 'daily', hour: 9, minute: 0 },
+        providerOverride: 'ollama',
+      },
+    });
+    expect(incompleteCreate.statusCode).toBe(400);
+    expect(JSON.parse(incompleteCreate.body).error).toContain('同时设置');
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'Patch validation',
+        prompt: 'Read stats',
+        schedule: { kind: 'daily', hour: 9, minute: 0 },
+      },
+    });
+    const automationId = (JSON.parse(createResponse.body).automation as { id: string }).id;
+    const incompletePatch = await app.inject({
+      method: 'PATCH',
+      url: '/api/automations/' + automationId,
+      payload: { modelOverride: 'orphan-model' },
+    });
+    expect(incompletePatch.statusCode).toBe(400);
+    const emptyPatch = await app.inject({
+      method: 'PATCH',
+      url: '/api/automations/' + automationId,
+      payload: {},
+    });
+    expect(emptyPatch.statusCode).toBe(400);
+
+    const missingId = 'missing-automation';
+    const missingResponses = await Promise.all([
+      app.inject({ method: 'GET', url: '/api/automations/' + missingId }),
+      app.inject({ method: 'GET', url: '/api/automations/' + missingId + '/runs' }),
+      app.inject({ method: 'PATCH', url: '/api/automations/' + missingId, payload: { name: 'Missing' } }),
+      app.inject({ method: 'DELETE', url: '/api/automations/' + missingId }),
+      app.inject({ method: 'POST', url: '/api/automations/' + missingId + '/run' }),
+      app.inject({ method: 'GET', url: '/api/automations/runs/missing-run' }),
+    ]);
+    expect(missingResponses.map((response) => response.statusCode))
+      .toEqual([404, 404, 404, 404, 404, 404]);
+  });
+
+  it('should clamp run-history limits and return persisted audit rows', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/automations',
+      payload: {
+        name: 'History limits',
+        prompt: 'Read stats',
+        schedule: { kind: 'daily', hour: 9, minute: 0 },
+      },
+    });
+    const automationId = (JSON.parse(createResponse.body).automation as { id: string }).id;
+    const { createAutomationRun } = await import('../../src/core/automations.js');
+    createAutomationRun(automationId, 'missed', 1, 'missed');
+    createAutomationRun(automationId, 'missed', 2, 'missed');
+    createAutomationRun(automationId, 'missed', 3, 'missed');
+
+    const twoRuns = await app.inject({
+      method: 'GET',
+      url: '/api/automations/' + automationId + '/runs?limit=2',
+    });
+    expect(twoRuns.statusCode).toBe(200);
+    expect(JSON.parse(twoRuns.body).runs).toHaveLength(2);
+
+    const clampedMinimum = await app.inject({
+      method: 'GET',
+      url: '/api/automations/' + automationId + '/runs?limit=0',
+    });
+    expect(JSON.parse(clampedMinimum.body).runs).toHaveLength(1);
+
+    const invalidRecent = await app.inject({
+      method: 'GET',
+      url: '/api/automations/runs/recent?limit=not-a-number',
+    });
+    expect(invalidRecent.statusCode).toBe(200);
+    expect(JSON.parse(invalidRecent.body).runs).toHaveLength(3);
   });
 
   it('POST /api/cards should create a card', async () => {
@@ -810,14 +1093,14 @@ describe('API Integration Tests', () => {
         method: 'GET',
         url: '/api/update/check',
         headers: {
-          'x-papyrus-app-version': '2.0.0-beta.15',
+          'x-papyrus-app-version': '2.0.0-beta.16',
         },
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.success).toBe(true);
-      expect(body.data.current_version).toBe('2.0.0-beta.15');
+      expect(body.data.current_version).toBe('2.0.0-beta.16');
       expect(body.data.latest_version).toBe('v2.0.0-beta.13');
       expect(body.data.has_update).toBe(false);
       expect(requestedUrls[0]).toContain('/releases?per_page=30');

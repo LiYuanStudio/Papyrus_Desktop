@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 type JsonObject = Record<string, unknown>;
 
@@ -14,7 +15,7 @@ const API_BASE = normalizeApiBase(process.env.PAPYRUS_API_URL ?? 'http://127.0.0
 // 规范化 Desktop API 根地址，输入为环境变量中的 API 地址，输出为始终带 `/api` 前缀的可访问基地址。
 // 原因：调用方可能传入 `http://127.0.0.1:8000` 或 `http://127.0.0.1:8000/api`，统一归一化可以避免每个命令分支重复拼接判断。
 // 未把路径判断散落到各命令：分散处理更容易产生 `//api/api/...` 之类的拼接错误，排障也更难。
-function normalizeApiBase(rawBase: string): string {
+export function normalizeApiBase(rawBase: string): string {
   const trimmedBase = rawBase.replace(/\/+$/, '');
   return trimmedBase.endsWith('/api') ? trimmedBase : `${trimmedBase}/api`;
 }
@@ -26,7 +27,7 @@ function isJsonObject(value: unknown): value is JsonObject {
 // 从命令行参数中抽取 `--json`、键值选项和 `--params` JSON，输入为原始 argv，输出为解析后的旗标结构。
 // 原因：内置 CLI 首要任务是稳定代理 Desktop API，先支持当前设计文档需要的最小参数集即可满足自动化调用。
 // 未引入参数解析库：这里只需要少量受控命令，手写解析更轻量，也避免为打包版增加额外依赖。
-function parseFlags(args: string[]): ParsedFlags {
+export function parseFlags(args: string[]): ParsedFlags {
   const values: Record<string, string> = {};
   let json = false;
   let params: JsonObject = {};
@@ -68,7 +69,7 @@ function parseFlags(args: string[]): ParsedFlags {
 // 删除 CLI 参数中的选项片段，输入为原始 argv，输出为仅保留命令路径和位置参数的数组。
 // 原因：命令分发只关心主命令和少量位置参数，先去掉旗标能让分支判断更清晰。
 // 未在遍历时同步分发命令：先规整数据再分发更容易维护，也方便未来扩展更多命令。
-function stripFlags(args: string[]): string[] {
+export function stripFlags(args: string[]): string[] {
   const stripped: string[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const current = args[index];
@@ -122,7 +123,7 @@ async function callMcpTool(tool: string, params: JsonObject): Promise<unknown> {
   });
 }
 
-async function executeCommand(rawArgs: string[]): Promise<unknown> {
+export async function executeCommand(rawArgs: string[]): Promise<unknown> {
   const flags = parseFlags(rawArgs);
   const args = stripFlags(rawArgs);
   const primary = args[0];
@@ -366,12 +367,29 @@ function writeJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
-try {
-  const result = await executeCommand(process.argv.slice(2));
-  writeJson(result);
-  process.exit(0);
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  writeJson({ success: false, error: message });
-  process.exit(1);
+// 判断当前模块是否是 Node 直接启动的 CLI 入口，输入来自进程 argv，输出为是否应接管 stdout/exit。
+// 原因：命令分发函数需要能在 Jest 中直接验证真实请求契约，只有直接执行时才允许结束进程。
+// 未依赖环境变量开关：URL 与入口路径的比较和 Node ESM 语义一致，不会让生产启动遗漏 CLI 主流程。
+function isDirectExecution(): boolean {
+  const entryPath = process.argv[1];
+  return entryPath !== undefined && import.meta.url === pathToFileURL(path.resolve(entryPath)).href;
+}
+
+// 执行 CLI 主流程并输出稳定 JSON，输入为命令参数，直接执行成功退出 0、失败退出 1。
+// 原因：集中保留原有进程行为，同时让模块导入只暴露可测试的命令分发函数。
+// 未让 executeCommand 直接退出：业务函数结束进程会阻止调用方测试多个命令，也无法复用返回值。
+export async function runCliMain(rawArgs: string[] = process.argv.slice(2)): Promise<void> {
+  try {
+    const result = await executeCommand(rawArgs);
+    writeJson(result);
+    process.exit(0);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    writeJson({ success: false, error: message });
+    process.exit(1);
+  }
+}
+
+if (isDirectExecution()) {
+  void runCliMain();
 }

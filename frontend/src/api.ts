@@ -379,6 +379,75 @@ export type UiSettings = SidebarSettings & {
   dateFormat: UiDateFormat;
 };
 
+// ========== Automation Types ==========
+export type AutomationSchedule =
+  | { kind: 'hourly'; intervalHours: number; minute: number }
+  | { kind: 'daily'; hour: number; minute: number }
+  | { kind: 'weekly'; daysOfWeek: number[]; hour: number; minute: number };
+
+export type AutomationRunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'missed';
+export type AutomationRunTrigger = 'manual' | 'scheduled' | 'missed';
+
+export interface AutomationToolCall {
+  name: string;
+  params: Record<string, unknown>;
+  success: boolean;
+  result?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface Automation {
+  id: string;
+  name: string;
+  prompt: string;
+  schedule: AutomationSchedule;
+  timezone: string;
+  enabled: boolean;
+  allowedTools: string[];
+  providerOverride: string | null;
+  modelOverride: string | null;
+  reasoningOverride: boolean | null;
+  nextRunAt: number | null;
+  lastRunAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AutomationRun {
+  id: string;
+  automationId: string;
+  trigger: AutomationRunTrigger;
+  status: AutomationRunStatus;
+  scheduledFor: number | null;
+  output: string;
+  reasoning: string;
+  toolCalls: AutomationToolCall[];
+  error: string | null;
+  model: string;
+  provider: string;
+  startedAt: number | null;
+  finishedAt: number | null;
+  createdAt: number;
+}
+
+export interface AutomationInput {
+  name: string;
+  prompt: string;
+  schedule: AutomationSchedule;
+  enabled: boolean;
+  allowedTools: string[];
+  providerOverride: string | null;
+  modelOverride: string | null;
+  reasoningOverride: boolean | null;
+}
+
+export interface ToolCatalogItem {
+  name: string;
+  category: string;
+  side_effect: 'read' | 'write';
+  description: string;
+}
+
 // ========== Update Types ==========
 export type VersionInfo = {
   current_version: string;
@@ -822,6 +891,34 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(settings),
     }),
+
+  // Automations
+  listAutomations: () =>
+    request<{ success: boolean; automations: Automation[] }>('/automations'),
+  getAutomation: (id: string) =>
+    request<{ success: boolean; automation: Automation }>(`/automations/${id}`),
+  createAutomation: (input: AutomationInput) =>
+    request<{ success: boolean; automation: Automation }>('/automations', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateAutomation: (id: string, input: Partial<AutomationInput>) =>
+    request<{ success: boolean; automation: Automation }>(`/automations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  deleteAutomation: (id: string) =>
+    request<{ success: boolean }>(`/automations/${id}`, { method: 'DELETE' }),
+  runAutomation: (id: string) =>
+    request<{ success: boolean; run: AutomationRun }>(`/automations/${id}/run`, { method: 'POST' }),
+  listAutomationRuns: (id: string, limit = 100) =>
+    request<{ success: boolean; runs: AutomationRun[] }>(`/automations/${id}/runs?limit=${limit}`),
+  listRecentAutomationRuns: (limit = 100) =>
+    request<{ success: boolean; runs: AutomationRun[] }>(`/automations/runs/recent?limit=${limit}`),
+  getAutomationRun: (runId: string) =>
+    request<{ success: boolean; run: AutomationRun }>(`/automations/runs/${runId}`),
+  getToolCatalog: () =>
+    request<{ success: boolean; tools: ToolCatalogItem[] }>('/tools/catalog'),
 
   // Files
   listFiles: () => request<ListFilesRes>('/files'),

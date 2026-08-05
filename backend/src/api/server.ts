@@ -170,7 +170,7 @@ export async function initApp(): Promise<void> {
   const { default: reviewRoutes } = await import('./routes/review.js');
   const { default: notesRoutes } = await import('./routes/notes.js');
   const { default: searchRoutes } = await import('./routes/search.js');
-  const { default: aiRoutes } = await import('./routes/ai.js');
+  const { default: aiRoutes, aiManager } = await import('./routes/ai.js');
   const { default: dataRoutes } = await import('./routes/data.js');
   const { default: progressRoutes } = await import('./routes/progress.js');
   const { default: logsRoutes } = await import('./routes/logs.js');
@@ -186,6 +186,9 @@ export async function initApp(): Promise<void> {
   const { default: cliRoutes } = await import('./routes/cli.js');
   const { default: uiSettingsRoutes } = await import('./routes/ui-settings.js');
   const { default: knowledgeVersionRoutes } = await import('./routes/knowledge-versions.js');
+  const { default: automationRoutes } = await import('./routes/automations.js');
+  const { initializeAutomationScheduler } = await import('../core/automation-scheduler.js');
+  initializeAutomationScheduler(aiManager, logger);
 
   app.register(cardsRoutes, { prefix: '/api/cards' });
   app.register(reviewRoutes, { prefix: '/api/review' });
@@ -207,6 +210,7 @@ export async function initApp(): Promise<void> {
   app.register(cliRoutes, { prefix: '/api/cli' });
   app.register(uiSettingsRoutes, { prefix: '/api/ui-settings' });
   app.register(knowledgeVersionRoutes, { prefix: '/api' });
+  app.register(automationRoutes, { prefix: '/api/automations' });
 }
 
 let mcpServer: MCPServer | null = null;
@@ -224,6 +228,8 @@ export async function start(): Promise<void> {
     startFileWatching((eventType, filePath) => {
       logger.info(`文件${eventType}: ${filePath}`);
     });
+    const { getAutomationScheduler } = await import('../core/automation-scheduler.js');
+    getAutomationScheduler().start();
   } catch (err) {
     logger.error(`Failed to start server: ${err}`);
     throw err;
@@ -238,6 +244,8 @@ async function gracefulShutdown(signal: string) {
       mcpServer = null;
     }
     stopFileWatching();
+    const { getAutomationScheduler } = await import('../core/automation-scheduler.js');
+    getAutomationScheduler().stop();
     await app.close();
     closeDb();
     logger.info('Graceful shutdown complete');

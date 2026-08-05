@@ -54,13 +54,27 @@ export type ReasoningEffort = 'low' | 'medium' | 'high' | 'very_high';
 export type ReasoningKind = false | 'reasoning_effort' | 'thinking' | 'thinking_config';
 export type ProviderModality = 'openai-compat' | 'ollama' | 'text-only';
 
-interface ProviderMessage {
+export interface ProviderMessage {
   role: string;
   content: string | Array<Record<string, unknown>>;
   images?: string[];
   tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>;
   tool_call_id?: string;
   name?: string;
+}
+
+export interface StandaloneAgentToolCall {
+  id: string;
+  name: string;
+  params: Record<string, unknown>;
+}
+
+export interface StandaloneAgentTurnResult {
+  content: string;
+  reasoning: string;
+  toolCalls: StandaloneAgentToolCall[];
+  model: string;
+  provider: string;
 }
 
 type RequestParamsWithReasoning = OpenAI.Chat.ChatCompletionCreateParamsStreaming & {
@@ -1036,6 +1050,105 @@ export class AIManager {
 
   // ==================== Stream ====================
 
+  /**
+   * 执行一轮不关联聊天会话的 Agent 推理。
+   * 原因：自动化输出属于独立审核记录，不能写入用户当前聊天上下文。
+   * 未复用 chatStream：该方法强制读取活动会话并持久化用户消息。
+   */
+  async standaloneAgentTurn(input: {
+    messages: ProviderMessage[];
+    allowedToolNames: ReadonlySet<string>;
+    overrideProvider?: string;
+    overrideModel?: string;
+    reasoning?: unknown;
+    signal?: AbortSignal;
+  }): Promise<StandaloneAgentTurnResult> {
+    const providerName = input.overrideProvider || this.config.config.current_provider;
+    if (!providerName.trim()) {
+      throw new Error('尚未配置 AI Provider，请先在设置中添加并启用一个提供商');
+    }
+    const providerConfig = getProviderConfigFromDB(providerName);
+    if (!providerConfig) {
+      throw new Error(`未知 provider: ${providerName}`);
+    }
+    const model = input.overrideModel || this.config.config.current_model;
+    if (!model) {
+      throw new Error('AI 模型未配置');
+    }
+    const params = this.config.config.parameters;
+    const stream = providerName === 'ollama'
+      ? this.chatStreamOllama(
+        input.messages,
+        model,
+        params,
+        providerConfig,
+        'agent',
+        input.signal,
+        input.allowedToolNames,
+      )
+      : this.chatStreamOpenAI(
+        input.messages,
+        model,
+        params,
+        providerConfig,
+        providerName,
+        'agent',
+        normalizeReasoning(input.reasoning),
+        input.signal,
+        input.allowedToolNames,
+      );
+    const contentParts: string[] = [];
+    const reasoningParts: string[] = [];
+    const toolCalls: StandaloneAgentToolCall[] = [];
+    for await (const chunk of stream) {
+      if (chunk.type === 'content' && typeof chunk.data === 'string') {
+        contentParts.push(chunk.data);
+      } else if (chunk.type === 'reasoning' && typeof chunk.data === 'string') {
+        reasoningParts.push(chunk.data);
+      } else if (chunk.type === 'tool_start' && typeof chunk.data === 'object') {
+        const data = chunk.data;
+        const func = data.function;
+        if (func !== null && typeof func === 'object') {
+          const functionData = func as Record<string, unknown>;
+          const name = typeof functionData.name === 'string' ? functionData.name : '';
+          const paramsValue = data.args ?? functionData.arguments;
+          let callParams: Record<string, unknown> = {};
+          if (paramsValue !== null && typeof paramsValue === 'object') {
+            // Provider 工具参数已通过对象边界检查，可安全收窄为键值记录。
+            // 未直接断言原始 chunk：Ollama 和 OpenAI 的 arguments 形状不同。
+            callParams = paramsValue as Record<string, unknown>;
+          } else if (typeof paramsValue === 'string' && paramsValue.trim()) {
+            try {
+              const parsed: unknown = JSON.parse(paramsValue);
+              if (parsed !== null && typeof parsed === 'object') {
+                // JSON.parse 返回 unknown；对象检查后才收窄为工具参数记录。
+                callParams = parsed as Record<string, unknown>;
+              }
+            } catch {
+              throw new Error(`工具参数 JSON 解析失败: ${name}`);
+            }
+          }
+          if (name) {
+            toolCalls.push({
+              id: typeof data.id === 'string' ? data.id : '',
+              name,
+              params: callParams,
+            });
+          }
+        }
+      } else if (chunk.type === 'error') {
+        throw new Error(typeof chunk.data === 'string' ? chunk.data : 'AI 调用失败');
+      }
+    }
+    return {
+      content: contentParts.join(''),
+      reasoning: reasoningParts.join(''),
+      toolCalls,
+      model,
+      provider: providerName,
+    };
+  }
+
   async *chatStream(
     userMessage: string,
     systemPrompt?: string,
@@ -1310,6 +1423,7 @@ Output only the translation, no explanations.`;
     mode?: string,
     reasoning: ReasoningEffort | false = false,
     signal?: AbortSignal,
+    allowedToolNames?: ReadonlySet<string>,
   ): AsyncGenerator<StreamChunk> {
     const rawBaseUrl = (providerConfig.base_url || '').replace(/\/$/, '');
     const baseUrl = providerName === 'gemini' ? `${rawBaseUrl}/openai` : rawBaseUrl;
@@ -1362,9 +1476,11 @@ Output only the translation, no explanations.`;
 
     if (mode === 'agent') {
       const cardTools = new PapyrusTools();
-      const tools: OpenAIToolDef[] = cardTools.getToolsForOpenAI();
-      requestParams.tools = tools as unknown as OpenAI.Chat.ChatCompletionTool[];
-      requestParams.tool_choice = 'auto';
+      const tools: OpenAIToolDef[] = cardTools.getToolsForOpenAI(allowedToolNames);
+      if (tools.length > 0) {
+        requestParams.tools = tools as unknown as OpenAI.Chat.ChatCompletionTool[];
+        requestParams.tool_choice = 'auto';
+      }
     }
 
     if (reasoning) {
@@ -1455,6 +1571,7 @@ Output only the translation, no explanations.`;
     providerConfig: { base_url: string },
     mode?: string,
     signal?: AbortSignal,
+    allowedToolNames?: ReadonlySet<string>,
   ): AsyncGenerator<StreamChunk> {
     const urlError = validateProviderBaseUrl(providerConfig.base_url, 'ollama');
     if (urlError) {
@@ -1462,12 +1579,15 @@ Output only the translation, no explanations.`;
     }
     const baseUrl = providerConfig.base_url.replace(/\/$/, '');
 
-    const enrichedMessages = mode === 'agent'
-      ? this.injectOllamaToolPrompt(messages)
+    const hasTools = mode === 'agent' && (allowedToolNames === undefined || allowedToolNames.size > 0);
+    const enrichedMessages = hasTools
+      ? this.injectOllamaToolPrompt(messages, allowedToolNames)
       : messages;
 
     // Build native tools for Ollama (OpenAI-compatible format)
-    const ollamaTools = mode === 'agent' ? new PapyrusTools().getToolsForOpenAI() : undefined;
+    const ollamaTools = hasTools
+      ? new PapyrusTools().getToolsForOpenAI(allowedToolNames)
+      : undefined;
 
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
@@ -1534,9 +1654,12 @@ Output only the translation, no explanations.`;
     }
   }
 
-  private injectOllamaToolPrompt(messages: ProviderMessage[]): ProviderMessage[] {
+  private injectOllamaToolPrompt(
+    messages: ProviderMessage[],
+    allowedToolNames?: ReadonlySet<string>,
+  ): ProviderMessage[] {
     const cardTools = new PapyrusTools();
-    const toolHint = cardTools.getToolsDefinition();
+    const toolHint = cardTools.getToolsDefinition(allowedToolNames);
     const out = [...messages];
     const sysIdx = out.findIndex(m => m.role === 'system');
     if (sysIdx >= 0) {

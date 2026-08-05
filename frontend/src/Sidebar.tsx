@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@arco-design/web-react';
-import { IconPlus, IconFolder, IconMindMapping, IconSettings, IconLock, IconUnlock, IconMoon, IconSun, IconRobot } from '@arco-design/web-react/icon';
+import { IconPlus, IconFolder, IconMindMapping, IconSettings, IconLock, IconUnlock, IconMoon, IconSun, IconRobot, IconCalendarClock } from '@arco-design/web-react/icon';
 import IconPapyrus from './icons/IconPapyrus';
 import IconScroll from './icons/IconScroll';
 import { SidebarChatHistory } from './components/SidebarChatHistory';
@@ -78,6 +78,7 @@ const Sidebar = ({
     { key: 'scroll', icon: IconScroll, label: t('sidebar.scroll') },
     { key: 'notes', icon: IconMindMapping, label: t('sidebar.notes') },
     { key: 'files', icon: IconFolder, label: t('sidebar.files') },
+    { key: 'automations', icon: IconCalendarClock, label: t('sidebar.automations') },
   ];
 
   const [locked, setLocked] = useState(false);
