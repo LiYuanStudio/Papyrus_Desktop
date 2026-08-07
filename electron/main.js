@@ -438,13 +438,14 @@ function createWindow() {
   });
 
   // Set Content Security Policy to mitigate XSS risks
-  // unsafe-inline is needed for React/CSS-in-JS; connect-src allows AI API calls
+  // Vite injects an inline React Fast Refresh preamble in development. Production remains strict.
+  const scriptSrc = isDevMode ? "'self' 'unsafe-inline'" : "'self'";
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:*; img-src 'self' file: data: http://127.0.0.1:* http://localhost:* blob:; media-src 'self' http://127.0.0.1:* http://localhost:* blob:; font-src 'self' data:; frame-src 'self';",
+          `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; img-src 'self' file: data: http://127.0.0.1:* http://localhost:* blob:; media-src 'self' http://127.0.0.1:* http://localhost:* blob:; font-src 'self' data:; frame-src 'self';`,
         ],
       },
     });
@@ -511,7 +512,6 @@ function createTray() {
   try {
     let trayImage = nativeImage.createFromPath(paths.trayIconPath);
     if (process.platform === 'darwin') {
-      trayImage = trayImage.resize({ width: 18, height: 18 });
       trayImage.setTemplateImage(true);
     }
     tray = new Tray(trayImage);

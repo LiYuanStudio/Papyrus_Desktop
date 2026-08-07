@@ -32,6 +32,16 @@ function readDevAuthToken() {
   return null
 }
 
+// Vite injects the React Fast Refresh preamble as an inline module in development.
+// Keep the checked-in/production CSP strict, and relax script-src only for the dev server response.
+const developmentCspPlugin = {
+  name: 'papyrus-development-csp',
+  apply: 'serve',
+  transformIndexHtml(html) {
+    return html.replace("script-src 'self';", "script-src 'self' 'unsafe-inline';")
+  },
+}
+
 // TS + React 19 + Arco scaffold
 export default defineConfig({
   base: './', // Required for Electron to load files locally
@@ -39,6 +49,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(appVersion),
   },
   plugins: [
+    developmentCspPlugin,
     react({
       // keep classic runtime if you still want `import React from 'react'`
       // jsxRuntime: 'classic',
@@ -53,6 +64,19 @@ export default defineConfig({
        changeOrigin: true,
        configure: (proxy) => {
          proxy.on('proxyReq', (proxyReq) => {
+           const token = readDevAuthToken()
+           if (token) {
+             proxyReq.setHeader('x-papyrus-token', token)
+           }
+         })
+       },
+     },
+     '/ws': {
+       target: backendUrl,
+       changeOrigin: true,
+       ws: true,
+       configure: (proxy) => {
+         proxy.on('proxyReqWs', (proxyReq) => {
            const token = readDevAuthToken()
            if (token) {
              proxyReq.setHeader('x-papyrus-token', token)

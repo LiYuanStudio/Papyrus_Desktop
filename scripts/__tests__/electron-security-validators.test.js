@@ -50,3 +50,17 @@ test('validateOpenFolderPath rejects symlinks that resolve outside configured di
     fs.rmSync(outside, { recursive: true, force: true });
   }
 });
+
+test('Electron CSP allows only local WebSocket backends', () => {
+  const projectRoot = path.join(__dirname, '..', '..');
+  const sources = [
+    fs.readFileSync(path.join(projectRoot, 'electron', 'main.js'), 'utf8'),
+    fs.readFileSync(path.join(projectRoot, 'frontend', 'index.html'), 'utf8'),
+  ];
+
+  for (const source of sources) {
+    assert.match(source, /connect-src[^;]*ws:\/\/127\.0\.0\.1:\*/);
+    assert.match(source, /connect-src[^;]*ws:\/\/localhost:\*/);
+    assert.doesNotMatch(source, /connect-src[^;]*\sws:\s/);
+  }
+});
