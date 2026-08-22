@@ -75,11 +75,13 @@ describe('auth', () => {
     expect(getOrCreateAuthToken()).toBe(first);
   });
 
-  it('should return null when auth disabled', () => {
+  it('should fail closed when no token can be established', () => {
+    // Fail closed：token 文件缺失/不可读时必须拒绝一切请求。
+    // 原因：旧行为在此场景返回 true（放行全部），数据目录只读时整个 API 会静默裸奔。
     expect(getAuthToken()).toBeNull();
     expect(isAuthEnabled()).toBe(false);
-    expect(validateRequestToken()).toBe(true);
-    expect(validateRequestToken('anything')).toBe(true);
+    expect(validateRequestToken()).toBe(false);
+    expect(validateRequestToken('anything')).toBe(false);
   });
 
   it('should reject short env token', () => {
@@ -115,6 +117,27 @@ describe('auth', () => {
     const token = ensureAuthToken();
     expect(token.length).toBeGreaterThanOrEqual(32);
     expect(getAuthToken()).toBe(token);
+  });
+
+  // Windows 上目录只读权限语义不同（chmod 不生效），仅在 POSIX 上验证写入失败路径。
+  const itPosixOnly = process.platform === 'win32' ? it.skip : it;
+
+  itPosixOnly('should abort startup when the token file cannot be persisted', () => {
+    delete process.env.PAPYRUS_AUTH_TOKEN;
+    const tokenFile = path.join(testDir, '.api_token');
+    if (fs.existsSync(tokenFile)) {
+      fs.rmSync(tokenFile, { force: true });
+    }
+    fs.chmodSync(testDir, 0o555);
+    try {
+      // 数据目录只读时 token 无法持久化，启动助手必须抛错终止，
+      // 而不是带着“无 token”状态继续运行（那等于无认证暴露 API）。
+      expect(() => ensureAuthToken()).toThrow(/无法创建或读取 API 认证 token/);
+      // 抛错属于致命失败，不得留下半初始化状态供后续请求误用。
+      expect(validateRequestToken('anything')).toBe(false);
+    } finally {
+      fs.chmodSync(testDir, 0o755);
+    }
   });
 
   describe('edge cases', () => {
