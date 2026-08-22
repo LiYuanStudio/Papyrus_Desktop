@@ -20,7 +20,11 @@ const {
 
 const BACKEND_START_TIMEOUT_MS = 45_000;
 const HEALTH_POLL_INTERVAL_MS = 250;
-const HEALTH_AUTH_TOKEN = 'packaged-health-check-token-000000';
+// 每次运行随机生成的冒烟测试 token：
+// 原因：固定字符串以“凭证”形态硬编码在源码中，会被秘钥扫描持续命中；
+//       随机值仅在本次进程与它启动的后端子进程之间传递，无持久化价值。
+// 未改为环境变量注入：脚本与子进程同生命周期，随机生成即满足需求且无需额外配置。
+const HEALTH_AUTH_TOKEN = require('node:crypto').randomBytes(32).toString('base64url');
 
 // Parse a JSON buffer or file with a source-aware error.
 // This makes malformed packaged metadata actionable in CI instead of surfacing as an opaque parser stack.
