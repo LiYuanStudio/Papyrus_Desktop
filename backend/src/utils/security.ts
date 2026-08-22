@@ -126,6 +126,29 @@ export function isPrivateNetworkUrl(urlStr: string): boolean {
   }
 }
 
+// 判断 DNS 解析出的地址是否为回环地址，输入必须是已解析的规范 IP 字符串。
+// 原因：keyless 本地 Provider（Ollama/LM Studio 等）合法运行在 127.0.0.1/::1 上，
+//       出站连接的 connect 期校验需要区分“允许的回环”与“禁止的其他私网地址”。
+// 未复用 isPrivateNetworkUrl：它面向 URL 字符串，这里输入是 dns.lookup 的结果。
+export function isLoopbackAddress(address: string): boolean {
+  const normalized = normalizeIpv6Host(address);
+  if (normalized.includes(':')) {
+    return normalized === '::1';
+  }
+  return normalized === '127.0.0.1' || /^127\./.test(normalized);
+}
+
+// 判断 DNS 解析出的 IP 地址是否属于私网/回环/链路本地/ULA 等受限范围，返回 true 表示应阻止连接。
+// 原因：SSRF 字面量校验拦不住“域名解析到私网 IP”的绕过，连接期必须对解析结果复查。
+// 未在 proxy.ts 内联实现：IP 分类逻辑与 isPrivateNetworkUrl 共享同一套 IPv4/IPv6 规则，集中维护防漏。
+export function isPrivateResolvedAddress(address: string): boolean {
+  const normalized = normalizeIpv6Host(address);
+  if (net.isIP(normalized) === 6) {
+    return isPrivateIpv6(normalized);
+  }
+  return isPrivateIpv4(normalized);
+}
+
 // 返回可信域名上的 http/https URL，不可信或非法 URL 返回 null。
 // 原因：更新检查会把远端 URL 交给前端展示，必须避免 file/javascript/恶意域名。
 // 未只校验协议：HTTPS 恶意域名仍可能诱导下载安装非官方文件。

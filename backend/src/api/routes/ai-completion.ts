@@ -142,7 +142,7 @@ export default async function aiCompletionRoutes(fastify: FastifyInstance): Prom
           return;
         }
 
-        const resp = await fetch(`${baseUrl}/api/chat`, {
+        const resp = await fetchWithProxy(`${baseUrl}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(60000),
@@ -155,7 +155,7 @@ export default async function aiCompletionRoutes(fastify: FastifyInstance): Prom
             stream: true,
             options: { temperature: 0.7 },
           }),
-        });
+        }, { allowLoopback: true });
 
         if (!resp.ok || !resp.body) {
           reply.raw.write(`data: {"error":"Ollama API 错误: ${resp.status}"}\n\n`);
@@ -231,12 +231,13 @@ export default async function aiCompletionRoutes(fastify: FastifyInstance): Prom
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
+        // keyless 本地 Provider（LM Studio 等）的 base URL 是 localhost，需要回环放行；其余走默认禁私网 Agent。
         const resp = await fetchWithProxy(endpoint, {
           method: 'POST',
           headers,
           signal: AbortSignal.timeout(60000),
           body: JSON.stringify(reqBody),
-        });
+        }, { allowLoopback: isKeylessProvider(providerName) });
 
         if (!resp.ok || !resp.body) {
           reply.raw.write(`data: {"error":"API 错误: ${resp.status}"}\n\n`);
