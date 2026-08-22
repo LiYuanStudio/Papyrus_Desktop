@@ -844,6 +844,34 @@ app.on('web-contents-created', (event, contents) => {
       shell.openExternal(validation.url);
     }
   });
+
+  // SECURITY: 主窗口导航白名单。
+  // 原因：setWindowOpenHandler 只拦截 window.open，renderer 仍可通过 location 赋值
+  //       把整个窗口导航到任意站点；一旦成功，本地 file:// 源即被替换。
+  // 未放行 http(s) 外站：外部链接统一由 new-window/openExternal 走系统浏览器。
+  // dev 放行 Vite 开发服务器（含 HMR 触发的整页重载），生产仅放行 file:// 应用自身。
+  contents.on('will-navigate', (event, navigationUrl) => {
+    let allowed = false;
+    try {
+      const parsed = new URL(navigationUrl);
+      if (parsed.protocol === 'file:') {
+        allowed = true;
+      } else if (
+        isDevMode &&
+        parsed.protocol === 'http:' &&
+        (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
+        parsed.port === new URL(CONFIG.frontendDevUrl).port
+      ) {
+        allowed = true;
+      }
+    } catch {
+      allowed = false;
+    }
+    if (!allowed) {
+      log(`[SECURITY] Blocked navigation to ${navigationUrl}`, 'warning');
+      event.preventDefault();
+    }
+  });
 });
 
 // Handle certificate errors in development
