@@ -119,24 +119,22 @@ describe('auth', () => {
     expect(getAuthToken()).toBe(token);
   });
 
-  // Windows 上目录只读权限语义不同（chmod 不生效），仅在 POSIX 上验证写入失败路径。
-  const itPosixOnly = process.platform === 'win32' ? it.skip : it;
-
-  itPosixOnly('should abort startup when the token file cannot be persisted', () => {
+  // 模拟“token 无法持久化”用目录占用 token 路径的方式：
+  // 原因：chmod 只读在特权用户（CI 容器内的 root 等）下不阻止写入，测试会不稳定地通过；
+  //       writeFileSync 写入目录路径抛 EISDIR 在任何用户与平台都确定成立。
+  it('should abort startup when the token file cannot be persisted', () => {
     delete process.env.PAPYRUS_AUTH_TOKEN;
     const tokenFile = path.join(testDir, '.api_token');
-    if (fs.existsSync(tokenFile)) {
-      fs.rmSync(tokenFile, { force: true });
-    }
-    fs.chmodSync(testDir, 0o555);
+    fs.rmSync(tokenFile, { force: true, recursive: true });
+    fs.mkdirSync(tokenFile);
     try {
-      // 数据目录只读时 token 无法持久化，启动助手必须抛错终止，
+      // token 无法持久化时启动助手必须抛错终止，
       // 而不是带着“无 token”状态继续运行（那等于无认证暴露 API）。
       expect(() => ensureAuthToken()).toThrow(/无法创建或读取 API 认证 token/);
       // 抛错属于致命失败，不得留下半初始化状态供后续请求误用。
       expect(validateRequestToken('anything')).toBe(false);
     } finally {
-      fs.chmodSync(testDir, 0o755);
+      fs.rmSync(tokenFile, { recursive: true, force: true });
     }
   });
 
