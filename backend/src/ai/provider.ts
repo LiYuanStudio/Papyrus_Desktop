@@ -1457,7 +1457,10 @@ Output only the translation, no explanations.`;
         }
 
         delete headers['content-length'];
-        return fetchWithProxy(reqUrl, { ...reqInit, headers } as unknown as RequestInit) as unknown as ReturnType<Fetch>;
+        // 本地 Provider（Ollama/LM Studio 等）必须允许回环地址，其余 Provider 一律走禁私网的默认 Agent。
+        return fetchWithProxy(reqUrl, { ...reqInit, headers } as unknown as RequestInit, {
+          allowLoopback: isLocalProvider,
+        }) as unknown as ReturnType<Fetch>;
       }) as Fetch,
     });
 
@@ -1589,7 +1592,7 @@ Output only the translation, no explanations.`;
       ? new PapyrusTools().getToolsForOpenAI(allowedToolNames)
       : undefined;
 
-    const response = await fetch(`${baseUrl}/api/chat`, {
+    const response = await fetchWithProxy(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: signal ?? AbortSignal.timeout(60000),
@@ -1603,7 +1606,7 @@ Output only the translation, no explanations.`;
         },
         ...(ollamaTools && ollamaTools.length > 0 ? { tools: ollamaTools } : {}),
       }),
-    });
+    }, { allowLoopback: true });
 
     if (!response.ok) {
       throw new Error(`Ollama API 错误: ${response.status} ${response.statusText}`);

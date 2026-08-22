@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https:; img-src 'self' file: data: http://127.0.0.1:* http://localhost:* https: blob:; media-src 'self' http://127.0.0.1:* http://localhost:* blob:; font-src 'self' data:; frame-src 'self';">
+    <!-- CSP 说明：生产环境经 file:// 加载时，onHeadersReceived 注入的 header CSP 不会生效，
+         本 meta 才是实际生效的策略。connect-src 不放行 https:——前端只与本地后端通信，
+         放行任意 HTTPS 会给注入脚本提供外发数据通道；img-src 保留 https: 供笔记/AI 输出引用远程图片。 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; img-src 'self' file: data: http://127.0.0.1:* http://localhost:* https: blob:; media-src 'self' http://127.0.0.1:* http://localhost:* blob:; font-src 'self' data:; frame-src 'self';">
     <title>Papyrus Desktop</title>
     <style>
       /* 防止滚动条 */

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { parseExtensionManifestFromZip } from '#/core/extension-package.js';
 import { addExtensionEventClient } from '#/core/extension-events.js';
+import { routeErrorMessage } from '../../utils/route-error.js';
 import {
   loadAllExtensions,
   getExtensionById,
@@ -111,7 +112,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      return reply.status(500).send({ success: false, error: message });
+      return reply.status(500).send({ success: false, error: routeErrorMessage(err, '扩展操作失败') });
     }
   });
 
@@ -129,7 +130,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      return reply.status(500).send({ success: false, error: message });
+      return reply.status(500).send({ success: false, error: routeErrorMessage(err, '扩展操作失败') });
     }
   });
 
@@ -156,7 +157,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      return reply.status(500).send({ success: false, error: message });
+      return reply.status(500).send({ success: false, error: routeErrorMessage(err, '扩展操作失败') });
     }
   });
 
@@ -198,7 +199,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
       console.log('[extensions] local install failed:', message);
-      return reply.status(400).send({ success: false, error: message });
+      return reply.status(400).send({ success: false, error: routeErrorMessage(err, '本地扩展安装失败') });
     }
   });
 
@@ -220,7 +221,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      return reply.status(500).send({ success: false, error: message });
+      return reply.status(500).send({ success: false, error: routeErrorMessage(err, '扩展操作失败') });
     }
   });
 
@@ -248,7 +249,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      return reply.status(500).send({ success: false, error: message });
+      return reply.status(500).send({ success: false, error: routeErrorMessage(err, '扩展操作失败') });
     }
   });
 
@@ -267,7 +268,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      return reply.status(500).send({ success: false, error: message });
+      return reply.status(500).send({ success: false, error: routeErrorMessage(err, '扩展操作失败') });
     }
   });
 
@@ -292,7 +293,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      return reply.status(500).send({ success: false, error: message });
+      return reply.status(500).send({ success: false, error: routeErrorMessage(err, '扩展操作失败') });
     }
   });
 }

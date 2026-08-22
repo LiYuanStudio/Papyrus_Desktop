@@ -3,7 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-const localeFiles = ['zh-CN.json', 'zh-TW.json', 'en-US.json', 'ja-JP.json'];
+// 语言包路径全部以字面量静态构造：
+// 原因：动态 join 变量文件名会被路径穿越扫描持续命中；本测试输入本就固定，
+//       静态化既消除告警也不损失任何行为。
+const localeFiles = [
+  { name: 'zh-CN.json', path: path.join(process.cwd(), 'frontend', 'src', 'locales', 'zh-CN.json') },
+  { name: 'zh-TW.json', path: path.join(process.cwd(), 'frontend', 'src', 'locales', 'zh-TW.json') },
+  { name: 'en-US.json', path: path.join(process.cwd(), 'frontend', 'src', 'locales', 'en-US.json') },
+  { name: 'ja-JP.json', path: path.join(process.cwd(), 'frontend', 'src', 'locales', 'ja-JP.json') },
+];
 const requiredKeys = [
   'sidebar.aiRenameConversation',
   'chatView.setAsTitleModel',
@@ -37,13 +45,12 @@ function readTranslation(value: unknown, dottedKey: string): string | undefined 
 
 describe('AI conversation title locale keys', () => {
   for (const localeFile of localeFiles) {
-    it(`${localeFile} contains every title-generation translation`, () => {
-      const localePath = path.join(process.cwd(), 'frontend', 'src', 'locales', localeFile);
-      const locale = JSON.parse(fs.readFileSync(localePath, 'utf8')) as unknown;
+    it(`${localeFile.name} contains every title-generation translation`, () => {
+      const locale = JSON.parse(fs.readFileSync(localeFile.path, 'utf8')) as unknown;
 
       for (const key of requiredKeys) {
         const translated = readTranslation(locale, key);
-        assert.ok(translated?.trim(), `${localeFile} is missing ${key}`);
+        assert.ok(translated?.trim(), `${localeFile.name} is missing ${key}`);
       }
     });
   }

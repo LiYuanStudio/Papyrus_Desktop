@@ -1,5 +1,8 @@
 import { execFileSync, execSync } from 'node:child_process';
-import { fetch as undiciFetch, ProxyAgent } from 'undici';
+import dns from 'node:dns';
+import type net from 'node:net';
+import { fetch as undiciFetch, Agent, ProxyAgent, setGlobalDispatcher } from 'undici';
+import { isLoopbackAddress, isPrivateResolvedAddress, isPrivateNetworkUrl } from './security.js';
 
 const GITHUB_DIRECT_FALLBACK_TIMEOUT_MS = 5000;
 
@@ -151,35 +154,108 @@ function withTimeoutSignal(init: RequestInit | undefined, timeoutMs: number): Re
   return { ...init, signal: AbortSignal.timeout(timeoutMs) };
 }
 
-export async function fetchWithProxy(url: string, init?: RequestInit): Promise<Response> {
+// SSRF 连接期校验：在 undici connect.lookup 回调里检查 DNS 解析结果。
+// 原因：字面量校验存在两类绕过——域名解析到私网 IP（DNS rebinding）、
+//       以及 fetch 默认 redirect:'follow' 被 302 跳转到内网地址。
+//       lookup 发生在实际建连之前，校验通过才允许 connect，无 TOCTOU 窗口。
+// 未在请求前做一次性 dns.lookup 预检：预检与真实连接之间仍可换解析记录，防不住 rebinding。
+type SsrfLookupCallback = (
+  err: NodeJS.ErrnoException | null,
+  addresses: dns.LookupAddress[] | dns.LookupAddress,
+) => void;
+
+function createSsrfGuardLookup(allowLoopback: boolean): net.LookupFunction {
+  const guarded = (
+    hostname: string,
+    options: dns.LookupOneOptions | dns.LookupAllOptions,
+    callback: SsrfLookupCallback,
+  ): void => {
+    // all: true 保证拿到全部解析地址（IPv4+IPv6），逐条校验防止只查首个记录被绕过。
+    dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+      if (err) {
+        callback(err, []);
+        return;
+      }
+      const blocked = addresses.find(
+        entry => isPrivateResolvedAddress(entry.address)
+          && !(allowLoopback && isLoopbackAddress(entry.address)),
+      );
+      if (blocked) {
+        callback(
+          new Error(`SSRF 防护：${hostname} 解析到受限网络地址 ${blocked.address}，已拒绝连接`),
+          [],
+        );
+        return;
+      }
+      callback(null, addresses);
+    });
+  };
+  // 类型断言说明：node:net 的 LookupFunction 只描述了单地址回调形态
+  // （callback(address: string, family)），但 options.all=true 时 dns.lookup 的回调
+  // 实际收到 LookupAddress[]——这是 Node 类型定义无法表达的双形态，运行时由 net/tls
+  // 按 all 选项正确分发。此处断言仅为通过编译，行为以 dns.lookup 的 all 语义为准。
+  return guarded as unknown as net.LookupFunction;
+}
+
+// 按需创建并复用的共享 Agent：本地 Provider 场景（允许回环）。
+// 原因：Agent 内部持有连接池，复用可避免每次请求重建 TLS 会话。
+// 全局挂载而非仅在 fetchWithProxy 内传 dispatcher：
+// 原因：SSRF 连接期校验必须覆盖默认 fetch 路径（global.fetch），只装在包装函数里
+//       会让进程内其他 fetch 调用点绕过校验；setGlobalDispatcher 对 global.fetch 同样生效。
+// 为何允许回环：本服务是本机桌面组件，CLI/健康检查/本地 Provider 需要合法访问回环地址；
+//       私网（10/172.16/192.168/169.254）、链路本地与 ULA 仍会被拒绝。
+// 非本地 Provider 禁止回环的要求由 fetchWithProxy 的字面量预检 + 上层 validateProviderBaseUrl 保证。
+let loopbackAllowedAgent: Agent | undefined;
+
+function getLoopbackAllowedAgent(): Agent {
+  if (!loopbackAllowedAgent) {
+    loopbackAllowedAgent = new Agent({ connect: { lookup: createSsrfGuardLookup(true) } });
+  }
+  return loopbackAllowedAgent;
+}
+
+setGlobalDispatcher(getLoopbackAllowedAgent());
+
+export interface SecureFetchOptions {
+  // 仅 keyless 本地 Provider（Ollama/LM Studio 等）允许回环地址；
+  // 即使为 true，私网（10/172.16/192.168/169.254）与 ULA 仍被全局 dispatcher 拒绝。
+  allowLoopback?: boolean;
+}
+
+export async function fetchWithProxy(url: string, init?: RequestInit, opts?: SecureFetchOptions): Promise<Response> {
+  // 非本地目标的字面量预检：本地 Provider 之外的调用禁止回环/私网字面量地址，
+  // 与全局 dispatcher 的解析期校验形成两层防线（字面量在发请求前就拒绝，错误信息更明确）。
+  if (!opts?.allowLoopback && isPrivateNetworkUrl(url)) {
+    throw new Error(`SSRF 防护：禁止访问受限网络地址 ${url}`);
+  }
+
+  // 强制 redirect:'error'：公网 base URL 通过校验后仍可能 302 跳内网，跟随重定向会绕过字面量校验。
+  // 放在 init 展开之后覆盖，调用方无法放宽；需要重定向的场景目前不存在，失败信息由 fetch 直接抛出。
+  const hardenedInit: RequestInit = { ...init, redirect: 'error' };
+
   const proxyUrl = getProxyUrl();
-  if (!proxyUrl) {
-    return global.fetch(url, init);
-  }
-
-  if (!isGitHubUrl(url)) {
-    return global.fetch(url, init);
-  }
-
-  const proxyAgent = createProxyAgent();
-  if (!proxyAgent) {
-    return global.fetch(url, init);
-  }
-
-  try {
-    return await undiciFetch(
-      url,
-      { ...init, dispatcher: proxyAgent } as unknown as Parameters<typeof undiciFetch>[1],
-    );
-  } catch (error) {
-    if (!isProxyConnectionError(error)) {
-      throw error;
-    }
-    try {
-      return await global.fetch(url, withTimeoutSignal(init, GITHUB_DIRECT_FALLBACK_TIMEOUT_MS));
-    } catch (directError) {
-      const reason = directError instanceof Error ? directError.message : String(directError);
-      throw new Error(`通过代理 ${proxyUrl} 连接失败，已尝试直连仍失败：${reason}`);
+  if (proxyUrl && isGitHubUrl(url)) {
+    const proxyAgent = createProxyAgent();
+    if (proxyAgent) {
+      try {
+        return await undiciFetch(
+          url,
+          { ...hardenedInit, dispatcher: proxyAgent } as unknown as Parameters<typeof undiciFetch>[1],
+        ) as unknown as Response;
+      } catch (error) {
+        if (!isProxyConnectionError(error)) {
+          throw error;
+        }
+        try {
+          // 直连回退经 global.fetch 走全局受保护 dispatcher，GitHub 域名不受回环预检影响。
+          return await global.fetch(url, withTimeoutSignal(hardenedInit, GITHUB_DIRECT_FALLBACK_TIMEOUT_MS));
+        } catch (directError) {
+          const reason = directError instanceof Error ? directError.message : String(directError);
+          throw new Error(`通过代理 ${proxyUrl} 连接失败，已尝试直连仍失败：${reason}`);
+        }
+      }
     }
   }
+
+  return global.fetch(url, hardenedInit);
 }

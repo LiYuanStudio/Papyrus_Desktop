@@ -3,6 +3,7 @@ import { loadAllNotes, getNoteById, deleteNoteById } from '#/db/database.js';
 import type { Note } from '../../core/types.js';
 import { createNote, updateNote } from '../../core/notes.js';
 import { executeMcpTool, getMcpToolsCatalog } from '#/mcp/tools.js';
+import { routeErrorMessage } from '../../utils/route-error.js';
 
 function noteToInfo(note: Note): Record<string, unknown> {
   return {
@@ -40,7 +41,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -62,7 +63,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -115,7 +116,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -131,7 +132,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -153,7 +154,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -172,7 +173,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -188,7 +189,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -233,7 +234,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -260,7 +261,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 
@@ -304,7 +305,7 @@ export default async function mcpRoutes(fastify: FastifyInstance): Promise<void>
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, 'MCP 接口处理失败') });
     }
   });
 }

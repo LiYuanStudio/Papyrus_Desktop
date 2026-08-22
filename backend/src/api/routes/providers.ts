@@ -18,6 +18,7 @@ import type { Provider } from '../../core/types.js';
 import { aiConfig } from '../../ai/config-instance.js';
 import { loadAIConfigFromDb } from '../../ai/db-sync.js';
 import { validateProviderBaseUrl, isMaskedApiKeySubmission } from '../../utils/provider-security.js';
+import { routeErrorMessage } from '../../utils/route-error.js';
 
 const ApiKeySchema = z.object({
   id: z.string().optional(),
@@ -63,7 +64,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '供应商配置操作失败') });
     }
   });
 
@@ -107,7 +108,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         reply.status(409).send({ success: false, error: '相同配置的服务商已存在' });
         return;
       }
-      reply.status(500).send({ success: false, error: `添加供应商失败: ${msg}` });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '添加供应商失败') });
     }
   });
 
@@ -171,7 +172,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         reply.status(409).send({ success: false, error: '相同配置的服务商已存在' });
         return;
       }
-      reply.status(500).send({ success: false, error: `更新供应商失败: ${msg}` });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '更新供应商失败') });
     }
   });
 
@@ -210,7 +211,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '供应商配置操作失败') });
     }
   });
 
@@ -224,7 +225,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '供应商配置操作失败') });
     }
   });
 
@@ -254,7 +255,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '供应商配置操作失败') });
     }
   });
 
@@ -276,10 +277,11 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
         return;
       }
       if (msg.includes('FOREIGN KEY')) {
-        reply.status(400).send({ success: false, error: `添加模型失败:外键约束失败,apiKeyId 或 providerId 不存在 (${msg})` });
+        // 外键约束属于可操作的输入错误，但原始 msg 可能带表名/索引等内部细节，仅提示语义原因。
+        reply.status(400).send({ success: false, error: '添加模型失败: 外键约束失败，apiKeyId 或 providerId 不存在' });
         return;
       }
-      reply.status(500).send({ success: false, error: `添加模型失败: ${msg}` });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '添加模型失败') });
     }
   });
 
@@ -332,10 +334,10 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('FOREIGN KEY')) {
-        reply.status(400).send({ success: false, error: `更新模型失败:外键约束失败,apiKeyId 或 providerId 不存在 (${msg})` });
+        reply.status(400).send({ success: false, error: '更新模型失败: 外键约束失败，apiKeyId 或 providerId 不存在' });
         return;
       }
-      reply.status(500).send({ success: false, error: `更新模型失败: ${msg}` });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '更新模型失败') });
     }
   });
 
@@ -384,7 +386,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '供应商配置操作失败') });
     }
   });
 
@@ -402,7 +404,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '供应商配置操作失败') });
     }
   });
 
@@ -414,7 +416,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '供应商配置操作失败') });
     }
   });
 }

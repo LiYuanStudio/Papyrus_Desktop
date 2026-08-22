@@ -11,7 +11,6 @@ import { setGlobalLogger } from './routes/logs.js';
 import {
   ensureAuthToken,
   extractRequestToken,
-  isAuthEnabled,
   isPublicApiPath,
   allowsQueryTokenAuth,
   validateRequestToken,
@@ -93,7 +92,12 @@ export async function initApp(): Promise<void> {
   if (logConfig.log_level) logger.setLogLevel(logConfig.log_level);
   if (logConfig.max_log_files !== undefined) logger.setMaxLogFiles(logConfig.max_log_files);
   if (logConfig.log_rotation !== undefined) logger.setLogRotation(logConfig.log_rotation);
-  const allowedPorts = new Set([5173, 4173, 8000, 3000, 9100, 9200]);
+  // CORS 白名单只保留实际使用的 loopback 端口：Vite dev(5173)/preview(4173)、
+  // PAPYRUS_PORT 后端自身、E2E 动态端口。
+  // 原因：3000/9100/9200 无任何应用使用，却让本机任意进程绑定这些端口即可获得
+  //       credentials:true 的可信 origin，配合 token 泄露即完整读写 API。
+  // 未全部删除 localhost origin：浏览器开发模式（Vite 5173）依赖同源策略放行。
+  const allowedPorts = new Set([5173, 4173, 8000]);
   const configuredBackendPort = Number(process.env.PAPYRUS_PORT);
   const configuredE2ePortBase = Number(process.env.PAPYRUS_E2E_PORT_BASE);
   if (Number.isInteger(configuredBackendPort) && configuredBackendPort > 0 && configuredBackendPort <= 65535) {
@@ -146,7 +150,9 @@ export async function initApp(): Promise<void> {
   await registerRealtimeWebSocket(app);
 
   // Local API protection: require token on all /api routes except /api/health.
-  if (isAuthEnabled()) {
+  // 钩子无条件注册：启动中途 token 文件被删/损坏时，validateRequestToken 的 fail-closed
+  // 分支仍然生效；若仅在 isAuthEnabled() 时注册，同样的场景会让所有路由退化为免认证。
+  {
     app.addHook('onRequest', async (request, reply) => {
       if (request.method === 'OPTIONS') {
         return;

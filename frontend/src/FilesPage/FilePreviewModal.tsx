@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify';
 import mammoth from 'mammoth/mammoth.browser';
 import { getFileUrl } from '../api';
 import type { FileItemData } from '../api';
+import { STRICT_PURIFY_CONFIG } from '../utils/markdown';
 import i18n from '../i18n';
 
 interface FilePreviewModalProps {
@@ -99,7 +100,10 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
         })
         .then(buf => mammoth.convertToHtml({ arrayBuffer: buf }))
         .then(({ value }) => {
-          if (!cancelled) setDocxHtml(DOMPurify.sanitize(value));
+          // DOCX 转换结果与 markdown 共用严格白名单：
+          // 原因：DOMPurify 默认配置放行更多标签/属性（如 style），
+          //       被替换/恶意构造的文档可借此在预览容器内做 UI 重定向。
+          if (!cancelled) setDocxHtml(DOMPurify.sanitize(value, STRICT_PURIFY_CONFIG));
         })
         .catch(() => {
           if (cancelled) return;
@@ -126,7 +130,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
           <div style={{ fontSize: '16px', color: 'var(--color-text-2)', marginBottom: '16px' }}>
             {i18n.t('filePreview.unsupportedPreview')}
           </div>
-          <Button type="primary" icon={<IconDownload />} href={downloadUrl} target="_blank">
+          <Button type="primary" icon={<IconDownload />} href={downloadUrl} target="_blank" rel="noopener noreferrer">
             {i18n.t('filePreview.downloadFile')}
           </Button>
         </div>
@@ -146,7 +150,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
         <div style={{ fontSize: '16px', color: 'var(--color-text-2)', marginBottom: '16px' }}>
           {i18n.t('filePreview.loadFailedWithType', { type: mediaErrorType })}
         </div>
-        <Button type="primary" icon={<IconDownload />} href={downloadUrl} target="_blank">
+        <Button type="primary" icon={<IconDownload />} href={downloadUrl} target="_blank" rel="noopener noreferrer">
           {i18n.t('filePreview.downloadFile')}
         </Button>
       </div>
@@ -217,7 +221,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
                 <div style={{ fontSize: '16px', color: 'var(--color-text-2)', marginBottom: '16px' }}>
                   PDF 加载失败（文件可能不存在或格式损坏）
                 </div>
-                <Button type="primary" icon={<IconDownload />} href={downloadUrl} target="_blank">
+                <Button type="primary" icon={<IconDownload />} href={downloadUrl} target="_blank" rel="noopener noreferrer">
                   下载文件
                 </Button>
               </div>
@@ -295,7 +299,7 @@ export default function FilePreviewModal({ file, onClose }: FilePreviewModalProp
                 <div style={{ fontSize: '16px', color: 'var(--color-text-2)', marginBottom: '16px' }}>
                   DOCX 加载失败（文件可能不存在或格式损坏）
                 </div>
-                <Button type="primary" icon={<IconDownload />} href={downloadUrl} target="_blank">
+                <Button type="primary" icon={<IconDownload />} href={downloadUrl} target="_blank" rel="noopener noreferrer">
                   下载文件
                 </Button>
               </div>

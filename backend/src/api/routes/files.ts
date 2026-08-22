@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'node:fs';
 import sharp from 'sharp';
 import { listFiles, createFolder, saveFile, deleteFileItem, getFileById, isSafeFileStoragePath } from '../../core/files.js';
+import { routeErrorMessage } from '../../utils/route-error.js';
 
 const MAX_PREVIEW_SIZE = 10 * 1024 * 1024;
 const THUMBNAIL_SIZE = 128;
@@ -50,7 +51,7 @@ export default async function filesRoutes(fastify: FastifyInstance): Promise<voi
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '创建文件夹失败') });
     }
   });
 
@@ -78,8 +79,8 @@ export default async function filesRoutes(fastify: FastifyInstance): Promise<voi
           const record = saveFile(f.name, f.content, f.mimeType, body.parentId);
           saved.push({ id: record.id, name: record.name, size: record.size });
         } catch (saveErr) {
-          const msg = saveErr instanceof Error ? saveErr.message : '保存失败';
-          errors.push({ name: f.name, error: msg });
+          // 逐文件错误同样可能包含磁盘/数据库内部细节，统一走 debug 门控消毒。
+          errors.push({ name: f.name, error: routeErrorMessage(saveErr, '保存失败') });
         }
       }
 
@@ -92,7 +93,7 @@ export default async function filesRoutes(fastify: FastifyInstance): Promise<voi
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '上传文件失败') });
     }
   });
 

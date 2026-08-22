@@ -21,13 +21,13 @@ function readTokenFile(): string | null {
 }
 
 function writeTokenFile(token: string): void {
-  try {
-    fs.mkdirSync(paths.dataDir, { recursive: true });
-    fs.writeFileSync(TOKEN_FILE, token, { mode: 0o600 });
-    protectPrivateFile(TOKEN_FILE);
-  } catch (e) {
-    console.error(`写入认证令牌文件失败: ${e instanceof Error ? e.message : String(e)}`);
-  }
+  // 写入失败必须上抛而不是吞掉：
+  // 原因：吞错后 getAuthToken() 读回 null，validateRequestToken 会进入“无 token”分支，
+  //       数据目录只读时整个 API 将静默退化为无认证状态（fail open）。
+  // 未保留 console.error 降级：日志无法阻止认证被绕过，必须让启动流程感知失败。
+  fs.mkdirSync(paths.dataDir, { recursive: true });
+  fs.writeFileSync(TOKEN_FILE, token, { mode: 0o600 });
+  protectPrivateFile(TOKEN_FILE);
 }
 
 export function getOrCreateAuthToken(): string {
@@ -91,8 +91,12 @@ export function allowsQueryTokenAuth(url: string): boolean {
 
 export function validateRequestToken(headerToken?: string): boolean {
   const expected = getAuthToken();
+  // Fail closed：token 不可用时拒绝一切请求，而不是放行一切。
+  // 原因：令牌文件被删除、损坏或数据目录不可读时，放行等于静默关闭认证，
+  //       本机任意进程都能读写全部 API（含 API Key 与笔记内容）。
+  // 未沿用旧的 return true：Unknown ≠ Allowed 是本地 API 的安全底线。
   if (!expected) {
-    return true;
+    return false;
   }
   if (!headerToken) {
     return false;
@@ -108,6 +112,17 @@ export function validateRequestToken(headerToken?: string): boolean {
 // 服务启动时确保本地 API token 存在，避免“未配置 token = 认证关闭”。
 // 原因：开发脚本常单独启动后端，必须自动生成并持久化 token。
 // 未强制依赖 Electron 注入：Electron 仍可覆盖 env token，但 standalone 后端也默认受保护。
+// 失败即终止：无法建立可持久化的 token 时抛错阻止服务启动，
+// 原因：继续运行只会在无认证状态下暴露 API（与规则“无凭证必须失败关闭”一致），
+//       明确失败优于带着静默漏洞伪装成功。
 export function ensureAuthToken(): string {
-  return getOrCreateAuthToken();
+  try {
+    return getOrCreateAuthToken();
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    throw new Error(
+      `无法创建或读取 API 认证 token（数据目录：${paths.dataDir}）：${reason}。`
+      + '请检查数据目录权限，或通过环境变量 PAPYRUS_AUTH_TOKEN（至少 32 字符）显式提供 token。',
+    );
+  }
 }

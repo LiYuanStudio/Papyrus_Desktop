@@ -123,10 +123,11 @@ export default async function aiConfigRoutes(fastify: FastifyInstance): Promise<
         try {
           // 对于 keyless providers，尝试连接 base URL
           // 不同的 provider 可能有不同的健康检查端点，这里我们做一个简单的 GET 请求
-          const resp = await fetch(baseUrl, { 
-            method: 'GET', 
-            signal: AbortSignal.timeout(5000) 
-          });
+          // keyless Provider 只允许 localhost/127.0.0.1（validateProviderBaseUrl 已保证），故放行回环。
+          const resp = await fetchWithProxy(baseUrl, {
+            method: 'GET',
+            signal: AbortSignal.timeout(5000)
+          }, { allowLoopback: true });
           if (resp.ok || resp.status === 404 || resp.status === 401) {
             // 即使返回 404 或 401，也说明服务器是可访问的
             reply.send({ success: true, message: `${providerName} 连接成功` });

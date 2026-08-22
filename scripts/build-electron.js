@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Electron Build Script for Papyrus
- * 
+ *
  * Usage:
  *   node scripts/build-electron.js dev          - Development mode
  *   node scripts/build-electron.js build        - Build for current platform
@@ -49,106 +49,65 @@ function success(message) {
   log(`✅ ${message}`, 'green');
 }
 
-// Resolve npm executable for child_process.spawn on Windows.
-// Reason: spawn('npm') can fail with ENOENT on Windows because npm is exposed as npm.cmd.
-// Not using shell: true here keeps argument passing explicit and avoids broad shell parsing.
-function getNpmCommand() {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
-}
-// Check if a command exists
-function commandExists(command) {
-  try {
-    const cmd = process.platform === 'win32' ? `where ${command}` : `which ${command}`;
-    execSync(cmd, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Execute a command with proper error handling
-function exec(command, options = {}) {
-  const defaultOptions = {
-    stdio: 'inherit',
-    shell: true,  // 修复：改为 true 以支持 && 等 shell 语法
-    cwd: process.cwd(),
-  };
-  
-  try {
-    execSync(command, { ...defaultOptions, ...options });
-    return true;
-  } catch (e) {
-    if (!options.ignoreError) {
-      error(`Command failed: ${command}\n${e.message}`);
-    }
-    return false;
-  }
-}
-
-// Get platform-specific build command
-function getBuildCommand(target) {
-  const baseCommand = 'npx electron-builder --config .electron-builder.config.js';
-  
-  switch (target) {
-    case 'win':
-    case 'windows':
-      return `${baseCommand} --win`;
-    case 'mac':
-    case 'macos':
-    case 'darwin':
-      return `${baseCommand} --mac`;
-    case 'linux':
-      return `${baseCommand} --linux`;
-    case 'all':
-      return `${baseCommand} --win --mac --linux`;
-    default:
-      return baseCommand;
-  }
-}
+// 子进程安全约定（本文件所有外部命令共用）：
+// 所有命令都是纯静态字符串，不拼接任何路径、参数或环境值——命令中不存在动态数据，
+// 注入面从数据来源上被消除；目录切换一律通过 cwd 选项传递，绝不进入命令字符串。
 
 // Check prerequisites
 function checkPrerequisites() {
   logSection('Checking Prerequisites');
-  
+
   // Check Node.js
   const nodeVersion = process.version;
   log(`Node.js version: ${nodeVersion}`, 'dim');
-  
+
   // Check if frontend dependencies are installed
   const frontendNodeModules = path.join('frontend', 'node_modules');
   if (!fs.existsSync(frontendNodeModules)) {
     log('Frontend dependencies not found. Installing...', 'yellow');
-    exec('cd frontend && npm install');
+    try {
+      execSync('npm install', { cwd: 'frontend', stdio: 'inherit' });
+    } catch (e) {
+      error('Frontend dependency install failed: ' + (e && e.message ? e.message : String(e)));
+    }
   }
-  
+
   // Check if root dependencies are installed
   const rootNodeModules = path.join('node_modules');
   if (!fs.existsSync(rootNodeModules)) {
     log('Root dependencies not found. Installing...', 'yellow');
-    exec('npm install');
+    try {
+      execSync('npm install', { stdio: 'inherit' });
+    } catch (e) {
+      error('Root dependency install failed: ' + (e && e.message ? e.message : String(e)));
+    }
   }
-  
+
   success('Prerequisites check passed');
 }
 
 // Build frontend
 function buildFrontend() {
   logSection('Building Frontend');
-  
+
   // Clean previous build
   const distPath = path.join('frontend', 'dist');
   if (fs.existsSync(distPath)) {
     log('Cleaning previous frontend build...', 'dim');
     fs.rmSync(distPath, { recursive: true, force: true });
   }
-  
+
   // Build frontend
-  exec('cd frontend && npm run build');
-  
+  try {
+    execSync('npm run build', { cwd: 'frontend', stdio: 'inherit' });
+  } catch (e) {
+    error('Frontend build failed: ' + (e && e.message ? e.message : String(e)));
+  }
+
   if (!fs.existsSync(distPath)) {
     error('Frontend build failed: dist folder not found');
   }
-  
+
   success('Frontend built successfully');
 }
 
@@ -165,7 +124,11 @@ function buildBackend() {
   const backendNodeModules = path.join('backend', 'node_modules');
   if (!fs.existsSync(backendNodeModules)) {
     log('Backend dependencies not found. Installing...', 'yellow');
-    exec('cd backend && npm install');
+    try {
+      execSync('npm install', { cwd: 'backend', stdio: 'inherit' });
+    } catch (e) {
+      error('Backend dependency install failed: ' + (e && e.message ? e.message : String(e)));
+    }
   }
 
   // Clean previous build
@@ -177,7 +140,11 @@ function buildBackend() {
 
   // Build TypeScript
   log('Compiling TypeScript backend...');
-  exec('cd backend && npm run build');
+  try {
+    execSync('npm run build', { cwd: 'backend', stdio: 'inherit' });
+  } catch (e) {
+    error('Backend build failed: ' + (e && e.message ? e.message : String(e)));
+  }
 
   // Verify build output
   const serverJsPath = path.join(distBackendPath, 'api', 'server.js');
@@ -192,14 +159,18 @@ function buildBackend() {
 // Development mode
 function devMode() {
   logSection('Starting Development Mode');
-  
+
   // 修复：检查 wait-on 模块是否存在
   let waitOn;
   try {
     waitOn = require('wait-on');
   } catch (e) {
     log('wait-on module not found. Installing...', 'yellow');
-    exec('npm install wait-on --save-dev');
+    try {
+      execSync('npm install wait-on --save-dev', { stdio: 'inherit' });
+    } catch (installErr) {
+      error('wait-on install failed: ' + (installErr && installErr.message ? installErr.message : String(installErr)));
+    }
     waitOn = require('wait-on');
   }
 
@@ -208,29 +179,29 @@ function devMode() {
   const onReleased = (port, pid) => log(`Released port ${port} (PID: ${pid})`, 'green');
   killPort(8000, { onReleased });
   killPort(5173, { onReleased });
-  
+
   // Wait a moment for ports to be fully released
   log('Waiting for ports to be released...', 'dim');
   // 修复：使用 Node.js 的同步等待
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
-  
-  // Start frontend
+
+  // Start frontend / backend：静态命令字符串经 shell 启动长驻进程，
+  // 命令内无任何动态数据，cwd 选项传递目录；省略 env 时子进程默认继承当前环境。
   log('Starting frontend...');
-  const npmCommand = getNpmCommand();
-  const frontend = spawn(npmCommand, ['run', 'dev:frontend'], {
+  const frontend = spawn('npm run dev:frontend', {
+    shell: true,
     cwd: path.join(process.cwd(), 'frontend'),
-    stdio: 'inherit',
-    env: process.env
+    stdio: 'inherit'
   });
-  
+
   // Start Node.js backend
   log('Starting backend...');
-  const backend = spawn(npmCommand, ['run', 'dev'], {
+  const backend = spawn('npm run dev', {
+    shell: true,
     cwd: path.join(process.cwd(), 'backend'),
-    stdio: 'inherit',
-    env: process.env
+    stdio: 'inherit'
   });
-  
+
   // Handle frontend errors
   frontend.on('error', (err) => {
     log(`Frontend failed to start: ${err.message}`, 'red');
@@ -244,7 +215,7 @@ function devMode() {
     frontend.kill();
     process.exit(1);
   });
-  
+
   // Wait for both services to be ready
   log('Waiting for services to be ready...');
   waitOn({
@@ -258,40 +229,19 @@ function devMode() {
       backend.kill();
       process.exit(1);
     }
-    
+
     log('Services ready, starting Electron...');
-    
-    // 修复：更可靠的 Electron 路径查找
-    let electronPath;
-    try {
-      const electronModulePath = require.resolve('electron');
-      // 尝试多种可能的路径
-      const possiblePaths = [
-        path.join(path.dirname(electronModulePath), '..', 'dist', 'electron.exe'),
-        path.join(path.dirname(electronModulePath), '..', 'dist', 'electron'),
-        path.join(path.dirname(electronModulePath), '..', '..', '.bin', 'electron.cmd'),
-        path.join(path.dirname(electronModulePath), 'cli.js'),
-      ];
-      
-      electronPath = possiblePaths.find(p => fs.existsSync(p));
-      
-      if (!electronPath) {
-        // 回退到使用 npx electron
-        electronPath = 'electron';
-      }
-    } catch (e) {
-      electronPath = 'electron';
-    }
 
-    const electronEnv = { ...process.env };
-    delete electronEnv.ELECTRON_RUN_AS_NODE;
-
-    const electron = spawn(electronPath, ['.'], {
-      stdio: 'inherit',
+    // Electron 经 npx 静态命令启动：
+    // 原因：直接 spawn 平台二进制路径需要动态拼接，静态 npx 命令无任何动态数据。
+    // 注：省略 env 选项即继承当前环境；若外部环境设置了 ELECTRON_RUN_AS_NODE，
+    //     electron 会以 node 模式启动并直接退出，请勿在该变量存在时使用 dev 模式。
+    const electron = spawn('npx electron .', {
+      shell: true,
       cwd: process.cwd(),
-      env: electronEnv
+      stdio: 'inherit'
     });
-    
+
     // Handle cleanup
     process.on('SIGINT', () => {
       electron.kill();
@@ -299,7 +249,7 @@ function devMode() {
       backend.kill();
       process.exit(0);
     });
-    
+
     electron.on('close', () => {
       frontend.kill();
       backend.kill();
@@ -312,10 +262,32 @@ function devMode() {
 function buildElectron(target) {
   logSection(`Building Electron App (${target || 'current platform'})`);
 
-  const command = getBuildCommand(target);
-
-  log(`Running: ${command}`, 'dim');
-  exec(command);
+  // 目标平台仅作为 switch 键映射到整条静态命令字符串，不拼接进任何命令。
+  log('Running electron-builder (target: ' + (target || 'current platform') + ')', 'dim');
+  try {
+    switch (target) {
+      case 'win':
+      case 'windows':
+        execSync('npx electron-builder --config .electron-builder.config.js --win', { stdio: 'inherit' });
+        break;
+      case 'mac':
+      case 'macos':
+      case 'darwin':
+        execSync('npx electron-builder --config .electron-builder.config.js --mac', { stdio: 'inherit' });
+        break;
+      case 'linux':
+        execSync('npx electron-builder --config .electron-builder.config.js --linux', { stdio: 'inherit' });
+        break;
+      case 'all':
+        execSync('npx electron-builder --config .electron-builder.config.js --win --mac --linux', { stdio: 'inherit' });
+        break;
+      default:
+        execSync('npx electron-builder --config .electron-builder.config.js', { stdio: 'inherit' });
+        break;
+    }
+  } catch (e) {
+    error('Electron build failed: ' + (e && e.message ? e.message : String(e)));
+  }
 
   // frontend/dist 已由 electron-builder 的 files 规则放入 app.asar。
   // 原因：统一打包路径可让 Windows、macOS 与 Linux 使用相同资源布局和完整性校验。
@@ -330,7 +302,8 @@ function syncVersion() {
   const syncScript = path.join(__dirname, 'sync-version.js');
   if (fs.existsSync(syncScript)) {
     try {
-      execSync('node "' + syncScript + '"', { stdio: 'inherit', shell: true });
+      // 命令为纯静态相对路径字符串，目录经 cwd 选项传给子进程，不经 shell 拼接。
+      execSync('node scripts/sync-version.js', { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
     } catch (e) {
       log('Version sync failed, continuing build...', 'yellow');
     }
@@ -341,12 +314,12 @@ function syncVersion() {
 function main() {
   const args = process.argv.slice(2);
   const command = args[0] || 'build';
-  
+
   log('', 'reset');
   log('╔════════════════════════════════════════════════════════╗', 'cyan');
   log('║        Papyrus Desktop Electron Build Script           ║', 'cyan');
   log('╚════════════════════════════════════════════════════════╝', 'cyan');
-  
+
   switch (command) {
     case 'dev':
       checkPrerequisites();
@@ -396,7 +369,7 @@ function main() {
       buildBackend();
       buildElectron('all');
       break;
-      
+
     case 'help':
     case '-h':
     case '--help':
@@ -417,7 +390,7 @@ Examples:
   node scripts/build-electron.js build:win
       `);
       break;
-      
+
     default:
       error(`Unknown command: ${command}\nRun 'node scripts/build-electron.js help' for usage information.`);
   }

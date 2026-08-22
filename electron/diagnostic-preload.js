@@ -11,7 +11,13 @@ function isAllowedPath(dir) {
     path.join(app.getPath('home'), '.papyrus'),
   ];
   const resolved = path.resolve(dir);
-  return allowed.some(a => resolved.startsWith(path.resolve(a)));
+  // 使用 path.relative 包含性判断而非 startsWith：
+  // 原因：startsWith 会把 "PapyrusData-backup" 这类同前缀兄弟目录误判为白名单内。
+  // 与 security-validators.js 保持同一实现，避免两套边界判断语义漂移。
+  return allowed.some(a => {
+    const relative = path.relative(path.resolve(a), resolved);
+    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  });
 }
 
 contextBridge.exposeInMainWorld('diagnosticAPI', {
