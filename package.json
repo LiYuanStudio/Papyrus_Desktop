@@ -46,7 +46,7 @@
     "electron-builder": "^26.8.1",
     "png-to-ico": "^3.0.1",
     "semver": "^7.7.4",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.3"
   },
   "dependencies": {
     "wait-on": "^9.0.5"
