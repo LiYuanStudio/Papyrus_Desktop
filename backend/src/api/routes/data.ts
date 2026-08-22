@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import { paths } from '../../utils/paths.js';
+import { routeErrorMessage } from '../../utils/route-error.js';
 import {
   loadAllCards, insertCard, checkpointDb, runInTransaction,
   loadAllNotes, insertNote,
@@ -26,19 +27,21 @@ export default async function dataRoutes(fastify: FastifyInstance): Promise<void
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '创建备份失败') });
     }
   });
 
-  fastify.post('/data/reset', async (_request, reply) => {
+  fastify.post('/data/reset', async (request, reply) => {
     try {
       clearAllData();
       checkpointDb();
       reply.send({ success: true });
     } catch (err) {
+      // 重置是破坏性操作，失败原因完整记录在服务端日志；响应不回显内部细节。
+      request.log.error({ err }, '数据重置失败');
       reply.status(500).send({
         success: false,
-        error: err instanceof Error ? err.message : 'Failed to reset data',
+        error: routeErrorMessage(err, '数据重置失败'),
       });
     }
   });
@@ -56,7 +59,7 @@ export default async function dataRoutes(fastify: FastifyInstance): Promise<void
     } catch (err) {
       const message = err instanceof Error ? err.message : '服务器内部错误';
       request.log.error({ err }, message);
-      reply.status(500).send({ success: false, error: message });
+      reply.status(500).send({ success: false, error: routeErrorMessage(err, '导出数据失败') });
     }
   });
 
@@ -110,7 +113,7 @@ export default async function dataRoutes(fastify: FastifyInstance): Promise<void
         }
       });
     } catch (e) {
-      reply.status(400).send({ success: false, error: e instanceof Error ? e.message : String(e) });
+      reply.status(400).send({ success: false, error: routeErrorMessage(e, '导入失败，数据格式可能有误') });
       return;
     }
 

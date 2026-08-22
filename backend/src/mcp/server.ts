@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { executeMcpTool, getMcpToolsCatalog } from '#/mcp/tools.js';
 import type { PapyrusLogger } from '../utils/logger.js';
 
@@ -28,7 +28,9 @@ function generateToken(): string {
 }
 
 function isAllowedOrigin(origin: string): boolean {
-  const allowedPorts = new Set([5173, 4173, 8000, 3000, 9100, 9200]);
+  // 与主 API（api/server.ts）保持同一收紧后的 loopback 白名单；
+  // 原因：3000/9100/9200 无应用使用，却让任意本机进程获得 credentials 可信 origin。
+  const allowedPorts = new Set([5173, 4173, 8000]);
   try {
     const parsed = new URL(origin);
     const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
@@ -112,7 +114,18 @@ export class MCPServer {
         }
 
         const authHeader = req.headers.authorization ?? '';
-        const isAuthorized = authHeader === `Bearer ${this.authToken}`;
+        // timing-safe 比较 bearer token：
+        // 原因：明文 === 的比较时间随首个不匹配字节提前返回，本机进程可逐字节探测 token。
+        // 未对长度差异做特殊分支以外的处理：timingSafeEqual 要求等长缓冲，长度先短路是必要前提。
+        const isAuthorized = (() => {
+          const expected = `Bearer ${this.authToken}`;
+          const actual = Buffer.from(authHeader, 'utf8');
+          const expectedBuf = Buffer.from(expected, 'utf8');
+          if (actual.length !== expectedBuf.length) {
+            return false;
+          }
+          return timingSafeEqual(actual, expectedBuf);
+        })();
 
         if (req.method === 'GET' && req.url === '/tools') {
           if (!isAuthorized) {
