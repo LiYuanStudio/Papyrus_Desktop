@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api, type Note } from '../api';
 import { useCommonCardStyle, CommonCard, CardGroup } from '../components';
 import { addRecentItem } from '../utils/recentFiles';
+import { formatRelativeTime } from '../utils/dateFormat';
 
 interface NoteCardProps {
   note: {
@@ -70,20 +71,6 @@ interface RecentNotesProps {
   onNavigate?: (noteId: string) => void;
 }
 
-// 辅助函数：时间戳转换为相对时间字符串
-function formatTimestamp(timestamp: number, t: (key: string, options?: Record<string, unknown>) => string): string {
-  const now = new Date();
-  const date = new Date(timestamp * 1000);
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return t('startPage.today');
-  if (diffDays === 1) return t('startPage.yesterday');
-  if (diffDays < 7) return t('startPage.daysAgo', { count: diffDays });
-  if (diffDays < 30) return t('startPage.weeksAgo', { count: Math.floor(diffDays / 7) });
-  return t('startPage.monthsAgo', { count: Math.floor(diffDays / 30) });
-}
-
 const RecentNotes = ({ height, onNavigate }: RecentNotesProps) => {
   const { t } = useTranslation();
   const [notes, setNotes] = useState<Note[]>([]);
@@ -134,7 +121,7 @@ const RecentNotes = ({ height, onNavigate }: RecentNotesProps) => {
             id: n.id,
             title: n.title,
             preview: n.preview,
-            lastUsed: formatTimestamp(n.updated_at, t),
+            lastUsed: formatRelativeTime(n.updated_at, t, 'startPage'),
           }}
           onClick={() => {
             addRecentItem({ id: n.id, type: 'note', title: n.title });

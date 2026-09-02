@@ -528,6 +528,7 @@
     "daysAgo": "{{count}}天前",
     "weeksAgo": "{{count}}周前",
     "monthsAgo": "{{count}}月前",
+    "yearsAgo": "{{count}}年前",
     "fetchCardsFailed": "获取卡片列表失败",
     "fetchNotesFailed": "获取最近笔记失败",
     "fetchDueCardsFailed": "获取待复习卡片失败",
@@ -885,7 +886,9 @@
     "today": "今天",
     "yesterday": "昨天",
     "daysAgo": "{{count}} 天前",
-    "weeksAgo": "{{count}} 周前"
+    "weeksAgo": "{{count}} 周前",
+    "monthsAgo": "{{count}} 个月前",
+    "yearsAgo": "{{count}} 年前"
   },
   "noteDetail": {
     "back": "返回",

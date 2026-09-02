@@ -5,7 +5,6 @@ import {
   Button,
   Typography,
   Tag,
-  Spin,
   Message,
 } from '@arco-design/web-react';
 import {
@@ -175,8 +174,8 @@ const AboutView = ({ onBack }: AboutViewProps) => {
               type="primary"
               shape="round"
               onClick={handleCheckUpdate}
-              disabled={isChecking}
-              icon={isChecking ? <Spin size={14} /> : <IconCheckCircle />}
+              loading={isChecking}
+              icon={<IconCheckCircle />}
             >
               {isChecking ? t('aboutView.checking') : t('aboutView.checkUpdate')}
             </Button>

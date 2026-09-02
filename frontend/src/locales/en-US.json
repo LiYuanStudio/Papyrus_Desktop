@@ -528,6 +528,7 @@
     "daysAgo": "{{count}} days ago",
     "weeksAgo": "{{count}} weeks ago",
     "monthsAgo": "{{count}} months ago",
+    "yearsAgo": "{{count}} years ago",
     "fetchCardsFailed": "Failed to fetch card list",
     "fetchNotesFailed": "Failed to fetch recent notes",
     "fetchDueCardsFailed": "Failed to fetch due cards",
@@ -885,7 +886,9 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "daysAgo": "{{count}} days ago",
-    "weeksAgo": "{{count}} weeks ago"
+    "weeksAgo": "{{count}} weeks ago",
+    "monthsAgo": "{{count}} months ago",
+    "yearsAgo": "{{count}} years ago"
   },
   "noteDetail": {
     "back": "Back",
