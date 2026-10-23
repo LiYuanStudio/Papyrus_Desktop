@@ -13,6 +13,13 @@ const workflowPath = path.join(
 );
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 
+test('all build Node runtimes use the October 2026 security patch', () => {
+  const versions = [...workflow.matchAll(/node-version: '([^']+)'/g)].map((match) => match[1]);
+  assert.equal(versions.length, 4);
+  assert.ok(versions.every((version) => version === '24.22.1'));
+  assert.equal(fs.readFileSync(path.join(__dirname, '..', '..', '.nvmrc'), 'utf8').trim(), '24.22.1');
+});
+
 test('every GitHub Release update preserves draft and prerelease state', () => {
   // Extract each action configuration through its env block so later upload and notes steps
   // cannot silently publish a release by relying on action defaults.
