@@ -5,13 +5,15 @@
  * the packaged versions agree and the production backend can serve its health endpoint.
  */
 
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const asar = require('@electron/asar');
+const semver = require('semver');
+const buildConfig = require('../.electron-builder.config');
 const {
   DIST_ELECTRON,
   findAppAsar,
@@ -25,6 +27,52 @@ const HEALTH_POLL_INTERVAL_MS = 250;
 //       随机值仅在本次进程与它启动的后端子进程之间传递，无持久化价值。
 // 未改为环境变量注入：脚本与子进程同生命周期，随机生成即满足需求且无需额外配置。
 const HEALTH_AUTH_TOKEN = require('node:crypto').randomBytes(32).toString('base64url');
+
+// 定位安装包的真实运行时，避免 CI Node 掩盖桌面差异。
+// Resolve the shipped executable; the host Node cannot prove desktop compatibility.
+function getPackagedExecutable(resourcesDir, appPackage, platform = process.platform) {
+  const productName = buildConfig.productName || appPackage.name;
+  if (platform === 'darwin') {
+    return path.join(resourcesDir, '..', 'MacOS', productName);
+  }
+  if (platform === 'win32') {
+    return path.join(resourcesDir, '..', `${buildConfig.win?.executableName || productName}.exe`);
+  }
+  if (platform === 'linux') {
+    return path.join(resourcesDir, '..', buildConfig.linux?.executableName || appPackage.name.toLowerCase());
+  }
+  throw new Error(`Unsupported packaged platform: ${platform}`);
+}
+
+// 只接受已核实的 Node 24 安全基线；存在 Electron 标识才是桌面证据。
+// Require the audited Node 24 security baseline and Electron identity, not a host-version substitute.
+function validatePackagedRuntime(versions) {
+  if (!versions || typeof versions.electron !== 'string' || !semver.valid(versions.electron)) {
+    throw new Error('Packaged runtime did not identify itself as Electron');
+  }
+  if (typeof versions.node !== 'string' || !semver.satisfies(versions.node, '>=24.22.1 <25.0.0')) {
+    throw new Error(`Packaged Electron Node ${String(versions.node)} is not approved: require >=24.22.1 <25.0.0 (2026-10-21 security fixes)`);
+  }
+}
+
+// 执行实际二进制读取版本并限时退出；依赖声明无法证明内置 Node 已修复。
+// Probe the binary with a timeout; package metadata alone cannot establish embedded Node safety.
+function verifyPackagedRuntime(executable) {
+  const result = spawnSync(executable, ['-p', 'JSON.stringify(process.versions)'], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    encoding: 'utf8',
+    timeout: 15_000,
+    windowsHide: true,
+    shell: false,
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(`Packaged runtime probe failed: ${result.error?.message || result.stderr || result.status}`);
+  }
+  const versions = parseJson(result.stdout, 'packaged runtime versions');
+  validatePackagedRuntime(versions);
+  console.log(`Packaged runtime: Electron ${versions.electron}, Node ${versions.node}, Brotli ${versions.brotli}`);
+  return versions;
+}
 
 // Parse a JSON buffer or file with a source-aware error.
 // This makes malformed packaged metadata actionable in CI instead of surfacing as an opaque parser stack.
@@ -208,17 +256,18 @@ async function stopBackend(child) {
 // Validate the unpacked resources and start the exact compiled backend entry shipped to users.
 // This exercises production ESM imports plus runtime dependencies such as Fastify, SQLite, and Sharp.
 // Source-tree startup is not used because it would miss copy, prune, and packaging failures.
-async function smokeTestPackagedBackend(resourcesDir, expectedVersion) {
+async function smokeTestPackagedBackend(resourcesDir, expectedVersion, executable) {
   const backendDir = path.join(resourcesDir, 'backend');
   const serverPath = path.join(backendDir, 'dist', 'api', 'server.js');
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'papyrus-packaged-health-'));
   const port = await reserveLoopbackPort();
   const mcpPort = await reserveLoopbackPort();
   const output = [];
-  const child = spawn(process.execPath, [serverPath], {
+  const child = spawn(executable, [serverPath], {
     cwd: backendDir,
     env: {
       ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',
       NODE_ENV: 'production',
       PAPYRUS_AUTH_TOKEN: HEALTH_AUTH_TOKEN,
       PAPYRUS_DATA_DIR: dataDir,
@@ -339,16 +388,21 @@ async function main() {
     }
   }
 
-  await smokeTestPackagedBackend(resourcesDir, expectedVersion);
+  const executable = getPackagedExecutable(resourcesDir, appPackage);
+  verifyPackagedRuntime(executable);
+  await smokeTestPackagedBackend(resourcesDir, expectedVersion, executable);
   console.log(`Packaged application health check passed for ${expectedVersion}`);
 }
 
 module.exports = {
+  getPackagedExecutable,
   listResourceFiles,
   parseJson,
   validateFrontendVersion,
   validateNoPackagedUserData,
   validatePackageMetadata,
+  validatePackagedRuntime,
+  verifyPackagedRuntime,
 };
 
 if (require.main === module) {

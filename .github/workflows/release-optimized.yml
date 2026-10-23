@@ -11,7 +11,7 @@ name: Build and Release (Optimized)
 # 2. 手动触发：进入 Actions → Build and Release (Optimized) → Run workflow，并填写发布 tag。
 #
 # 【最新调整】
-# - Node 版本固定为 24.15.0（与 Electron 内置版本对齐）
+# - 构建 Node 固定为 24.22.1（2026-10-21 安全修复）；Electron 内置 Node 单独验证
 # - npm audit 设为不阻塞，避免项目中立依赖变动阻断流水线
 # - E2E 测试设为不阻塞（tsx+Playwright webServer 路径解析问题待独立修复）
 # - 移除了 演示卡片 grep 检查（DEMO_CARDS 现在是合法的首屏体验数据）
@@ -127,7 +127,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.15.0'
+          node-version: '24.22.1'
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
@@ -206,7 +206,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.15.0'
+          node-version: '24.22.1'
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
@@ -271,7 +271,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6.4.0
         with:
-          node-version: '24.15.0'
+          node-version: '24.22.1'
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
@@ -438,7 +438,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.15.0'
+          node-version: '24.22.1'
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
