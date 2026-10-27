@@ -71,7 +71,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
   fastify.post('/', async (request, reply) => {
     const parseResult = ProviderSchema.safeParse(request.body);
     if (!parseResult.success) {
-      reply.status(400).send({ success: false, error: parseResult.error.errors.map(e => e.message).join('; ') });
+      reply.status(400).send({ success: false, error: parseResult.error.issues.map(e => e.message).join('; ') });
       return;
     }
     const body = parseResult.data as Partial<Provider>;
@@ -116,7 +116,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     const { providerId } = request.params as { providerId: string };
     const parseResult = ProviderSchema.safeParse(request.body);
     if (!parseResult.success) {
-      reply.status(400).send({ success: false, error: parseResult.error.errors.map(e => e.message).join('; ') });
+      reply.status(400).send({ success: false, error: parseResult.error.issues.map(e => e.message).join('; ') });
       return;
     }
     const body = parseResult.data as Partial<Provider>;
@@ -236,7 +236,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
       const { providerId } = request.params as { providerId: string };
       const parseResult = EnabledSchema.safeParse(request.body);
       if (!parseResult.success) {
-        reply.status(400).send({ success: false, error: parseResult.error.errors.map(e => e.message).join('; ') });
+        reply.status(400).send({ success: false, error: parseResult.error.issues.map(e => e.message).join('; ') });
         return;
       }
       updateProviderEnabled(providerId, parseResult.data.enabled);
@@ -263,7 +263,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     const { providerId } = request.params as { providerId: string };
     const parseResult = ModelSchema.safeParse(request.body);
     if (!parseResult.success) {
-      reply.status(400).send({ success: false, error: parseResult.error.errors.map(e => e.message).join('; ') });
+      reply.status(400).send({ success: false, error: parseResult.error.issues.map(e => e.message).join('; ') });
       return;
     }
     const body = parseResult.data;
@@ -289,7 +289,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
     const { providerId, modelId } = request.params as { providerId: string; modelId: string };
     const parseResult = ModelSchema.safeParse(request.body);
     if (!parseResult.success) {
-      reply.status(400).send({ success: false, error: parseResult.error.errors.map(e => e.message).join('; ') });
+      reply.status(400).send({ success: false, error: parseResult.error.issues.map(e => e.message).join('; ') });
       return;
     }
     const body = parseResult.data;
@@ -395,7 +395,7 @@ export default async function providersRoutes(fastify: FastifyInstance): Promise
       const { providerId } = request.params as { providerId: string };
       const parseResult = ApiKeySchema.safeParse(request.body);
       if (!parseResult.success) {
-        reply.status(400).send({ success: false, error: parseResult.error.errors.map(e => e.message).join('; ') });
+        reply.status(400).send({ success: false, error: parseResult.error.issues.map(e => e.message).join('; ') });
         return;
       }
       const body = parseResult.data;

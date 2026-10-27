@@ -45,7 +45,7 @@ const AutomationInputBaseSchema = z.object({
   prompt: z.string().trim().min(1).max(20_000),
   schedule: AutomationScheduleSchema,
   timezone: z.string().trim().min(1).max(100).optional(),
-  enabled: z.boolean().default(true),
+  enabled: z.boolean(),
   allowedTools: z.array(z.string().min(1)).max(100).optional(),
   providerOverride: z.string().trim().max(100).nullable().optional(),
   modelOverride: z.string().trim().max(200).nullable().optional(),
@@ -72,7 +72,11 @@ function validateAutomationTargetPair(
   }
 }
 
-const AutomationInputSchema = AutomationInputBaseSchema.superRefine(validateAutomationTargetPair);
+// 仅创建时填默认值，避免 Zod 4 的 partial() 在 PATCH 时重新启用已停用任务。
+// Default on creation only; Zod 4 partial defaults must not re-enable paused tasks.
+const AutomationInputSchema = AutomationInputBaseSchema
+  .extend({ enabled: z.boolean().default(true) })
+  .superRefine(validateAutomationTargetPair);
 const AutomationPatchSchema = AutomationInputBaseSchema.partial()
   .refine((value) => Object.keys(value).length > 0, { message: '至少提供一个更新字段' })
   .superRefine(validateAutomationTargetPair);

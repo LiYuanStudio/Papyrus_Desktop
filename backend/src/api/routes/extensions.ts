@@ -140,7 +140,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
       if (!parseResult.success) {
         return reply.status(400).send({
           success: false,
-          error: parseResult.error.errors.map(e => e.message).join('; '),
+          error: parseResult.error.issues.map(e => e.message).join('; '),
         });
       }
       const input: CreateExtensionInput = parseResult.data;
@@ -167,7 +167,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
       if (!parseResult.success) {
         return reply.status(400).send({
           success: false,
-          error: parseResult.error.errors.map(e => e.message).join('; '),
+          error: parseResult.error.issues.map(e => e.message).join('; '),
         });
       }
       console.log(`[extensions] installing local package: ${parseResult.data.filename ?? 'extension.zip'}`);
@@ -234,7 +234,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
       if (!parseResult.success) {
         return reply.status(400).send({
           success: false,
-          error: parseResult.error.errors.map(e => e.message).join('; '),
+          error: parseResult.error.issues.map(e => e.message).join('; '),
         });
       }
       const ext = getExtensionById(id);
@@ -272,7 +272,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
     }
   });
 
-  const ConfigSchema = z.record(z.unknown());
+  const ConfigSchema = z.record(z.string(), z.unknown());
 
   fastify.put('/:id/config', async (request, reply) => {
     try {
@@ -281,7 +281,7 @@ export default async function extensionsRoutes(fastify: FastifyInstance): Promis
       if (!parseResult.success) {
         return reply.status(400).send({
           success: false,
-          error: parseResult.error.errors.map(e => e.message).join('; '),
+          error: parseResult.error.issues.map(e => e.message).join('; '),
         });
       }
       const ext = getExtensionById(id);

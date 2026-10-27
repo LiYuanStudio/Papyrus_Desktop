@@ -256,6 +256,18 @@ describe('API Integration Tests', () => {
     expect(updated.providerOverride).toBe('ollama');
     expect(updated.modelOverride).toBe('automation-test-model');
 
+    const renameResponse = await app.inject({
+      method: 'PATCH',
+      url: `/api/automations/${created.id}`,
+      payload: { name: 'Renamed paused review' },
+    });
+    expect(renameResponse.statusCode).toBe(200);
+    expect(JSON.parse(renameResponse.body).automation).toEqual(expect.objectContaining({
+      name: 'Renamed paused review',
+      enabled: false,
+      nextRunAt: null,
+    }));
+
     const detailResponse = await app.inject({
       method: 'GET',
       url: '/api/automations/' + created.id,

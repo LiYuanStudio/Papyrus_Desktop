@@ -20,7 +20,7 @@ const ManifestSchema = z.object({
   description: z.string().optional(),
   author: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 });
 
 const MAX_ZIP_SIZE = 10 * 1024 * 1024;
@@ -111,7 +111,7 @@ export function parseExtensionManifestFromZip(zipBuffer: Buffer): ExtensionManif
       const parsedJson: unknown = JSON.parse(raw);
       const parsedManifest = ManifestSchema.safeParse(parsedJson);
       if (!parsedManifest.success) {
-        throw new Error(parsedManifest.error.errors.map(e => e.message).join('; '));
+        throw new Error(parsedManifest.error.issues.map(e => e.message).join('; '));
       }
       return parsedManifest.data;
     }
