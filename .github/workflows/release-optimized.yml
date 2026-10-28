@@ -341,7 +341,6 @@ jobs:
         shell: bash
         run: |
           export CSC_IDENTITY_AUTO_DISCOVERY=false
-          export ELECTRON_SKIP_BINARY_DOWNLOAD=1
           export ELECTRON_BUILDER_USE_CACHE=true
           npx electron-builder --${{ matrix.target }} --${{ matrix.arch }} --publish=never --config .electron-builder.config.js
 

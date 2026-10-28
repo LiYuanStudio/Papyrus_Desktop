@@ -3,7 +3,6 @@ import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import { Mutex } from 'async-mutex';
 import OpenAI from 'openai';
-import type { Fetch } from 'openai/core';
 import type { AIConfig } from './config.js';
 import { isPrivateUrl } from './config.js';
 import { LLMCache } from './llm-cache.js';
@@ -33,6 +32,10 @@ import {
 } from '../db/database.js';
 import type { ChatSessionRow, ChatMessageRow } from '../db/database.js';
 import type { ChatBlock, ChatSession, ChatMessage, ChatAttachment, ChatTokenUsage } from '../core/types.js';
+
+// SDK 7 使用原生 fetch 类型；保留自定义传输以继续执行现有 SSRF 与代理策略。
+// SDK 7 uses native fetch types; keep the custom transport for SSRF and proxy enforcement.
+type Fetch = typeof globalThis.fetch;
 
 export type StreamEventType =
   | 'content'

@@ -104,7 +104,7 @@ module.exports = {
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
-    // Electron 41 基于 Chromium 的运行时最低支持 macOS 12，声明更低版本只会产生无法启动的安装包。
+    // Electron 43 基于 Chromium 的运行时最低支持 macOS 12，声明更低版本只会产生无法启动的安装包。
     minimumSystemVersion: '12.0',
   },
   
